@@ -8,6 +8,7 @@ import { ICONS } from './icons.js';
 import { drawOverlays, hookTitle } from './overlays.js';
 import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 import { initGuide } from './guide.js';
+import { addEmojis } from './extras.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
 const LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);
@@ -207,7 +208,7 @@ function tab(t) { for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'],
 document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => tab(b.dataset.t); });
 const rs = () => resolve(S.style);
 const hkey = w => +w.s.toFixed(2), visible = () => S.words.filter(w => !S.hid.has(hkey(w)));
-function rebuild() { S.chunks = chunksOf(visible(), Math.max(1, rs().n | 0)); drawTimeline(); phrasesUI(); }
+function rebuild() { S.chunks = chunksOf(S.fx.emoji ? addEmojis(visible()) : visible(), Math.max(1, rs().n | 0)); drawTimeline(); phrasesUI(); }
 function setO(k, v) { if (['x', 'y', 'cropX'].includes(k)) S.style[k] = v; else S.style.o = { ...S.style.o, [k]: v }; rebuild(); applyCrop(); saveSoon('style', { style: S.style }); }
 function applyCrop() { $('#vid').style.objectPosition = rs().cropX * 100 + '% 50%'; }
 let rows = [];
@@ -323,7 +324,7 @@ $('#txt').oninput = () => { S.words = retime(S.words, tokens($('#txt').value), S
 const fxBtns = [];
 function mkFx(k, label, hint) {
   const wrap = el('div', { className: 'seg', role: 'group', ariaLabel: label });
-  [[0, 'Não'], [1, 'Sim']].forEach(([v, t]) => { const b = el('button', { type: 'button', textContent: t, onclick: () => { if (v && !canPro()) { $('#pay').showModal(); return; } S.fx[k] = v; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); } }); b.dataset.k = k; b.dataset.v = v; fxBtns.push(b); wrap.append(b); });
+  [[0, 'Não'], [1, 'Sim']].forEach(([v, t]) => { const b = el('button', { type: 'button', textContent: t, onclick: () => { if (v && !canPro()) { $('#pay').showModal(); return; } S.fx[k] = v; S.style.fx = S.fx; syncFx(); if (k === 'emoji') rebuild(); saveSoon('style', { style: S.style }); } }); b.dataset.k = k; b.dataset.v = v; fxBtns.push(b); wrap.append(b); });
   return el('div', { className: 'row' }, el('span', {}, label, el('br'), el('small', { className: 'mut', textContent: hint })), wrap);
 }
 const syncFx = () => fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v)));
@@ -336,7 +337,7 @@ function fillerBtn() {
   } });
   return b;
 }
-function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); syncFx(); }
+function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
 function clipsUI() {
   drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';

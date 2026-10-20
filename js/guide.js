@@ -12,6 +12,8 @@ const ITEMS = [
   { k: 'silencio pausa vicio muleta ritmo', t: 'Remover silêncios', ed: ['#fxCut', 'Ative "Cortar pausas" para remover silêncios e vícios de fala.', '#tabC'] },
   { k: 'zoom enfase destaque', t: 'Zoom automático', ed: ['#fxZoom', 'Ative o zoom para dar ênfase nos momentos da fala.', '#tabC'] },
   { k: 'musica audio trilha som fundo', t: 'Música de fundo', ed: ['#musFile', 'Escolha um áudio e ajuste o volume. Ele é misturado ao exportar.', '#tabC'] },
+  { k: 'emoji emojis carinha figurinha', t: 'Emojis nas legendas', ed: ['#fxZoom', 'Ative "Emojis nas legendas" para colocar emojis nas palavras-chave.', '#tabC'] },
+  { k: 'efeito sonoro sfx whoosh pop barulho', t: 'Efeitos sonoros', ed: ['#fxCut', 'Ative "Efeitos sonoros" para whoosh nas trocas de zoom e pop nos títulos.', '#tabC'] },
   { k: 'titulo gancho hook imagem logo', t: 'Título de gancho e imagens', ed: ['#ovTitle', 'Crie um título de abertura ou coloque uma imagem sobre o vídeo.', '#tabC'] },
   { k: 'editar texto corrigir palavra transcricao', t: 'Corrigir o texto das legendas', ed: ['#tabT', 'Abra "Legendas" e edite as frases. O olho esconde uma frase.', '#tabT'] },
   { k: 'exportar baixar gerar salvar video mp4', t: 'Exportar o vídeo', ed: ['#clips', 'Clique em "Gerar vídeo" no corte desejado e depois em baixar.', '#tabC'] },
@@ -31,11 +33,12 @@ const TOUR = [
   ['#plist', 'Seus projetos', 'Tudo que você começou fica salvo por 3 dias.'],
   ['#nTheme', 'Tema', 'Alterne entre claro e escuro quando quiser.'],
 ];
-const clickText = (sel, txt) => [...document.querySelectorAll(sel)].find(b => b.textContent.trim() === txt)?.click();
+const clickFx = (k, on) => document.querySelector(`button[data-k="${k}"][data-v="${on ? 1 : 0}"]`)?.click();
 function commands(q) {   // frases como "ligar zoom", "tirar silêncios", "estilo neon" executam a ação direto
   const on = /\b(lig|ativ|us|colo|aplic|adicion|quer|bota)/.test(q), off = /\b(deslig|desativ|tir|remov|sem)/.test(q), out = [];
-  if (/zoom/.test(q) && (on || off)) out.push([(off ? 'Desligar' : 'Ligar') + ' zoom automático', () => clickText('#fxZoom button', off ? 'Não' : 'Sim')]);
-  if (/(silenc|pausa)/.test(q) && (on || off)) out.push([(off ? 'Desligar' : 'Ligar') + ' remoção de silêncios', () => clickText('#fxCut button', off ? 'Não' : 'Sim')]);
+  if (/zoom/.test(q) && (on || off)) out.push([(off ? 'Desligar' : 'Ligar') + ' zoom automático', () => clickFx('zoom', !off)]);
+  if (/emoji/.test(q) && (on || off)) out.push([(off ? 'Desligar' : 'Ligar') + ' emojis nas legendas', () => clickFx('emoji', !off)]);
+  if (/(silenc|pausa)/.test(q) && (on || off)) out.push([(off ? 'Desligar' : 'Ligar') + ' remoção de silêncios', () => clickFx('cut', !off)]);
   if (/(estilo|preset|legenda)/.test(q) || on) [...document.querySelectorAll('#presets .gcard')].forEach(c => { const n = norm(c.querySelector('.gn')?.textContent || ''); if (n && new RegExp('\\b' + n + '\\b').test(q)) out.push(['Usar o estilo ' + c.querySelector('.gn').textContent, () => c.click()]); });
   return out;
 }
