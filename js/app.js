@@ -296,7 +296,16 @@ function mkFx(k, label, hint) {
   return el('div', { className: 'row' }, el('span', {}, label, el('br'), el('small', { className: 'mut', textContent: hint })), wrap);
 }
 const syncFx = () => fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v)));
-function buildFx() { $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); syncFx(); }
+const FILLERS = new Set(['hum', 'ahn', 'ãh', 'ah', 'éh', 'hm', 'hmm', 'uh', 'um', 'né', 'tipo', 'então', 'ééé', 'eh']);
+function fillerBtn() {
+  const b = el('button', { type: 'button', className: 'ghost', textContent: 'Esconder vícios de fala nas legendas', onclick: () => {
+    const norm = s => s.toLowerCase().replace(/[.,!?;:…]/g, '');
+    let n = 0; S.words.forEach(w => { if (FILLERS.has(norm(w.w)) && !S.hid.has(hkey(w))) { S.hid.add(hkey(w)); n++; } });
+    S.style.hid = [...S.hid]; rebuild(); saveSoon('style', { style: S.style }); b.textContent = n ? `${n} palavras escondidas` : 'Nenhum vício encontrado';
+  } });
+  return b;
+}
+function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); syncFx(); }
 function clipsUI() {
   drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
