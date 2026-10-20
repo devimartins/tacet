@@ -110,6 +110,12 @@ dialog{border:1px solid var(--bd);border-radius:16px;background:var(--s1);color:
 .tl .tn{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}.trk{position:relative;height:22px;background:var(--bg);border-radius:6px;overflow:hidden}.trk i{position:absolute;top:3px;bottom:3px;min-width:3px;background:var(--ac);opacity:.55;border-radius:3px;font-style:normal;font-size:10px;line-height:16px;padding:0 6px;color:var(--pro);overflow:hidden;white-space:nowrap}.trk.k i{opacity:.9}
 .tnc{display:grid;gap:6px;grid-auto-rows:22px;align-items:center}.tw{position:relative;display:grid;gap:6px}.tw b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--tx);left:0;pointer-events:none}
 li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
+.start{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.start .drop{min-height:170px}
+.yt{margin-top:18px;display:grid;gap:8px}.ytr{display:flex;gap:8px}.ytr input{flex:1;min-width:0;min-height:44px;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:6px 12px}
+.ratio{display:flex;align-items:center;gap:10px;font-size:13px}.ratio select{min-height:36px;border:1px solid var(--bd);border-radius:8px;background:var(--in);padding:4px 10px}
+.phr{display:grid;gap:6px;max-height:52dvh;overflow:auto;margin-bottom:12px}.pr{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:8px 10px}.pr small{grid-column:1;color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;cursor:pointer}.pr input{grid-column:1;border:0;background:none;padding:2px 0;min-height:28px;width:100%}.pr button{grid-column:2;grid-row:1/3;border:1px solid var(--bd);background:none;border-radius:8px;min-height:34px;padding:0 10px;font-size:12px;color:var(--mut)}.pr.off{opacity:.45}
+.txtmode{margin-top:10px}.txtmode summary{cursor:pointer;color:var(--mut);font-size:13px;padding:6px 0}
+.grp.first{margin-top:6px;padding-top:0;border-top:0}.soonrow{opacity:.5}.soonrow em{font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
 <nav id="rail" aria-label="Principal" hidden>
@@ -130,7 +136,11 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
 </section>
 <section id="home" hidden><div class="wrap">
  <div class="hero"><p class="eyebrow">Tacet</p><h1>Legendas que prendem. Cortes que circulam.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">No plano gratuito, os projetos ficam salvos por 3 dias. O vídeo fica no seu aparelho.</p></div>
- <label class="drop" id="drop" style="position:relative"><b>Escolher vídeo</b><span class="mut">MP4 ou MOV, até 1 GB. A transcrição começa sozinha.</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
+ <div class="start">
+  <label class="drop" id="drop" data-mode="clips"><b>Cortes de vídeo longo</b><span class="mut">A IA acha os melhores momentos e aplica as legendas. MP4 ou MOV, até 1 GB.</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
+  <label class="drop" id="drop2" data-mode="captions"><b>Só legendas</b><span class="mut">Transcrição automática e legendas animadas no vídeo todo (até 2 min na exportação).</span><input id="newfile2" type="file" accept="video/mp4,video/quicktime,video/*"></label>
+ </div>
+ <form class="yt" id="ytForm"><label class="mut" for="ytUrl">Ou cole um link do YouTube</label><div class="ytr"><input id="ytUrl" type="url" placeholder="https://www.youtube.com/watch?v=…"><button class="btn" type="submit">Importar</button></div><p class="mut" id="ytMsg" role="status"></p></form>
  <h2>Escolha um estilo</h2><div id="gal"></div>
  <h2>Seus projetos</h2><ul class="list" id="plist"></ul><p class="mut" id="pempty" hidden>Nenhum projeto ainda.</p>
  <div class="ad" id="ad" hidden></div>
@@ -139,16 +149,23 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
  <div class="left">
   <div class="stage" id="stage"><video id="vid" playsinline loop></video><canvas id="cv"></canvas>
    <div class="ph" id="ph"><span id="phTxt">Selecione o vídeo para pré-visualizar.</span><label class="btn" style="position:relative">Selecionar vídeo<input id="attach" type="file" accept="video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
+  <label class="ratio"><span class="mut">Formato</span><select id="ratio" aria-label="Formato do vídeo"><option value="9:16">9:16 vertical</option><option value="4:5">4:5 feed</option><option value="1:1">1:1 quadrado</option><option value="16:9">16:9 horizontal</option></select></label>
   <div class="transport"><button class="btn" id="pp" type="button" style="min-width:104px">Reproduzir</button><input id="scrub" type="range" min="0" max="8" step="0.01" value="0" aria-label="Posição no vídeo"><span class="t" id="tm">0:00</span></div>
   <div class="tl" id="tl" aria-label="Linha do tempo"><div class="tnc"><span class="tn">Legendas</span><span class="tn">Cortes</span></div><div class="tw"><div class="trk" id="trkC"></div><div class="trk k" id="trkK"></div><b id="ph2"></b></div></div>
  </div>
  <div class="right">
   <div class="card" id="statusCard"><p class="mut" id="status" style="margin:0" role="status"></p><progress id="pg" max="1" value="0" hidden style="margin-top:8px"></progress></div>
-  <div class="tabs" role="tablist" style="margin-top:14px"><button role="tab" id="tabS" aria-selected="true" data-t="style">Estilo</button><button role="tab" id="tabT" aria-selected="false" data-t="text">Transcrição</button><button role="tab" id="tabC" aria-selected="false" data-t="clips">Cortes</button></div>
+  <div class="tabs" role="tablist" style="margin-top:14px"><button role="tab" id="tabS" aria-selected="true" data-t="style">Estilo</button><button role="tab" id="tabT" aria-selected="false" data-t="text">Legendas</button><button role="tab" id="tabC" aria-selected="false" data-t="clips">Ferramentas</button></div>
   <div id="pStyle"><div id="presets"></div><div id="ctl"></div><p class="warn" id="warn" role="status"></p></div>
-  <div id="pText" hidden><textarea id="txt" aria-label="Transcrição editável" placeholder="A transcrição aparece aqui."></textarea><p class="mut">Edite o texto: o tempo das palavras que você não mudou é preservado.</p></div>
-  <div id="pClips" hidden><p class="mut" id="cmsg"></p><div class="grp" style="margin-top:12px"><b>Edição automática</b><div id="fxrows"></div></div><ul class="list" id="clips"></ul>
-   <h2>Corte manual</h2><div class="row"><label for="ms">Início (segundos)</label><input id="ms" type="number" min="0" step="0.1" value="0"></div><div class="row"><label for="me">Fim (segundos)</label><input id="me" type="number" min="0" step="0.1" value="30"></div><button class="btn" id="addManual" type="button">Adicionar corte</button></div>
+  <div id="pText" hidden><div class="phr" id="phr"></div><details class="txtmode"><summary>Editar como texto corrido</summary><textarea id="txt" aria-label="Transcrição editável" placeholder="A transcrição aparece aqui."></textarea></details><p class="mut">Edite uma frase e saia do campo: o tempo das palavras que você não mudou é preservado. O olho esconde a frase.</p></div>
+  <div id="pClips" hidden>
+   <div class="grp first"><b>Prender a atenção</b><div id="fxZoom"></div>
+    <div class="row soonrow"><span>B-rolls automáticos<br><small class="mut">Troca momentos por imagens relevantes.</small></span><em>Em breve</em></div>
+    <div class="row soonrow"><span>Título de gancho<br><small class="mut">Gera uma frase de abertura.</small></span><em>Em breve</em></div></div>
+   <div class="grp"><b>Som</b><div id="fxCut"></div>
+    <div class="row soonrow"><span>Limpar áudio<br><small class="mut">Reduz ruído de fundo.</small></span><em>Em breve</em></div></div>
+   <div class="grp"><b>Cortes</b><p class="mut" id="cmsg"></p><ul class="list" id="clips"></ul>
+   <h2>Corte manual</h2><div class="row"><label for="ms">Início (segundos)</label><input id="ms" type="number" min="0" step="0.1" value="0"></div><div class="row"><label for="me">Fim (segundos)</label><input id="me" type="number" min="0" step="0.1" value="30"></div><button class="btn" id="addManual" type="button">Adicionar corte</button></div></div>
  </div></div></section>
 </main>
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, que está em desenvolvimento. Os pagamentos serão por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>

@@ -15,7 +15,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } } };
 const S = { sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
 let EG = null, HG = null;
-S.fx = { cut: 0, zoom: 0 };
+S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
+const DIMS = { '9:16': [1080, 1920], '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1920, 1080] };
 const canPro = () => !CFG.GATE || S.plan === 'pro';
 const flash = m => { const f = $('#flash'); f.textContent = m; f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
 
@@ -66,11 +67,11 @@ function ads() {   // anúncios só no plano gratuito e só se houver ID do AdSe
   box.append(s, ins); s.onload = () => { try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch { /* bloqueado */ } };
 }
 const fp = f => `${f.name}|${f.size}|${f.lastModified}`;
-async function newVideo(f) {
-  if (!f) return;
+async function newVideo(f, mode = 'clips') {
+  if (!f) return; S.mode = mode;
   if (f.size > MAX_BYTES) { flash('O plano gratuito aceita vídeos de até 1 GB. Este tem ' + (f.size / 1024 ** 3).toFixed(2) + ' GB.'); return; }
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
-  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 };
+  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16';
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
@@ -83,14 +84,21 @@ async function openProject(id) {
   const { data: p, error } = await S.sb.from('projects').select('*').eq('id', id).single();
   if (error) { flash('Não foi possível abrir: ' + error.message); return; }
   S.pid = id; S.file = null; S.media = null; S.title = p.title || ''; S.dur = p.duration || 8; S.words = p.transcript?.words || []; S.clips = (p.clips || []).map(c => ({ ...c }));
-  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) };
+  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) }; S.ratio = p.style?.ratio || '9:16'; S.hid = new Set(p.style?.hid || []);
   enterEdit(); rebuild(); sync(); clipsUI(); $('#txt').value = S.words.map(w => w.w).join(' ');
   $('#phTxt').textContent = 'Para pré-visualizar e gerar cortes, selecione de novo o vídeo "' + S.title + '".';
   status(S.words.length ? 'Projeto carregado. A transcrição e os cortes estão salvos.' : 'Este projeto ainda não tem transcrição. Selecione o vídeo para continuar.');
 }
-$('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f); };
+$('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
+$('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
+$('#ytForm').onsubmit = e => {
+  e.preventDefault(); const u = $('#ytUrl').value.trim(), ok = /^https?:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(u);
+  $('#ytMsg').textContent = ok ? 'Baixar vídeos do YouTube ainda não está disponível no Tacet: o YouTube bloqueia o download e os termos de uso proíbem. Envie o arquivo do vídeo (do seu YouTube Studio, por exemplo) em uma das caixas acima.' : 'Cole um link do YouTube que comece com https://www.youtube.com/ ou https://youtu.be/.';
+};
 $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('on'); }; $('#drop').ondragleave = () => $('#drop').classList.remove('on');
-$('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0]); };
+$('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'clips'); };
+$('#drop2').ondragover = e => { e.preventDefault(); $('#drop2').classList.add('on'); }; $('#drop2').ondragleave = () => $('#drop2').classList.remove('on');
+$('#drop2').ondrop = e => { e.preventDefault(); $('#drop2').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'captions'); };
 $('#attach').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   let media; try { media = await openMedia(f); } catch (er) { flash(er.message); return; }
@@ -123,7 +131,8 @@ async function pipeline() {
     if (!words.length) throw new Error('Não encontrei fala neste vídeo.');
     S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
     await save({ transcript: { words }, duration: S.media.duration });
-    if (!LIVE) { clipsUI(); status('Transcrição pronta. A sugestão de cortes por IA precisa do servidor; crie um corte manual na aba Cortes.'); return; }
+    if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); return; }
+    if (!LIVE) { clipsUI(); status('Transcrição pronta. A sugestão de cortes por IA precisa do servidor; crie um corte manual na aba Ferramentas.'); return; }
     status('Transcrição pronta. Procurando os melhores cortes…'); prog(0);
     try { const cl = await suggestClips(words, S.media.duration, async lines => (await ai('/clips', JSON.stringify({ lines }), 'application/json')).clips, p => prog(p)); S.clips = cl; await save({ clips: cl }); clipsUI(); status(cl.length ? 'Pronto: transcrição e ' + cl.length + (cl.length === 1 ? ' corte sugerido.' : ' cortes sugeridos.') : 'Transcrição pronta. Nenhum corte forte encontrado; você pode criar um manualmente.'); }
     catch (e) { clipsUI(); status(e.code === 'paid' ? 'Transcrição pronta. Cortes por IA fazem parte do plano pago.' : 'Transcrição pronta. Os cortes sugeridos falharam: ' + e.message); }
@@ -159,14 +168,15 @@ function save(patch) { if (!LIVE || !S.pid) return Promise.resolve(); return S.s
 function saveSoon(key, patch, ms = 900) { clearTimeout(pend[key]); pend[key] = setTimeout(() => save(patch), ms); }
 
 // ---------- editor ----------
-function enterEdit() { view('edit'); tab('style'); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
+function enterEdit() { view('edit'); tab('style'); setRatio(S.ratio); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
 function setVideo(f) {
   const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
 }
 function tab(t) { for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'], ['pClips', 'clips']]) $('#' + id).hidden = k !== t; document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t)); }
 document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => tab(b.dataset.t); });
 const rs = () => resolve(S.style);
-function rebuild() { S.chunks = chunksOf(S.words, Math.max(1, rs().n | 0)); drawTimeline(); }
+const hkey = w => +w.s.toFixed(2), visible = () => S.words.filter(w => !S.hid.has(hkey(w)));
+function rebuild() { S.chunks = chunksOf(visible(), Math.max(1, rs().n | 0)); drawTimeline(); phrasesUI(); }
 function setO(k, v) { if (['x', 'y', 'cropX'].includes(k)) S.style[k] = v; else S.style.o = { ...S.style.o, [k]: v }; rebuild(); applyCrop(); saveSoon('style', { style: S.style }); }
 function applyCrop() { $('#vid').style.objectPosition = rs().cropX * 100 + '% 50%'; }
 let rows = [];
@@ -256,6 +266,25 @@ function thumb(pid) {
   v.currentTime = Math.min(1, (v.duration || 2) / 2);
 }
 
+// lista de frases: texto editável, tempo, olho para esconder
+function phrasesUI() {
+  const box = $('#phr'); if (!box || box.contains(document.activeElement)) return;
+  box.replaceChildren(); const all = chunksOf(S.words, Math.max(1, rs().n | 0));
+  all.forEach(ch => {
+    const off = ch.every(w => S.hid.has(hkey(w))), inp = el('input', { value: ch.map(w => w.w).join(' '), ariaLabel: 'Frase' });
+    inp.onchange = () => { const txt = [...box.querySelectorAll('input')].map(i => i.value).join(' '); S.words = retime(S.words, tokens(txt), S.dur); $('#txt').value = S.words.map(w => w.w).join(' '); rebuild(); saveSoon('tr', { transcript: { words: S.words } }, 600); };
+    const eye = el('button', { type: 'button', textContent: off ? 'Mostrar' : 'Esconder', onclick: () => { ch.forEach(w => off ? S.hid.delete(hkey(w)) : S.hid.add(hkey(w))); S.style.hid = [...S.hid]; rebuild(); saveSoon('style', { style: S.style }); } });
+    const t = el('small', { textContent: ch[0].s.toFixed(2) + ' – ' + ch[ch.length - 1].e.toFixed(2), onclick: () => { S.prev = null; seek(ch[0].s); } });
+    const row = el('div', { className: 'pr' + (off ? ' off' : '') }, t, inp, eye); box.append(row);
+  });
+}
+function setRatio(r) {
+  S.ratio = r; S.style.ratio = r; const [w, h] = DIMS[r], ar = w / h; $('#ratio').value = r;
+  $('#stage').style.aspectRatio = w + '/' + h; $('#stage').style.width = `min(100%,${(74 * ar).toFixed(2)}dvh)`; document.querySelector('.transport').style.width = `min(100%,${(74 * ar).toFixed(2)}dvh)`;
+  saveSoon('style', { style: S.style });
+}
+$('#ratio').onchange = e => setRatio(e.target.value);
+
 // transcrição editável
 $('#txt').oninput = () => { S.words = retime(S.words, tokens($('#txt').value), S.dur); rebuild(); saveSoon('tr', { transcript: { words: S.words } }, 1200); };
 
@@ -267,7 +296,7 @@ function mkFx(k, label, hint) {
   return el('div', { className: 'row' }, el('span', {}, label, el('br'), el('small', { className: 'mut', textContent: hint })), wrap);
 }
 const syncFx = () => fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v)));
-function buildFx() { $('#fxrows').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.'), mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); syncFx(); }
+function buildFx() { $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); syncFx(); }
 function clipsUI() {
   drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
@@ -291,7 +320,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: S.words, style: S.style, opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = 'error'; c.err = e.message; }
   finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -317,7 +346,7 @@ function frame(now) {
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
-    if (S.safeOn) { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
+    if (S.safeOn && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
     const boxOut = S.bbox ? outsideSafe(S.bbox, S.safeP, W, H) : (r.y * H < safeRect(S.safeP, W, H).y || r.y * H > safeRect(S.safeP, W, H).y + safeRect(S.safeP, W, H).h);
     $('#warn').textContent = boxOut ? 'A legenda está fora da área segura e pode ficar coberta pelos botões do app (' + PLATFORMS[S.safeP].name + ').' : '';
   }

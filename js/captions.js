@@ -67,7 +67,7 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   let k = -1; for (let i = 0; i < chunks.length; i++) if (t >= chunks[i][0].s) k = i; else break;
   const c = chunks[k]; if (!c || t > c[c.length - 1].e + 0.4) return null;
   let a = -1; for (let i = 0; i < c.length; i++) if (t >= c[i].s) a = i;
-  const px = sizePx(rs, W), maxW = W * 0.86, gap = px * 0.28, lh = px * 1.28;
+  const px = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6), gap = px * 0.28, lh = px * 1.28;
   const words = c.map((w, i) => ({ w, t: txt(w.w, rs.case), on: i === a }));
   words.forEach(o => { ctx.font = fnt(rs, Math.max(rs.wLight, rs.wActive), px); o.rw = ctx.measureText(o.t).width; });   // largura reservada no peso maior: a linha não "treme"
   const lines = []; let cur = [], cw = 0;
