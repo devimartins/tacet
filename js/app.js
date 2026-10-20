@@ -5,6 +5,7 @@ import { silences, zoomAt } from './edit.js';
 import { suggestClips } from './clips.js';
 import { retime, tokens, fromWhisper } from './transcript.js';
 import { ICONS } from './icons.js';
+import { ytId, ytSupported, mountPlayer, record } from './yt.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
 const LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);
@@ -91,10 +92,27 @@ async function openProject(id) {
 }
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
-$('#ytForm').onsubmit = e => {
-  e.preventDefault(); const u = $('#ytUrl').value.trim(), ok = /^https?:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(u);
-  $('#ytMsg').textContent = ok ? 'Baixar vídeos do YouTube ainda não está disponível no Tacet: o YouTube bloqueia o download e os termos de uso proíbem. Envie o arquivo do vídeo (do seu YouTube Studio, por exemplo) em uma das caixas acima.' : 'Cole um link do YouTube que comece com https://www.youtube.com/ ou https://youtu.be/.';
+$('#ytForm').onsubmit = async e => {
+  e.preventDefault(); const id = ytId($('#ytUrl').value.trim()), m = $('#ytMsg');
+  if (!id) { m.textContent = 'Cole um link do YouTube válido (youtube.com ou youtu.be).'; return; }
+  if (!ytSupported()) { m.textContent = 'Gravar do YouTube funciona no Chrome ou Edge no computador. No celular, envie o arquivo do vídeo.'; return; }
+  m.textContent = 'Carregando player…';
+  try {
+    const box = $('#ytbox'), player = await mountPlayer(box, id); m.textContent = ''; $('#ytd').showModal(); $('#ytSt').textContent = '';
+    $('#ytX').onclick = () => { try { player.destroy(); } catch {} $('#ytd').close(); };
+    $('#ytStop').onclick = () => box._stop?.();
+    $('#ytRec').onclick = async () => {
+      if (!$('#ytOk').checked) { $('#ytSt').textContent = 'Confirme os direitos sobre o vídeo para continuar.'; return; }
+      $('#ytRec').disabled = true; $('#ytStop').hidden = false;
+      try {
+        const f = await record(player, box, { start: +$('#ytS').value || 0, end: +$('#ytE').value || 0, onStatus: (a, b) => $('#ytSt').textContent = `Gravando… ${mmss(a)} / ${mmss(b)}` });
+        $('#ytd').close(); try { player.destroy(); } catch {} await newVideo(f, 'clips');
+      } catch (err) { $('#ytSt').textContent = err.message || 'Falha na gravação.'; }
+      $('#ytRec').disabled = false; $('#ytStop').hidden = true;
+    };
+  } catch (err) { m.textContent = err.message || 'Não foi possível abrir o vídeo.'; }
 };
+
 $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('on'); }; $('#drop').ondragleave = () => $('#drop').classList.remove('on');
 $('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'clips'); };
 $('#drop2').ondragover = e => { e.preventDefault(); $('#drop2').classList.add('on'); }; $('#drop2').ondragleave = () => $('#drop2').classList.remove('on');

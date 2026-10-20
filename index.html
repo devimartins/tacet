@@ -141,6 +141,12 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
   <label class="drop" id="drop2" data-mode="captions"><b>Só legendas</b><span class="mut">Transcrição automática e legendas animadas no vídeo todo (até 2 min na exportação).</span><input id="newfile2" type="file" accept="video/mp4,video/quicktime,video/*"></label>
  </div>
  <form class="yt" id="ytForm"><label class="mut" for="ytUrl">Ou cole um link do YouTube</label><div class="ytr"><input id="ytUrl" type="url" placeholder="https://www.youtube.com/watch?v=…"><button class="btn" type="submit">Importar</button></div><p class="mut" id="ytMsg" role="status"></p></form>
+ <dialog id="ytd" style="max-width:720px;width:92vw"><div id="ytbox" style="aspect-ratio:16/9;background:#000"></div>
+  <p class="mut">Gravação em tempo real do player oficial do YouTube (Chrome ou Edge no computador). Ao compartilhar, escolha <b>esta aba</b> e marque <b>compartilhar áudio</b>.</p>
+  <div class="ytr"><label class="mut">Início (s) <input id="ytS" type="number" min="0" value="0" style="width:90px"></label><label class="mut">Fim (s) <input id="ytE" type="number" min="1" placeholder="até o fim" style="width:110px"></label></div>
+  <label class="mut" style="display:block;margin:10px 0"><input type="checkbox" id="ytOk"> Tenho os direitos sobre este vídeo ou permissão de quem os detém.</label>
+  <p class="mut" id="ytSt" role="status"></p>
+  <div class="ytr"><button class="btn" id="ytRec" type="button">Gravar e transcrever</button><button class="btn" id="ytStop" type="button" hidden>Parar</button><button class="btn" id="ytX" type="button">Fechar</button></div></dialog>
  <h2>Escolha um estilo</h2><div id="gal"></div>
  <h2>Seus projetos</h2><ul class="list" id="plist"></ul><p class="mut" id="pempty" hidden>Nenhum projeto ainda.</p>
  <div class="ad" id="ad" hidden></div>
