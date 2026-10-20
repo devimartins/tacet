@@ -396,7 +396,7 @@ async function boot() {
   const apply = async s => {
     if (!s) { S.user = null; view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; $('#nOut').title = s.user.email || '';
-    const p = await S.sb.from('profiles').select('plan').maybeSingle(); S.plan = p.data?.plan || 'free'; buildPresets(); home();
+    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; buildPresets(); home();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
@@ -420,3 +420,14 @@ $('#musFile').onchange = async e => {
 $('#musVol').oninput = e => { if (S.music) { S.music.vol = +e.target.value / 100; musSync(); } };
 $('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); musEl = null; } S.music = null; $('#musRow').hidden = true; $('#musFile').value = ''; $('#musMsg').textContent = 'Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.'; };
 setInterval(() => { if (musEl) { if (S.playing && musEl.paused) musEl.play().catch(() => { }); if (!S.playing && !musEl.paused) musEl.pause(); } }, 300);
+
+// ---------- assinatura (Mercado Pago: PIX, débito e crédito) ----------
+if (CFG.PAY && LIVE) {
+  const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
+  const b = el('button', { type: 'button', className: 'btn pri', textContent: 'Assinar o Pro', onclick: async () => {
+    b.disabled = true; const m = d.querySelector('.pm');
+    try { const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/checkout', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token } }); const j = await r.json(); if (!r.ok || !j.url) throw new Error(j.error || 'Falha ao iniciar o pagamento.'); location.href = j.url; }
+    catch (e) { m.textContent = e.message; b.disabled = false; }
+  } });
+  const m = el('p', { className: 'mut pm', role: 'status' }); d.querySelector('form').before(b, m);
+}
