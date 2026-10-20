@@ -35,7 +35,7 @@ $('#nOut').onclick = async () => { if (S.sb) { await S.sb.auth.signOut(); } else
 
 // ---------- login ----------
 const PROVIDERS = [['google', 'Google', 'google'], ['apple', 'Apple', 'apple'], ['github', 'GitHub', 'github'], ['azure', 'Microsoft', 'microsoft']];
-for (const [id, name, ic] of PROVIDERS) {
+for (const [id, name, ic] of PROVIDERS.filter(p => !CFG.PROVIDERS || CFG.PROVIDERS.includes(p[0]))) {
   const b = el('button', { type: 'button', className: 'btn', onclick: async () => {
     $('#lmsg').textContent = '';
     const { error } = await S.sb.auth.signInWithOAuth({ provider: id, options: { redirectTo: location.origin + location.pathname } });
