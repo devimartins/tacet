@@ -407,7 +407,7 @@ async function boot() {
   const apply = async s => {
     if (!s) { S.user = null; view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; $('#nOut').title = s.user.email || '';
-    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; buildPresets(); home();
+    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; buildPresets(); planUI(); home();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
@@ -433,14 +433,24 @@ $('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(m
 setInterval(() => { if (musEl) { if (S.playing && musEl.paused) musEl.play().catch(() => { }); if (!S.playing && !musEl.paused) musEl.pause(); } }, 300);
 
 // ---------- assinatura (Mercado Pago: PIX, débito e crédito) ----------
+async function checkout(btn, msg) {
+  btn.disabled = true; msg.textContent = 'Abrindo o Mercado Pago…';
+  try { const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/checkout', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token } }); const j = await r.json(); if (!r.ok || !j.url) throw new Error(j.error || 'Falha ao iniciar o pagamento.'); location.href = j.url; }
+  catch (e) { msg.textContent = e.message; btn.disabled = false; }
+}
+function planUI() {   // pontos de entrada visíveis para o plano Pro: menu lateral e cartão na tela inicial
+  if (!(CFG.PAY && LIVE)) return;
+  $('#nPro').hidden = false; const pro = S.plan === 'pro', card = $('#plan'); card.hidden = false; card.classList.toggle('on', pro);
+  const until = S.proUntil ? new Date(S.proUntil).toLocaleDateString('pt-BR') : '';
+  $('#planT').textContent = pro ? 'Tacet Pro ativo' : 'Tacet Pro'; $('#nProL').textContent = pro ? 'Pro ativo' : 'Plano Pro';
+  $('#planS').textContent = pro ? (until ? 'Seu acesso vai até ' + until + '. Renove quando quiser: cada pagamento soma 31 dias.' : 'Obrigado por apoiar o Tacet.') : 'Estilos exclusivos, cortes por IA sem limite e sem anúncios.';
+  $('#planPrice').hidden = pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro';
+}
 if (CFG.PAY && LIVE) {
   const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90. Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
-  const b = el('button', { type: 'button', className: 'btn pri', textContent: 'Assinar o Pro', onclick: async () => {
-    b.disabled = true; const m = d.querySelector('.pm');
-    try { const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/checkout', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token } }); const j = await r.json(); if (!r.ok || !j.url) throw new Error(j.error || 'Falha ao iniciar o pagamento.'); location.href = j.url; }
-    catch (e) { m.textContent = e.message; b.disabled = false; }
-  } });
-  const m = el('p', { className: 'mut pm', role: 'status' }); d.querySelector('form').before(b, m);
+  const m = el('p', { className: 'mut pm', role: 'status' }), b = el('button', { type: 'button', className: 'btn pri', textContent: 'Assinar o Pro', onclick: () => checkout(b, m) });
+  d.querySelector('form').before(b, m);
+  const pm = $('#planMsg'); $('#planBtn').onclick = () => checkout($('#planBtn'), pm); $('#nPro').onclick = async () => { await home(); $('#plan').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 }
 
 // ---------- títulos e imagens ----------
