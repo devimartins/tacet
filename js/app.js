@@ -7,6 +7,7 @@ import { retime, tokens, fromWhisper } from './transcript.js';
 import { ICONS } from './icons.js';
 import { drawOverlays, hookTitle } from './overlays.js';
 import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
+import { initGuide } from './guide.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
 const LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);
@@ -414,7 +415,8 @@ async function boot() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 boot();
-window.__tacet = { S };   // útil para testes
+window.__tacet = { S };
+initGuide({ home: () => home() });   // útil para testes
 
 // ---------- música de fundo ----------
 S.music = null; let musEl = null;

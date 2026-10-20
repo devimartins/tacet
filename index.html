@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Tacet","url":"https://devimartins.github.io/tacet/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=14"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=17"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0b0c0d;--s1:#121314;--in:#1a1b1d;--bd:#26282b;--tx:#eceae4;--mut:#8d9096;--ac:#8fd6c0;--acd:#2f6f5e;--pri:#eceae4;--pro:#0b0c0d;--er:#f2958f;--rail:#070808;--railtx:#eceae4;--glow:rgba(143,214,192,.10);--stg:#050606;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -209,6 +209,24 @@ html.still #bg i,html.hid #bg i{animation:none}
 #rail a.logo{text-decoration:none;color:inherit;cursor:pointer;border-radius:8px}#rail a.logo:hover svg{filter:drop-shadow(0 0 8px var(--ac))}
 .drop .up{position:relative;margin-top:12px;align-self:flex-start}.drop:hover .up{filter:brightness(1.07)}
 #login .mark{cursor:default}
+
+/* assistente de ajuda */
+#bot{position:fixed;right:18px;bottom:calc(20px + var(--safe-b));z-index:40;display:flex;align-items:center;gap:8px;height:48px;padding:0 16px 0 14px;border-radius:999px;border:1px solid transparent;background:linear-gradient(var(--s1),var(--s1)) padding-box,var(--grad) border-box;color:var(--tx);box-shadow:var(--sh2);font-size:14px;font-weight:500;transition:transform .15s}
+#bot:hover{transform:translateY(-2px)}#bot svg{color:var(--ac)}
+#bot.nudge{animation:nudge 1.6s ease-in-out 3}@keyframes nudge{50%{transform:translateY(-6px);box-shadow:0 0 0 6px var(--glow),var(--sh2)}}
+body:has(#login:not([hidden])) #bot,body:has(#login:not([hidden])) #botp{display:none}
+body:has(#edit:not([hidden])) #bot{bottom:calc(20px + var(--safe-b));right:auto;left:84px}
+#botp{position:fixed;right:18px;bottom:calc(78px + var(--safe-b));z-index:41;width:min(360px,calc(100vw - 36px));max-height:min(70dvh,560px);overflow:auto;padding:16px;border:1px solid var(--bd);border-radius:16px;background:var(--s1);box-shadow:var(--sh2);animation:pop .18s ease-out}
+body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
+#botp .bh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}#botp .bx{border:0;background:none;color:var(--mut);min-width:36px;min-height:36px;border-radius:8px}
+#botp .bm{margin:0 0 10px;font-size:14px;color:var(--mut)}#botq{width:100%;min-height:42px;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:6px 12px;margin-bottom:8px}
+#botl{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:4px}#botl button{width:100%;text-align:left;border:0;background:none;border-radius:8px;padding:10px 12px;min-height:42px;font-size:14px}#botl button:hover{background:var(--in)}#botl .bn{padding:10px 12px;font-size:13px;color:var(--mut)}
+#botTour{width:100%}
+.g-mark{position:fixed;z-index:60;border-radius:12px;pointer-events:none;box-shadow:0 0 0 2px var(--ac),0 0 0 9999px rgba(0,0,0,.38);animation:gm 1.8s ease-in-out infinite}@keyframes gm{50%{box-shadow:0 0 0 5px var(--ring),0 0 0 9999px rgba(0,0,0,.38)}}
+.g-tip{position:fixed;z-index:61;width:min(300px,calc(100vw - 24px));padding:14px;border-radius:14px;border:1px solid var(--bd);background:var(--s1);box-shadow:var(--sh2);animation:pop .18s ease-out}.g-tip b{display:block;margin-bottom:4px;font-weight:500}.g-tip p{margin:0 0 10px;font-size:14px;color:var(--mut)}.g-row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.g-row .btn{min-height:38px;padding:6px 14px}
+@media(max-width:760px){#bot{bottom:calc(76px + var(--safe-b));height:44px;padding:0 14px 0 12px}#bot span{display:none}#bot{padding:0 12px}#botp{bottom:calc(130px + var(--safe-b));right:12px}body:has(#edit:not([hidden])) #bot{left:auto;right:18px;bottom:calc(76px + var(--safe-b))}body:has(#edit:not([hidden])) #botp{left:auto;right:12px}}
+@media(prefers-reduced-motion:reduce){.g-mark,#bot.nudge{animation:none!important}}
+#botl .cmd{color:var(--ac);font-weight:500}
 </style></head><body>
 <div id="bg" aria-hidden="true"><i></i><i></i><i></i></div>
 <script>(function(){var d=document.documentElement,n=navigator,c=n.connection;if((n.hardwareConcurrency&&n.hardwareConcurrency<=2)||(n.deviceMemory&&n.deviceMemory<=2)||(c&&c.saveData))d.classList.add("still");document.addEventListener("visibilitychange",function(){d.classList.toggle("hid",document.hidden)})})()</script>
@@ -300,5 +318,5 @@ html.still #bg i,html.hid #bg i{animation:none}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, que está em desenvolvimento. Os pagamentos serão por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=14"></script>
+<script type="module" src="js/app.js?v=17"></script>
 </body></html>
