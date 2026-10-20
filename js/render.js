@@ -30,7 +30,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const { mux, cfg } = await pickCodec(W, H, fps);
   const M = window.Mp4Muxer, target = new M.ArrayBufferTarget(), A = media.audio;
   const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: mux, width: W, height: H, frameRate: fps },
-    ...(A ? { audio: { codec: 'aac', numberOfChannels: A.channels, sampleRate: A.sampleRate } } : {}) });
+    ...(opts.music ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: A ? A.sampleRate : 48000 } } : A ? { audio: { codec: 'aac', numberOfChannels: A.channels, sampleRate: A.sampleRate } } : {}) });
   let eerr = null, derr = null;
   const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { eerr = e; } });
   enc.configure(cfg);
@@ -73,7 +73,8 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   await enc.flush(); enc.close();
   if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
 
-  if (A) {   // copia os blocos de áudio do trecho, sem recodificar
+  if (opts.music) await mixAudio({ file, A, muxer, read, start, end, rem, shift, base, len, music: opts.music });
+  else if (A) {   // copia os blocos de áudio do trecho, sem recodificar
     let first = true;
     for (const s of A.samples) {
       const t = s.cts / s.timescale; if (t < start - 1e-6) continue; if (t >= end) break; if (inRange(rem, t)) continue;
@@ -84,4 +85,45 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   }
   muxer.finalize(); onProgress && onProgress(1);
   return { blob: new Blob([target.buffer], { type: 'video/mp4' }), codec: mux, seconds: lastT };
+}
+
+// Mistura o áudio original (decodificado) com a música e recodifica em AAC estéreo.
+// music = { buffer: AudioBuffer (já na taxa do vídeo), volume: 0..1 }
+async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, music }) {
+  if (typeof AudioEncoder === 'undefined') throw new Error('Este navegador não codifica áudio. Use Chrome ou Edge atualizado, ou remova a música.');
+  const sr = A ? A.sampleRate : 48000, N = Math.ceil(len * sr), L = new Float32Array(N), R = new Float32Array(N);
+  if (A) {
+    const dec = new AudioDecoder({ output: ad => {
+      const t = ad.timestamp / 1e6, nf = ad.numberOfFrames, nc = ad.numberOfChannels;
+      if (t >= start - 0.05 && t < end && !inRange(rem, t)) {
+        const pos = Math.round((shift(t) - base) * sr), a = new Float32Array(nf), b = nc > 1 ? new Float32Array(nf) : a;
+        ad.copyTo(a, { planeIndex: 0, format: 'f32-planar' }); if (nc > 1) ad.copyTo(b, { planeIndex: 1, format: 'f32-planar' });
+        for (let i = 0; i < nf; i++) { const k = pos + i; if (k >= 0 && k < N) { L[k] += a[i]; R[k] += b[i]; } }
+      }
+      ad.close(); }, error: () => { } });
+    const cfg = { codec: A.codec, sampleRate: A.sampleRate, numberOfChannels: A.channels }; if (A.asc) cfg.description = A.asc;
+    dec.configure(cfg);
+    for (const s of A.samples) {
+      const t = s.cts / s.timescale; if (t < start - 0.1) continue; if (t >= end) break;
+      dec.decode(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(t * 1e6), data: await read(s.offset, s.size) }));
+      if (dec.decodeQueueSize > 40) await new Promise(r => dec.addEventListener('dequeue', r, { once: true }));
+    }
+    await dec.flush(); dec.close();
+  }
+  const mb = music.buffer, mc = mb.numberOfChannels, ml = mb.length, g = Math.max(0, Math.min(1, music.volume ?? 0.25)), fade = Math.min(N, Math.round(sr * 1.2));
+  const m0 = mb.getChannelData(0), m1 = mc > 1 ? mb.getChannelData(1) : m0;
+  for (let i = 0; i < N; i++) { const k = i % ml, f = i > N - fade ? (N - i) / fade : 1; L[i] += m0[k] * g * f; R[i] += m1[k] * g * f; }
+  for (let i = 0; i < N; i++) { L[i] = Math.max(-1, Math.min(1, L[i])); R[i] = Math.max(-1, Math.min(1, R[i])); }
+  let first = true, err = null;
+  const enc = new AudioEncoder({ output: (c, m) => { muxer.addAudioChunk(c, first ? m : undefined); first = false; }, error: e => { err = e; } });
+  const ecfg = { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: 2, bitrate: 128000 };
+  if (!(await AudioEncoder.isConfigSupported(ecfg)).supported) throw new Error('Este navegador não codifica AAC. Remova a música ou use Chrome/Edge atualizado.');
+  enc.configure(ecfg);
+  const B = 4096;
+  for (let o = 0; o < N; o += B) {
+    const n = Math.min(B, N - o), d = new Float32Array(n * 2); d.set(L.subarray(o, o + n), 0); d.set(R.subarray(o, o + n), n);
+    enc.encode(new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(o / sr * 1e6), data: d }));
+    if (enc.encodeQueueSize > 20) await new Promise(r => enc.addEventListener('dequeue', r, { once: true }));
+  }
+  await enc.flush(); enc.close(); if (err) throw new Error('Falha no áudio: ' + err.message);
 }

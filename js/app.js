@@ -347,7 +347,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = 'error'; c.err = e.message; }
   finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -403,3 +403,20 @@ async function boot() {
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 boot();
 window.__tacet = { S };   // útil para testes
+
+// ---------- música de fundo ----------
+S.music = null; let musEl = null;
+function musSync() { if (!musEl) return; musEl.volume = S.music.vol; if (S.playing) { if (musEl.paused) musEl.play().catch(() => { }); } else musEl.pause(); }
+$('#musFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; const m = $('#musMsg'); m.textContent = 'Lendo o áudio…';
+  try {
+    const sr = S.media?.audio?.sampleRate || 48000, ac = new AudioContext({ sampleRate: sr });
+    const buf = await ac.decodeAudioData(await f.arrayBuffer()); ac.close();
+    if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); }
+    musEl = new Audio(URL.createObjectURL(f)); musEl.loop = true;
+    S.music = { buf, vol: +$('#musVol').value / 100, name: f.name }; $('#musRow').hidden = false; $('#musName').textContent = f.name; m.textContent = 'Música pronta. Será misturada ao gerar o corte.'; musSync();
+  } catch (err) { m.textContent = 'Não consegui ler este áudio (' + (err.message || 'formato') + '). Tente MP3, M4A ou WAV.'; }
+};
+$('#musVol').oninput = e => { if (S.music) { S.music.vol = +e.target.value / 100; musSync(); } };
+$('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); musEl = null; } S.music = null; $('#musRow').hidden = true; $('#musFile').value = ''; $('#musMsg').textContent = 'Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.'; };
+setInterval(() => { if (musEl) { if (S.playing && musEl.paused) musEl.play().catch(() => { }); if (!S.playing && !musEl.paused) musEl.pause(); } }, 300);
