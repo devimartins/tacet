@@ -147,7 +147,7 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
   <div class="tabs" role="tablist" style="margin-top:14px"><button role="tab" id="tabS" aria-selected="true" data-t="style">Estilo</button><button role="tab" id="tabT" aria-selected="false" data-t="text">Transcrição</button><button role="tab" id="tabC" aria-selected="false" data-t="clips">Cortes</button></div>
   <div id="pStyle"><div id="presets"></div><div id="ctl"></div><p class="warn" id="warn" role="status"></p></div>
   <div id="pText" hidden><textarea id="txt" aria-label="Transcrição editável" placeholder="A transcrição aparece aqui."></textarea><p class="mut">Edite o texto: o tempo das palavras que você não mudou é preservado.</p></div>
-  <div id="pClips" hidden><p class="mut" id="cmsg"></p><ul class="list" id="clips"></ul>
+  <div id="pClips" hidden><p class="mut" id="cmsg"></p><div class="grp" style="margin-top:12px"><b>Edição automática</b><div id="fxrows"></div></div><ul class="list" id="clips"></ul>
    <h2>Corte manual</h2><div class="row"><label for="ms">Início (segundos)</label><input id="ms" type="number" min="0" step="0.1" value="0"></div><div class="row"><label for="me">Fim (segundos)</label><input id="me" type="number" min="0" step="0.1" value="30"></div><button class="btn" id="addManual" type="button">Adicionar corte</button></div>
  </div></div></section>
 </main>

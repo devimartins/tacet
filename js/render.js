@@ -2,6 +2,7 @@
 // O áudio original (AAC) é copiado sem recodificar.
 import { drawCaption, chunksOf, resolve, loadFont } from './captions.js';
 import { makeReader } from './media.js';
+import { silences, makeShift, inRange, zoomAt } from './edit.js';
 
 export async function pickCodec(W, H, fps) {
   if (typeof VideoEncoder === 'undefined') throw new Error('Este navegador não consegue gerar vídeo (VideoEncoder). Use Chrome, Edge ou Safari atualizado.');
@@ -13,13 +14,14 @@ export async function pickCodec(W, H, fps) {
   throw new Error('Este aparelho não codifica vídeo H.264.');
 }
 
-export async function renderClip({ file, media, clip, words, style, onProgress, W = 1080, H = 1920, fps = 30 }) {
+export async function renderClip({ file, media, clip, words, style, onProgress, W = 1080, H = 1920, fps = 30, opts = {} }) {
   const V = media.video; if (!V) throw new Error('O arquivo não tem vídeo.');
-  const start = clip.start, end = Math.min(clip.end, media.duration), len = end - start;
+  const start = clip.start, end = Math.min(clip.end, media.duration);
+  const rem = opts.cutSilence ? silences(words, start, end) : [], shift = makeShift(rem), base = shift(start), len = shift(end) - base;
   if (!(len > 0.5)) throw new Error('Corte curto demais.');
   const rs = resolve(style);
   await loadFont(rs.font, rs.wLight, rs.wActive);
-  const cw = words.filter(w => w.s >= start - 0.05 && w.e <= end + 0.05).map(w => ({ ...w, s: Math.max(0, w.s - start), e: w.e - start }));
+  const cw = words.filter(w => w.s >= start - 0.05 && w.e <= end + 0.05 && !inRange(rem, w.s)).map(w => ({ ...w, s: Math.max(0, shift(w.s) - base), e: shift(w.e) - base }));
   const chunks = chunksOf(cw, Math.max(1, rs.n | 0));
   const rot = V.rotation, swap = rot === 90 || rot === 270, dw = swap ? V.height : V.width, dh = swap ? V.width : V.height;
   const sc = Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * rs.cropX, sy = (dh - sh) / 2;
@@ -40,11 +42,14 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   dec.configure(dcfg);
 
   async function process(f) {
-    const t = f.timestamp / 1e6 - start;
+    const ta = f.timestamp / 1e6;
+    if (inRange(rem, ta)) { f.close(); return; }
+    const t = shift(ta) - base;
     if (t < -0.0005 || t > len || t < nextT - 0.001) { f.close(); return; }
     nextT = Math.max(nextT + 1 / fps, t + 0.5 / fps); lastT = t;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-    ctx.setTransform(sc, 0, 0, sc, -sx * sc, -sy * sc);
+    const z = opts.zoom ? zoomAt(chunks, t) : 1;
+    ctx.setTransform(z, 0, 0, z, W * (1 - z) / 2, H * (1 - z) / 2); ctx.transform(sc, 0, 0, sc, -sx * sc, -sy * sc);
     if (rot === 90) { ctx.translate(V.height, 0); ctx.rotate(Math.PI / 2); } else if (rot === 180) { ctx.translate(V.width, V.height); ctx.rotate(Math.PI); } else if (rot === 270) { ctx.translate(0, V.width); ctx.rotate(-Math.PI / 2); }
     ctx.drawImage(f, 0, 0); f.close();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -71,10 +76,10 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   if (A) {   // copia os blocos de áudio do trecho, sem recodificar
     let first = true;
     for (const s of A.samples) {
-      const t = s.cts / s.timescale; if (t < start - 1e-6) continue; if (t >= end) break;
+      const t = s.cts / s.timescale; if (t < start - 1e-6) continue; if (t >= end) break; if (inRange(rem, t)) continue;
       const data = (await read(s.offset, s.size)).slice();
       const meta = first ? { decoderConfig: { codec: A.codec, numberOfChannels: A.channels, sampleRate: A.sampleRate, description: A.asc } } : undefined; first = false;
-      muxer.addAudioChunkRaw(data, 'key', Math.round((t - start) * 1e6), Math.round(s.duration * 1e6 / s.timescale), meta);
+      muxer.addAudioChunkRaw(data, 'key', Math.round((shift(t) - base) * 1e6), Math.round(s.duration * 1e6 / s.timescale), meta);
     }
   }
   muxer.finalize(); onProgress && onProgress(1);

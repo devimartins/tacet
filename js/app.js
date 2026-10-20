@@ -1,6 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, drawCaption, safeRect, outsideSafe } from './captions.js';
 import { openMedia, extractAudio } from './media.js';
 import { renderClip } from './render.js';
+import { silences, zoomAt } from './edit.js';
 import { suggestClips } from './clips.js';
 import { retime, tokens, fromWhisper } from './transcript.js';
 import { ICONS } from './icons.js';
@@ -14,6 +15,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } } };
 const S = { sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
 let EG = null, HG = null;
+S.fx = { cut: 0, zoom: 0 };
 const canPro = () => !CFG.GATE || S.plan === 'pro';
 const flash = m => { const f = $('#flash'); f.textContent = m; f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
 
@@ -68,7 +70,7 @@ async function newVideo(f) {
   if (!f) return;
   if (f.size > MAX_BYTES) { flash('O plano gratuito aceita vídeos de até 1 GB. Este tem ' + (f.size / 1024 ** 3).toFixed(2) + ' GB.'); return; }
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
-  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' };
+  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 };
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
@@ -81,7 +83,7 @@ async function openProject(id) {
   const { data: p, error } = await S.sb.from('projects').select('*').eq('id', id).single();
   if (error) { flash('Não foi possível abrir: ' + error.message); return; }
   S.pid = id; S.file = null; S.media = null; S.title = p.title || ''; S.dur = p.duration || 8; S.words = p.transcript?.words || []; S.clips = (p.clips || []).map(c => ({ ...c }));
-  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint;
+  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) };
   enterEdit(); rebuild(); sync(); clipsUI(); $('#txt').value = S.words.map(w => w.w).join(' ');
   $('#phTxt').textContent = 'Para pré-visualizar e gerar cortes, selecione de novo o vídeo "' + S.title + '".';
   status(S.words.length ? 'Projeto carregado. A transcrição e os cortes estão salvos.' : 'Este projeto ainda não tem transcrição. Selecione o vídeo para continuar.');
@@ -258,8 +260,16 @@ function thumb(pid) {
 $('#txt').oninput = () => { S.words = retime(S.words, tokens($('#txt').value), S.dur); rebuild(); saveSoon('tr', { transcript: { words: S.words } }, 1200); };
 
 // cortes
+const fxBtns = [];
+function mkFx(k, label, hint) {
+  const wrap = el('div', { className: 'seg', role: 'group', ariaLabel: label });
+  [[0, 'Não'], [1, 'Sim']].forEach(([v, t]) => { const b = el('button', { type: 'button', textContent: t, onclick: () => { if (v && !canPro()) { $('#pay').showModal(); return; } S.fx[k] = v; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); } }); b.dataset.k = k; b.dataset.v = v; fxBtns.push(b); wrap.append(b); });
+  return el('div', { className: 'row' }, el('span', {}, label, el('br'), el('small', { className: 'mut', textContent: hint })), wrap);
+}
+const syncFx = () => fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v)));
+function buildFx() { $('#fxrows').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.'), mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); syncFx(); }
 function clipsUI() {
-  drawTimeline(); const ul = $('#clips'); ul.replaceChildren();
+  drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
   S.clips.forEach((c, i) => {
     const acts = el('div', { className: 'acts' }, el('button', { className: 'btn', textContent: 'Pré-visualizar', onclick: () => previewClip(c) }));
@@ -275,13 +285,13 @@ $('#addManual').onclick = () => {
   if (!(e - s >= 3)) { flash('O corte precisa ter pelo menos 3 segundos.'); return; }
   S.clips.push({ id: 'm' + Date.now(), start: s, end: e, title: 'Corte manual', reason: '' }); save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI();
 };
-function previewClip(c) { S.prev = { s: c.start, e: c.end }; seek(c.start); play(true); $('#stage').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+function previewClip(c) { S.prev = { s: c.start, e: c.end }; S.prevRem = S.fx.cut ? silences(S.words, c.start, c.end) : []; seek(c.start); play(true); $('#stage').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 async function renderOne(c) {
   if (S.busy) return;
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: S.words, style: S.style, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: S.words, style: S.style, opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = 'error'; c.err = e.message; }
   finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -301,7 +311,8 @@ function frame(now) {
   const dt = (now - last) / 1000; last = now;
   if (!$('#edit').hidden) {
     if (hasVid()) S.cur = vid.currentTime; else if (S.playing) S.cur += dt;
-    if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
+    if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (S.prev && S.prevRem && S.prevRem.length && S.prevRem.some(([a, b]) => S.cur >= a && S.cur < b)) seek(S.prevRem.find(([a, b]) => S.cur >= a && S.cur < b)[1]); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
+    vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur).toFixed(3) + ')' : '';
     $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r);
@@ -321,7 +332,7 @@ const endDrag = () => { drag = null; $('#stage').classList.remove('drag'); }; $(
 // ---------- início ----------
 async function boot() {
   const l = el('link', { rel: 'stylesheet', href: fontsUrl() }); document.head.append(l);
-  buildControls(); buildPresets(); requestAnimationFrame(frame); requestAnimationFrame(animGal); Object.values(PRESETS).forEach(p => loadFont(p.font, p.wLight, p.wActive));
+  buildControls(); buildFx(); buildPresets(); requestAnimationFrame(frame); requestAnimationFrame(animGal); Object.values(PRESETS).forEach(p => loadFont(p.font, p.wLight, p.wActive));
   $('#tl').onpointerdown = e => { const r = $('#tl .tw').getBoundingClientRect(); S.prev = null; seek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * S.dur); };
   await loadFont('Montserrat', 300, 500, 900);
   if (!LIVE) { view('home'); $('#homeSub').textContent = 'Sem conta: a transcrição roda no seu aparelho e nada é salvo. Entre para guardar projetos.'; $('#nOut').hidden = true; return; }
