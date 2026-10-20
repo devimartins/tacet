@@ -5,7 +5,7 @@ import { silences, zoomAt } from './edit.js';
 import { suggestClips } from './clips.js';
 import { retime, tokens, fromWhisper } from './transcript.js';
 import { ICONS } from './icons.js';
-import { ytId, ytSupported, mountPlayer, record } from './yt.js';
+import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
 const LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);
@@ -106,7 +106,7 @@ $('#ytForm').onsubmit = async e => {
       $('#ytRec').disabled = true; $('#ytStop').hidden = false;
       try {
         const f = await record(player, box, { start: +$('#ytS').value || 0, end: +$('#ytE').value || 0, onStatus: (a, b) => $('#ytSt').textContent = `Gravando… ${mmss(a)} / ${mmss(b)}` });
-        $('#ytd').close(); try { player.destroy(); } catch {} await newVideo(f, 'clips');
+        $('#ytd').close(); try { player.destroy(); } catch {} await newVideo(await flatten(f), 'clips');
       } catch (err) { $('#ytSt').textContent = err.message || 'Falha na gravação.'; }
       $('#ytRec').disabled = false; $('#ytStop').hidden = true;
     };

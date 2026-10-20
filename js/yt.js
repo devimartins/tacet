@@ -44,3 +44,27 @@ export async function record(player, box, { start = 0, end, onStatus = () => {} 
   player.pauseVideo(); rec.stop(); stream.getTracks().forEach(t => t.stop()); await done;
   return new File(parts, 'youtube.mp4', { type: 'video/mp4' });
 }
+
+// O MediaRecorder gera MP4 fragmentado (sem índice completo). Reempacota em MP4 comum
+// para o restante do Tacet, que lê o índice 'moov'.
+export async function flatten(file) {
+  const buf = await file.arrayBuffer(); buf.fileStart = 0;
+  const mp4 = MP4Box.createFile(), got = {}; let info;
+  await new Promise((ok, no) => {
+    mp4.onError = no;
+    mp4.onReady = i => { info = i; i.tracks.forEach(t => { got[t.id] = []; mp4.setExtractionOptions(t.id, null, { nbSamples: 1e6 }); }); mp4.start(); };
+    mp4.onSamples = (id, _u, s) => { got[id].push(...s); };
+    mp4.appendBuffer(buf); mp4.flush(); setTimeout(ok, 50);
+  });
+  const vt = info.videoTracks[0], at = info.audioTracks[0]; if (!vt) throw new Error('Gravação sem vídeo.');
+  const desc = (id) => { const e = mp4.getTrackById(id).mdia.minf.stbl.stsd.entries[0], bx = e.avcC; if (!bx) return null; const DS = window.DataStream || MP4Box.DataStream, ds = new DS(undefined, 0, DS.BIG_ENDIAN); bx.write(ds); return new Uint8Array(ds.buffer, 8); };
+  const aAsc = at && (() => { const e = mp4.getTrackById(at.id).mdia.minf.stbl.stsd.entries[0], d = e.esds?.esd.descs[0]?.descs[0]; return d ? new Uint8Array(d.data) : null; })();
+  const M = window.Mp4Muxer, target = new M.ArrayBufferTarget();
+  const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: 'avc', width: vt.video.width, height: vt.video.height },
+    ...(at ? { audio: { codec: 'aac', sampleRate: at.audio.sample_rate, numberOfChannels: at.audio.channel_count } } : {}) });
+  const us = (v, ts) => Math.round(v * 1e6 / ts), vd = desc(vt.id);
+  for (const s of got[vt.id]) muxer.addVideoChunkRaw(s.data, s.is_sync ? 'key' : 'delta', us(s.cts, s.timescale), us(s.duration, s.timescale), { decoderConfig: { codec: vt.codec, description: vd, codedWidth: vt.video.width, codedHeight: vt.video.height } });
+  if (at) for (const s of got[at.id]) muxer.addAudioChunkRaw(s.data, 'key', us(s.cts, s.timescale), us(s.duration, s.timescale), { decoderConfig: { codec: at.codec.length > 4 || !aAsc ? at.codec : 'mp4a.40.' + (aAsc[0] >> 3), sampleRate: at.audio.sample_rate, numberOfChannels: at.audio.channel_count, description: aAsc } });
+  muxer.finalize();
+  return new File([target.buffer], 'youtube.mp4', { type: 'video/mp4' });
+}
