@@ -424,7 +424,7 @@ setInterval(() => { if (musEl) { if (S.playing && musEl.paused) musEl.play().cat
 
 // ---------- assinatura (Mercado Pago: PIX, débito e crédito) ----------
 if (CFG.PAY && LIVE) {
-  const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
+  const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90. Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
   const b = el('button', { type: 'button', className: 'btn pri', textContent: 'Assinar o Pro', onclick: async () => {
     b.disabled = true; const m = d.querySelector('.pm');
     try { const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/checkout', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token } }); const j = await r.json(); if (!r.ok || !j.url) throw new Error(j.error || 'Falha ao iniciar o pagamento.'); location.href = j.url; }
