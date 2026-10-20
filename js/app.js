@@ -8,6 +8,7 @@ import { ICONS } from './icons.js';
 import { drawOverlays, hookTitle } from './overlays.js';
 import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 import { initGuide } from './guide.js';
+import { assist, translateWords } from './ai.js';
 import { addEmojis } from './extras.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
@@ -346,6 +347,7 @@ function clipsUI() {
     if (c.state === 'rendering') { const p = el('progress', { max: 1, value: c.p || 0 }); p.style.maxWidth = '160px'; acts.append(p, el('span', { className: 'mut', textContent: 'Gerando… mantenha a tela aberta' })); }
     else acts.append(el('button', { className: 'btn pri', textContent: c.url ? 'Gerar de novo' : 'Gerar vídeo', disabled: S.busy, onclick: () => renderOne(c) }));
     if (c.url) acts.append(el('a', { className: 'btn', textContent: 'Baixar', href: c.url, download: `tacet-corte-${i + 1}.mp4` }));
+    { const d = el('button', { className: 'btn', textContent: 'Descrição e hashtags', onclick: () => describeClip(c, d) }); acts.append(d); }
     if (c.state === 'error') acts.append(el('span', { className: 'warn', textContent: c.err }));
     ul.append(el('li', { className: 'clip' }, el('div', {}, el('b', { textContent: c.title || 'Corte ' + (i + 1) }), ' ', el('span', { className: 'score', textContent: c.score != null ? 'nota ' + c.score : 'manual' })), el('div', { className: 'mut', textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }), acts));
   });
@@ -457,6 +459,32 @@ if (CFG.PAY && LIVE) {
   const pm = $('#planMsg'); $('#planBtn').onclick = () => checkout($('#planBtn'), pm); $('#nPro').onclick = async () => { await home(); $('#plan').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 }
 
+// ---------- tradução das legendas (IA) ----------
+$('#trGo').onclick = async () => {
+  if (!(LIVE && S.user)) { flash('Entre na sua conta para traduzir as legendas.'); return; }
+  if (!S.words.length) { flash('Ainda não há transcrição para traduzir.'); return; }
+  const go = $('#trGo'), msg = $('#trMsg'), lang = $('#trLang').value; go.disabled = true; msg.textContent = 'Traduzindo…';
+  try {
+    const t = await token(), res = await translateWords(visible(), (task, text, l) => assist(CFG, t, task, text, l), lang, p => { msg.textContent = 'Traduzindo… ' + Math.round(p * 100) + '%'; });
+    S.orig = S.orig || structuredClone(S.words); S.words = res; S.hid = new Set(); S.style.hid = []; $('#txt').value = S.words.map(w => w.w).join(' '); rebuild();
+    saveSoon('tr', { transcript: { words: S.words } }, 300); saveSoon('style', { style: S.style }, 300); $('#trUndo').hidden = false; msg.textContent = 'Pronto. Revise o texto abaixo e edite se quiser.';
+  } catch (e) { msg.textContent = e.message; }
+  go.disabled = false;
+};
+$('#trUndo').onclick = () => { if (!S.orig) return; S.words = S.orig; S.orig = null; S.hid = new Set(); S.style.hid = []; $('#txt').value = S.words.map(w => w.w).join(' '); rebuild(); saveSoon('tr', { transcript: { words: S.words } }, 300); $('#trUndo').hidden = true; $('#trMsg').textContent = 'Texto original restaurado.'; };
+
+// ---------- descrição e hashtags (IA) ----------
+async function describeClip(c, btn) {
+  if (!(LIVE && S.user)) { flash('Entre na sua conta para gerar a descrição.'); return; }
+  const w = visible().filter(x => x.s >= c.start - 0.05 && x.e <= c.end + 0.05); if (w.length < 3) { flash('Este corte quase não tem fala para descrever.'); return; }
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Gerando…';
+  try { const r = await assist(CFG, await token(), 'describe', w.map(x => x.w).join(' ').slice(0, 8000)); const tags = (Array.isArray(r.hashtags) ? r.hashtags : []).map(t => '#' + String(t).replace(/^#+/, '').replace(/\s+/g, '')).join(' ');
+    $('#descTxt').value = [r.title, r.description, tags].filter(Boolean).join('\n\n'); $('#desc').showModal(); }
+  catch (e) { flash(e.message); }
+  btn.disabled = false; btn.textContent = old;
+}
+$('#descCopy').onclick = async () => { try { await navigator.clipboard.writeText($('#descTxt').value); $('#descCopy').textContent = 'Copiado'; setTimeout(() => { $('#descCopy').textContent = 'Copiar'; }, 1500); } catch { $('#descTxt').select(); } };
+
 // ---------- títulos e imagens ----------
 S.ov = S.ov || [];
 function ovUI() {
@@ -467,7 +495,12 @@ function ovUI() {
     li.append(name, num('from'), el('span', { className: 'mut', textContent: 'a' }), num('to'), el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.ov.splice(i, 1); ovUI(); } })); ul.append(li);
   });
 }
-$('#ovTitle').onclick = () => { const w = visible(); if (!w.length) { flash('Ainda não há transcrição para sugerir um título.'); return; } S.ov.push({ kind: 'title', text: hookTitle(w), from: 0, to: Math.min(4, S.dur || 4) }); ovUI(); };
+$('#ovTitle').onclick = async () => {
+  const w = visible(); if (!w.length) { flash('Ainda não há transcrição para sugerir um título.'); return; }
+  const b = $('#ovTitle'); let text = hookTitle(w);
+  if (LIVE && S.user) { b.disabled = true; b.textContent = 'Criando com IA…'; try { const r = await assist(CFG, await token(), 'hook', w.map(x => x.w).join(' ').slice(0, 8000)); const t = (r.titles || []).find(x => typeof x === 'string' && x.trim()); if (t) text = t.trim().toUpperCase(); } catch (e) { flash(e.message + ' Usei uma sugestão simples.'); } b.disabled = false; b.textContent = 'Sugerir título de gancho'; }
+  S.ov.push({ kind: 'title', text, from: 0, to: Math.min(4, S.dur || 4) }); ovUI();
+};
 $('#ovImg').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
   try { const img = await createImageBitmap(f); const t0 = Math.max(0, +S.cur.toFixed(1)); S.ov.push({ kind: 'image', img, name: f.name, from: t0, to: t0 + 3 }); ovUI(); } catch { flash('Não consegui abrir esta imagem.'); }
