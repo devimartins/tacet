@@ -1,12 +1,26 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1d1d1b">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0b0c0d" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#f3f2ed" media="(prefers-color-scheme: light)">
+<script>try{var t=localStorage.getItem('theme');if(t){document.documentElement.dataset.theme=t;var m=document.createElement('meta');m.name='theme-color';m.content=t==='dark'?'#0b0c0d':'#f3f2ed';document.head.append(m)}}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Tacet">
-<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>Tacet · legendas e cortes para vídeos curtos</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta name="apple-mobile-web-app-title" content="Tacet"><meta name="application-name" content="Tacet">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="icon" href="icon-192.png" type="image/png">
+<title>Tacet · legendas animadas e cortes para vídeos curtos</title>
+<meta name="description" content="Gere legendas animadas, cortes virais, zoom automático e remoção de silêncio para Reels, TikTok e Shorts. Tudo no navegador, sem instalar nada, com plano gratuito.">
+<meta name="keywords" content="legendas automáticas, cortes de vídeo, vídeos curtos, reels, tiktok, shorts, remover silêncio, legenda animada, editor de vídeo online">
+<meta name="robots" content="index,follow,max-image-preview:large"><meta name="author" content="Tacet">
+<link rel="canonical" href="https://devimartins.github.io/tacet/">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Tacet"><meta property="og:locale" content="pt_BR"><meta property="og:url" content="https://devimartins.github.io/tacet/">
+<meta property="og:title" content="Tacet · legendas animadas e cortes para vídeos curtos">
+<meta property="og:description" content="Legendas que prendem, cortes que circulam. Edite vídeos curtos direto no navegador, com seu vídeo sempre no seu aparelho.">
+<meta property="og:image" content="https://devimartins.github.io/tacet/og-image.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Tacet: legendas animadas e cortes para vídeos curtos">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Tacet · legendas animadas e cortes para vídeos curtos"><meta name="twitter:description" content="Legendas animadas, cortes com IA, zoom e remoção de silêncio, tudo no navegador."><meta name="twitter:image" content="https://devimartins.github.io/tacet/og-image.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Tacet","url":"https://devimartins.github.io/tacet/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
+<link rel="modulepreload" href="js/app.js"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0b0c0d;--s1:#121314;--in:#1a1b1d;--bd:#26282b;--tx:#eceae4;--mut:#8d9096;--ac:#8fd6c0;--acd:#2f6f5e;--pri:#eceae4;--pro:#0b0c0d;--er:#f2958f;--rail:#070808;--railtx:#eceae4;--glow:rgba(143,214,192,.10);--stg:#050606;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -117,7 +131,75 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
 .txtmode{margin-top:10px}.txtmode summary{cursor:pointer;color:var(--mut);font-size:13px;padding:6px 0}
 .grp.first{margin-top:6px;padding-top:0;border-top:0}.soonrow{opacity:.5}.soonrow em{font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ===== camada premium ===== */
+:root{--rail-bd:#1b1c1e;--rail-hv:rgba(255,255,255,.07);--rail-on:rgba(255,255,255,.1);--sh1:0 1px 2px rgba(0,0,0,.35);--sh2:0 12px 40px -12px rgba(0,0,0,.6);--ring:rgba(143,214,192,.35);--grad:linear-gradient(135deg,#8fd6c0,#6aa7e8)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--rail:#fbfbf8;--railtx:#171715;--rail-bd:#dedcd3;--rail-hv:rgba(0,0,0,.05);--rail-on:rgba(0,0,0,.08);--sh1:0 1px 2px rgba(20,20,10,.08);--sh2:0 12px 40px -14px rgba(40,40,20,.25);--ring:rgba(47,111,94,.28);--grad:linear-gradient(135deg,#2f6f5e,#3a6fb0)}}
+:root[data-theme="light"]{--rail:#fbfbf8;--railtx:#171715;--rail-bd:#dedcd3;--rail-hv:rgba(0,0,0,.05);--rail-on:rgba(0,0,0,.08);--sh1:0 1px 2px rgba(20,20,10,.08);--sh2:0 12px 40px -14px rgba(40,40,20,.25);--ring:rgba(47,111,94,.28);--grad:linear-gradient(135deg,#2f6f5e,#3a6fb0)}
+html{scroll-behavior:smooth;color-scheme:dark light}
+body{transition:background-color .25s,color .25s;text-rendering:optimizeLegibility;font-feature-settings:"ss01","cv11"}
+::selection{background:var(--ring);color:var(--tx)}
+*{scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+:focus-visible{outline:0;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ac)}
+#rail{border-right-color:var(--rail-bd);background:color-mix(in srgb,var(--rail) 88%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(18px);backdrop-filter:saturate(1.4) blur(18px)}
+#rail button:hover:not([disabled]){background:var(--rail-hv)}#rail button[aria-current=page]{background:var(--rail-on)}
+#rail .logo svg{color:var(--ac)}
+.btn{box-shadow:var(--sh1);transition:border-color .15s,background .15s,transform .12s,box-shadow .15s}
+.btn:active:not([disabled]){transform:translateY(1px) scale(.99)}
+.btn.pri{background:var(--grad);border-color:transparent;color:#07120e;box-shadow:0 6px 20px -8px var(--ac),var(--sh1)}
+:root[data-theme="light"] .btn.pri{color:#fff}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .btn.pri{color:#fff}}
+.btn.pri:hover:not([disabled]){opacity:1;filter:brightness(1.07);box-shadow:0 10px 28px -8px var(--ac),var(--sh1)}
+h1{background:linear-gradient(180deg,var(--tx),color-mix(in srgb,var(--tx) 62%,transparent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border:1px solid var(--bd);border-radius:999px;background:var(--s1);color:var(--ac)}
+.hero .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ac);box-shadow:0 0 0 4px var(--glow)}
+.perks{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 0;padding:0;list-style:none}.perks li{font-size:13px;color:var(--mut);border:1px solid var(--bd);border-radius:999px;padding:5px 12px;background:var(--s1)}
+.drop{box-shadow:var(--sh1);transition:border-color .2s,transform .2s,box-shadow .2s}
+.drop:hover,.drop.on{transform:translateY(-3px);box-shadow:var(--sh2)}
+.drop::after{content:"↗";position:absolute;right:22px;top:20px;font-size:18px;color:var(--mut);transition:color .2s,transform .2s}.drop:hover::after{color:var(--ac);transform:translate(2px,-2px)}
+li.item,.card,.clip,.gcard{box-shadow:var(--sh1);transition:border-color .15s,box-shadow .2s,transform .2s}
+li.item:hover,.gcard:hover{box-shadow:var(--sh2);transform:translateY(-2px)}
+.tabs{background:var(--bg);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}.tabs button{transition:color .15s,background .15s}.tabs button[aria-selected=true]{box-shadow:var(--sh1),0 0 0 1px var(--bd)}
+.stage{box-shadow:0 0 0 1px rgba(255,255,255,.08),0 40px 90px -24px rgba(0,0,0,.75),0 0 80px -30px var(--ac)}
+.transport{box-shadow:var(--sh1);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.edit .right{box-shadow:-20px 0 60px -40px rgba(0,0,0,.5)}
+dialog{box-shadow:var(--sh2)}dialog::backdrop{background:rgba(5,6,7,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+dialog[open]{animation:pop .18s ease-out}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}}
+#flash{box-shadow:var(--sh2);animation:pop .2s ease-out}
+input,select,textarea{transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--ac);box-shadow:0 0 0 3px var(--ring)}
+progress{border-radius:99px;overflow:hidden}
+/* conteúdo para quem ainda não entrou (também ajuda a indexação) */
+#about{display:none;max-width:880px;margin:0 auto;padding:8px 0 40px}
+#login:not([hidden])~#about{display:block}
+#about h2{font-size:12px;margin-top:40px}#about h3{font-size:18px;font-weight:500;letter-spacing:-.01em;margin:0 0 6px}
+#about .gridf{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+#about .gridf>div{border:1px solid var(--bd);background:var(--s1);border-radius:14px;padding:18px;box-shadow:var(--sh1)}#about p{margin:0}
+#about details{border-bottom:1px solid var(--bd);padding:12px 0}#about summary{cursor:pointer;font-weight:500}#about details p{margin-top:8px}
+@media(max-width:760px){h1{font-size:clamp(30px,9vw,44px)}.drop{min-height:150px;padding:22px}.hero{padding-bottom:26px}#login h1{font-size:38px}}
+@media(min-width:1280px){main{padding-top:64px}.wrap{max-width:1120px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+
+/* ===== fundo animado (só transform/opacity, composto na GPU; some no editor) ===== */
+#bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;contain:strict;
+ -webkit-mask-image:linear-gradient(180deg,#000 0,#000 55%,transparent 100%);mask-image:linear-gradient(180deg,#000 0,#000 55%,transparent 100%)}
+#bg i{position:absolute;border-radius:50%;width:60vmax;height:60vmax;opacity:.5;will-change:transform;transform:translate3d(0,0,0)}
+#bg i:nth-child(1){left:-18vmax;top:-26vmax;background:radial-gradient(closest-side,rgba(143,214,192,.34),transparent);animation:bgA 38s ease-in-out infinite alternate}
+#bg i:nth-child(2){right:-22vmax;top:-12vmax;background:radial-gradient(closest-side,rgba(106,167,232,.26),transparent);animation:bgB 46s ease-in-out infinite alternate}
+#bg i:nth-child(3){left:20vw;top:30vmax;width:50vmax;height:50vmax;background:radial-gradient(closest-side,rgba(180,150,235,.16),transparent);animation:bgC 54s ease-in-out infinite alternate}
+@keyframes bgA{to{transform:translate3d(14vmax,10vmax,0) scale(1.12)}}
+@keyframes bgB{to{transform:translate3d(-12vmax,14vmax,0) scale(.92)}}
+@keyframes bgC{to{transform:translate3d(-10vmax,-8vmax,0) scale(1.15)}}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) #bg i{opacity:.38;mix-blend-mode:multiply}}
+:root[data-theme="light"] #bg i{opacity:.38;mix-blend-mode:multiply}
+body:has(#edit:not([hidden])) #bg{display:none}
+html.still #bg i,html.hid #bg i{animation:none}
+@media(prefers-reduced-motion:reduce){#bg i{animation:none!important}}
+@media(max-width:760px){#bg i:nth-child(3){display:none}}
 </style></head><body>
+<div id="bg" aria-hidden="true"><i></i><i></i><i></i></div>
+<script>(function(){var d=document.documentElement,n=navigator,c=n.connection;if((n.hardwareConcurrency&&n.hardwareConcurrency<=2)||(n.deviceMemory&&n.deviceMemory<=2)||(c&&c.saveData))d.classList.add("still");document.addEventListener("visibilitychange",function(){d.classList.toggle("hid",document.hidden)})})()</script>
 <nav id="rail" aria-label="Principal" hidden>
  <div class="logo"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="8" y="9" width="16" height="6" fill="currentColor"/><rect x="5" y="15" width="22" height="1.6" fill="currentColor" opacity=".55"/></svg><b>tacet</b></div>
  <button id="nHome" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/></svg><span class="lbl">Projetos</span></button>
@@ -134,8 +216,24 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
  <div class="prov" id="prov"></div><p id="lmsg" class="warn" role="status"></p>
  <p class="mut" style="font-size:12px">Ao entrar, você concorda em usar o serviço de forma legal e com vídeos que pode publicar.</p>
 </section>
+<section id="about" aria-labelledby="ab1">
+ <h2 id="ab1">O que o Tacet faz</h2>
+ <div class="gridf">
+  <div><h3>Legendas animadas</h3><p class="mut">Transcrição automática em português e outros idiomas, com estilos prontos e destaque palavra por palavra.</p></div>
+  <div><h3>Cortes virais com IA</h3><p class="mut">Envie um vídeo longo e receba os melhores momentos já em 9:16 para Reels, TikTok e Shorts.</p></div>
+  <div><h3>Zoom e silêncio</h3><p class="mut">Zoom automático nos pontos de ênfase e remoção de pausas e vícios de fala para um ritmo mais rápido.</p></div>
+  <div><h3>Privado por padrão</h3><p class="mut">O vídeo é processado no seu aparelho. Só o áudio vai para transcrição e nada fica guardado além do necessário.</p></div>
+ </div>
+ <h2>Planos</h2>
+ <p class="mut">Gratuito: vídeos de até 1 GB e projetos salvos por 3 dias, com anúncios. Pro: R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90, com pagamento por PIX, cartão de débito ou crédito.</p>
+ <h2>Perguntas frequentes</h2>
+ <details><summary>Preciso instalar algo?</summary><p class="mut">Não. O Tacet funciona no navegador e pode ser adicionado à tela inicial no Android, iOS e Windows.</p></details>
+ <details><summary>Meu vídeo é enviado para algum servidor?</summary><p class="mut">Não. A edição e a exportação acontecem no seu aparelho. Para transcrever, apenas o áudio é enviado e descartado em seguida.</p></details>
+ <details><summary>Funciona com vídeos do YouTube?</summary><p class="mut">Sim, para vídeos sobre os quais você tem direitos, gravando o trecho a partir do player oficial no Chrome ou Edge no computador.</p></details>
+</section>
+<noscript><p style="padding:24px;text-align:center">O Tacet precisa de JavaScript para editar vídeos no navegador.</p></noscript>
 <section id="home" hidden><div class="wrap">
- <div class="hero"><p class="eyebrow">Tacet</p><h1>Legendas que prendem. Cortes que circulam.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">No plano gratuito, os projetos ficam salvos por 3 dias. O vídeo fica no seu aparelho.</p></div>
+ <div class="hero"><p class="eyebrow">Tacet</p><h1>Legendas que prendem. Cortes que circulam.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">No plano gratuito, os projetos ficam salvos por 3 dias. O vídeo fica no seu aparelho.</p><ul class="perks"><li>Roda no seu navegador</li><li>Vídeo não sai do aparelho</li><li>Legendas animadas</li><li>Cortes com IA</li></ul></div>
  <div class="start">
   <label class="drop" id="drop" data-mode="clips"><b>Cortes de vídeo longo</b><span class="mut">A IA acha os melhores momentos e aplica as legendas. MP4 ou MOV, até 1 GB.</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
   <label class="drop" id="drop2" data-mode="captions"><b>Só legendas</b><span class="mut">Transcrição automática e legendas animadas no vídeo todo (até 2 min na exportação).</span><input id="newfile2" type="file" accept="video/mp4,video/quicktime,video/*"></label>
@@ -182,6 +280,6 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
 </main>
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, que está em desenvolvimento. Os pagamentos serão por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
-<script src="vendor/mp4box.all.min.js"></script><script src="vendor/mp4-muxer.js"></script><script src="vendor/supabase.js"></script><script src="config.js"></script>
+<script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
 <script type="module" src="js/app.js"></script>
 </body></html>
