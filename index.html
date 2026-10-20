@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d1d1b">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tacet">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Tacet · legendas e cortes para vídeos curtos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+:root{--bg:#0b0c0d;--s1:#121314;--in:#1a1b1d;--bd:#26282b;--tx:#eceae4;--mut:#8d9096;--ac:#8fd6c0;--acd:#2f6f5e;--pri:#eceae4;--pro:#0b0c0d;--er:#f2958f;--rail:#070808;--railtx:#eceae4;--glow:rgba(143,214,192,.10);--stg:#050606;
+ --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f3f2ed;--s1:#fbfbf8;--in:#ffffff;--bd:#dedcd3;--tx:#171715;--mut:#6a6a64;--ac:#2f6f5e;--pri:#171715;--pro:#f3f2ed;--er:#b3261e;--glow:rgba(47,111,94,.08);--stg:#e6e5de;color-scheme:light}}
+:root[data-theme="light"]{--bg:#f3f2ed;--s1:#fbfbf8;--in:#ffffff;--bd:#dedcd3;--tx:#171715;--mut:#6a6a64;--ac:#2f6f5e;--pri:#171715;--pro:#f3f2ed;--er:#b3261e;--glow:rgba(47,111,94,.08);--stg:#e6e5de;color-scheme:light}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--tx);font:400 15px/1.55 Geist,"Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+[hidden]{display:none!important}
+.mut{color:var(--mut);font-size:14px}
+h1{font-size:clamp(34px,5vw,56px);font-weight:500;line-height:1.02;letter-spacing:-.035em;margin:0 0 14px;text-wrap:balance}
+h2{font-size:12px;font-weight:500;margin:34px 0 12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 18px;border-radius:8px;border:1px solid var(--bd);background:var(--in);font-size:14px;font-weight:500;text-decoration:none;transition:border-color .15s,background .15s}
+.btn:hover:not([disabled]){border-color:var(--mut)}
+.btn.pri{background:var(--pri);color:var(--pro);border-color:var(--pri)}.btn.pri:hover:not([disabled]){opacity:.9}.btn[disabled]{opacity:.45;cursor:default}
+.card{border:1px solid var(--bd);border-radius:10px;background:var(--s1);padding:12px 14px}
+/* menu lateral: recolhido por padrão, expande ao passar o mouse */
+#rail{position:fixed;z-index:20;left:0;top:0;bottom:0;width:64px;background:var(--rail);color:var(--railtx);border-right:1px solid #1b1c1e;display:flex;flex-direction:column;gap:4px;padding:14px 10px calc(14px + var(--safe-b)) calc(10px + var(--safe-l));overflow:hidden;transition:width .24s cubic-bezier(.2,.7,.2,1)}
+#rail:hover,#rail:focus-within{width:240px}
+#rail .logo{display:flex;align-items:center;gap:14px;height:44px;padding-left:8px;margin-bottom:18px;white-space:nowrap}
+#rail .logo svg{flex:none}#rail .logo b{font-weight:500;font-size:19px;letter-spacing:-.01em;opacity:0;transition:opacity .15s}#rail:hover .logo b,#rail:focus-within .logo b{opacity:1}
+#rail button{display:flex;align-items:center;gap:14px;height:44px;padding:0 8px;border:0;border-radius:8px;background:none;color:inherit;white-space:nowrap;text-align:left;font-size:14px;opacity:.72;transition:background .15s,opacity .15s}
+#rail button svg{flex:none;width:22px;height:22px}#rail button:hover:not([disabled]){background:rgba(255,255,255,.07);opacity:1}#rail button[aria-current=page]{background:rgba(255,255,255,.1);opacity:1}
+#rail button[disabled]{opacity:.35;cursor:default}#rail .sp{flex:1}
+#rail .lbl{opacity:0;transition:opacity .15s}#rail:hover .lbl,#rail:focus-within .lbl{opacity:1}
+#rail small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-left:auto;padding-right:4px}
+main{margin-left:calc(64px + var(--safe-l));padding:56px 40px 72px;min-height:100dvh}
+.wrap{max-width:1040px;margin:0 auto}
+main:has(#edit:not([hidden])){padding:0}#edit .wrap{max-width:none;margin:0}
+@media(max-width:760px){
+ #rail{top:auto;right:0;width:auto;height:calc(62px + var(--safe-b));flex-direction:row;justify-content:space-around;padding:6px 8px var(--safe-b);gap:0;border-right:0;border-top:1px solid #1b1c1e}
+ #rail:hover,#rail:focus-within{width:auto}#rail .logo,#rail .lbl,#rail small{display:none}#rail .sp{display:none}#rail button{flex-direction:column;justify-content:center;gap:3px;height:50px;padding:0 10px;font-size:11px}
+ #rail .lbl{display:block;opacity:1;font-size:11px}
+ main{margin-left:0;padding:28px 16px calc(88px + var(--safe-b))}main:has(#edit:not([hidden])){padding:0 0 calc(70px + var(--safe-b))}}
+/* entrada */
+#login{min-height:100dvh;display:grid;place-content:center;justify-items:center;text-align:center;max-width:420px;margin:-56px auto 0;position:relative}
+#login::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(60% 50% at 50% 38%,var(--glow),transparent 70%)}
+#login .mark{width:52px;height:52px;margin:0 auto 22px;color:var(--tx)}
+#login h1{font-size:44px;margin-bottom:10px}
+.prov{display:grid;gap:10px;margin:26px 0 12px;width:100%}.prov .btn{justify-content:flex-start;padding-left:18px;min-height:48px;background:var(--s1)}.prov svg{width:20px;height:20px;flex:none}.prov span{flex:1;text-align:center;padding-right:20px}
+/* início */
+.hero{padding:8px 0 40px;max-width:760px}
+.hero .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac);margin:0 0 18px;font-weight:500}
+.drop{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:6px;min-height:200px;padding:28px;border:1px solid var(--bd);border-radius:14px;background:linear-gradient(180deg,var(--s1),var(--bg));cursor:pointer;overflow:hidden;transition:border-color .2s}
+.drop::before{content:"";position:absolute;right:-60px;top:-80px;width:340px;height:340px;background:radial-gradient(circle,var(--glow),transparent 65%)}
+.drop b{font-size:22px;font-weight:500;letter-spacing:-.02em;position:relative}.drop span{position:relative}
+.drop:hover,.drop.on{border-color:var(--ac)}.drop input{position:absolute;opacity:0;width:1px;height:1px}
+ul.list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+#plist{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+li.item{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--bd);border-radius:12px;background:var(--s1);padding:16px}.grow{flex:1;min-width:160px}
+.ad{margin-top:24px;min-height:90px}
+/* editor: palco no centro, inspetor fixo à direita */
+.edit{display:grid;gap:0}
+.edit .left{background:radial-gradient(70% 60% at 50% 40%,var(--glow),transparent 75%),var(--stg);padding:28px 16px 22px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.edit .right{padding:18px 18px 28px;background:var(--s1);border-top:1px solid var(--bd)}
+@media(min-width:900px){.edit{grid-template-columns:minmax(0,1fr) 400px;height:100dvh}
+ .edit .left{justify-content:center;padding:28px}
+ .edit .right{overflow-y:auto;border-top:0;border-left:1px solid var(--bd);padding:20px 22px 40px}}
+.stage{position:relative;aspect-ratio:9/16;width:min(100%,calc(74dvh*9/16));background:#000;border-radius:18px;overflow:hidden;touch-action:none;cursor:grab;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 30px 80px -20px rgba(0,0,0,.7)}
+.stage.drag{cursor:grabbing}.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%}
+.stage .ph{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;color:#b9bbc0;text-align:center;padding:28px;font-size:14px}
+.stage .ph .btn{background:#fff;color:#0b0c0d;border-color:#fff}
+.transport{display:flex;gap:12px;align-items:center;width:min(100%,calc(74dvh*9/16));padding:4px 6px 4px 4px;border:1px solid var(--bd);border-radius:999px;background:var(--s1)}
+.transport .btn{min-height:38px;border-radius:999px;padding:0 16px;font-size:13px}
+.transport .t{font-size:12px;color:var(--mut);min-width:78px;text-align:right;font-variant-numeric:tabular-nums;padding-right:10px}
+input[type=range]{width:100%;min-height:36px;accent-color:var(--ac);margin:0}
+#status{font-size:13px}
+.tabs{display:flex;gap:2px;padding:3px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);margin:14px 0 16px}
+.tabs button{flex:1;border:0;background:none;padding:8px 10px;min-height:36px;font-weight:500;font-size:13px;color:var(--mut);border-radius:7px;white-space:nowrap}
+.tabs button[aria-selected=true]{color:var(--tx);background:var(--in);box-shadow:0 0 0 1px var(--bd)}
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px}
+.presets button{position:relative;min-height:56px;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:10px 12px;text-align:left;font-size:15px;transition:border-color .15s}
+.presets button:hover{border-color:var(--mut)}
+.presets button[aria-pressed=true]{border-color:var(--ac);box-shadow:inset 0 0 0 1px var(--ac)}.presets .lk{position:absolute;right:8px;top:7px;font:500 9px/1 Geist,system-ui,sans-serif;letter-spacing:.1em;color:var(--ac)}
+.grp{margin-top:26px;padding-top:18px;border-top:1px solid var(--bd)}.grp>b{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:500;margin-bottom:8px}
+.row{display:grid;grid-template-columns:minmax(110px,150px) 1fr;gap:6px 12px;align-items:center;min-height:42px;font-size:14px}
+@media(max-width:480px){.row{grid-template-columns:1fr;gap:0}}
+.row output{font-size:12px;color:var(--mut);min-width:36px;text-align:right;font-variant-numeric:tabular-nums}.rng{display:flex;align-items:center;gap:8px}
+.row select,.row input[type=text],.row input[type=number]{min-height:40px;border:1px solid var(--bd);border-radius:8px;background:var(--in);padding:6px 10px;width:100%}
+.row input[type=color]{width:56px;height:40px;border:1px solid var(--bd);border-radius:8px;background:var(--in);padding:3px}
+.seg{display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:var(--in)}.seg button{border:0;background:none;min-height:40px;padding:0 14px;font-weight:500;font-size:13px}
+.seg button[aria-pressed=true]{background:var(--pri);color:var(--pro)}
+textarea{width:100%;min-height:260px;resize:vertical;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:12px 14px;line-height:1.7;font-size:15px}
+progress{width:100%;height:4px;accent-color:var(--ac)}
+.warn{color:var(--er);font-size:13px;min-height:20px;margin:4px 0 0}
+.clip{border:1px solid var(--bd);border-radius:12px;background:var(--in);padding:14px;display:grid;gap:8px}.clip b{font-weight:500}
+.clip .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.score{font-size:11px;border:1px solid var(--ac);border-radius:999px;padding:1px 9px;color:var(--ac);letter-spacing:.04em}
+dialog{border:1px solid var(--bd);border-radius:16px;background:var(--s1);color:var(--tx);max-width:min(92vw,420px);padding:26px}dialog::backdrop{background:rgba(0,0,0,.6)}
+#flash{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + var(--safe-b));z-index:30;background:var(--pri);color:var(--pro);padding:11px 18px;border-radius:10px;max-width:90vw;font-size:14px}
+@media(min-width:761px){#flash{bottom:24px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<nav id="rail" aria-label="Principal" hidden>
+ <div class="logo"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="8" y="9" width="16" height="6" fill="currentColor"/><rect x="5" y="15" width="22" height="1.6" fill="currentColor" opacity=".55"/></svg><b>tacet</b></div>
+ <button id="nHome" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/></svg><span class="lbl">Projetos</span></button>
+ <button id="nNew" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span class="lbl">Novo vídeo</span></button>
+ <button id="nTl" type="button" disabled title="Em desenvolvimento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 7h10M3 12h18M3 17h7"/></svg><span class="lbl">Linha do tempo</span><small>em breve</small></button>
+ <span class="sp"></span>
+ <button id="nTheme" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span class="lbl" id="themeLbl">Tema</span></button>
+ <button id="nOut" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg><span class="lbl" id="who">Sair</span></button>
+</nav>
+<main>
+<section id="login" hidden>
+ <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="8" y="9" width="16" height="6" fill="currentColor"/><rect x="5" y="15" width="22" height="1.6" fill="currentColor" opacity=".55"/></svg>
+ <h1>tacet</h1><p class="mut" style="font-size:16px">Legendas animadas e cortes para vídeos curtos, direto no navegador.</p>
+ <div class="prov" id="prov"></div><p id="lmsg" class="warn" role="status"></p>
+ <p class="mut" style="font-size:12px">Ao entrar, você concorda em usar o serviço de forma legal e com vídeos que pode publicar.</p>
+</section>
+<section id="home" hidden><div class="wrap">
+ <div class="hero"><p class="eyebrow">Tacet</p><h1>Legendas que prendem. Cortes que circulam.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">No plano gratuito, os projetos ficam salvos por 3 dias. O vídeo fica no seu aparelho.</p></div>
+ <label class="drop" id="drop" style="position:relative"><b>Escolher vídeo</b><span class="mut">MP4 ou MOV, até 1 GB. A transcrição começa sozinha.</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
+ <h2>Seus projetos</h2><ul class="list" id="plist"></ul><p class="mut" id="pempty" hidden>Nenhum projeto ainda.</p>
+ <div class="ad" id="ad" hidden></div>
+</div></section>
+<section id="edit" hidden><div class="wrap edit">
+ <div class="left">
+  <div class="stage" id="stage"><video id="vid" playsinline loop></video><canvas id="cv"></canvas>
+   <div class="ph" id="ph"><span id="phTxt">Selecione o vídeo para pré-visualizar.</span><label class="btn" style="position:relative">Selecionar vídeo<input id="attach" type="file" accept="video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
+  <div class="transport"><button class="btn" id="pp" type="button" style="min-width:104px">Reproduzir</button><input id="scrub" type="range" min="0" max="8" step="0.01" value="0" aria-label="Posição no vídeo"><span class="t" id="tm">0:00</span></div>
+ </div>
+ <div class="right">
+  <div class="card" id="statusCard"><p class="mut" id="status" style="margin:0" role="status"></p><progress id="pg" max="1" value="0" hidden style="margin-top:8px"></progress></div>
+  <div class="tabs" role="tablist" style="margin-top:14px"><button role="tab" id="tabS" aria-selected="true" data-t="style">Estilo</button><button role="tab" id="tabT" aria-selected="false" data-t="text">Transcrição</button><button role="tab" id="tabC" aria-selected="false" data-t="clips">Cortes</button></div>
+  <div id="pStyle"><div class="presets" id="presets"></div><div id="ctl"></div><p class="warn" id="warn" role="status"></p></div>
+  <div id="pText" hidden><textarea id="txt" aria-label="Transcrição editável" placeholder="A transcrição aparece aqui."></textarea><p class="mut">Edite o texto: o tempo das palavras que você não mudou é preservado.</p></div>
+  <div id="pClips" hidden><p class="mut" id="cmsg"></p><ul class="list" id="clips"></ul>
+   <h2>Corte manual</h2><div class="row"><label for="ms">Início (segundos)</label><input id="ms" type="number" min="0" step="0.1" value="0"></div><div class="row"><label for="me">Fim (segundos)</label><input id="me" type="number" min="0" step="0.1" value="30"></div><button class="btn" id="addManual" type="button">Adicionar corte</button></div>
+ </div></div></section>
+</main>
+<dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, que está em desenvolvimento. Os pagamentos serão por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
+<div id="flash" role="status" hidden></div>
+<script src="vendor/mp4box.all.min.js"></script><script src="vendor/mp4-muxer.js"></script><script src="vendor/supabase.js"></script><script src="config.js"></script>
+<script type="module" src="js/app.js"></script>
+</body></html>
