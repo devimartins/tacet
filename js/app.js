@@ -5,6 +5,7 @@ import { silences, zoomAt } from './edit.js';
 import { suggestClips } from './clips.js';
 import { retime, tokens, fromWhisper } from './transcript.js';
 import { ICONS } from './icons.js';
+import { drawOverlays, hookTitle } from './overlays.js';
 import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
@@ -14,7 +15,7 @@ const el = (t, a = {}, ...c) => { const e = document.createElement(t); Object.as
 const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } } };
-const S = { sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
+const S = { ov: [], sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
 let EG = null, HG = null;
 S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
 const DIMS = { '9:16': [1080, 1920], '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1920, 1080] };
@@ -72,7 +73,7 @@ async function newVideo(f, mode = 'clips') {
   if (!f) return; S.mode = mode;
   if (f.size > MAX_BYTES) { flash('O plano gratuito aceita vídeos de até 1 GB. Este tem ' + (f.size / 1024 ** 3).toFixed(2) + ' GB.'); return; }
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
-  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16';
+  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
@@ -347,7 +348,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: S.ov }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = 'error'; c.err = e.message; }
   finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -371,7 +372,7 @@ function frame(now) {
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur).toFixed(3) + ')' : '';
     $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
-    const r = rs(); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r);
+    const r = rs(); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length) drawOverlays(ctx, W, H, S.ov, S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
     if (S.safeOn && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
     const boxOut = S.bbox ? outsideSafe(S.bbox, S.safeP, W, H) : (r.y * H < safeRect(S.safeP, W, H).y || r.y * H > safeRect(S.safeP, W, H).y + safeRect(S.safeP, W, H).h);
@@ -431,3 +432,19 @@ if (CFG.PAY && LIVE) {
   } });
   const m = el('p', { className: 'mut pm', role: 'status' }); d.querySelector('form').before(b, m);
 }
+
+// ---------- títulos e imagens ----------
+S.ov = S.ov || [];
+function ovUI() {
+  const ul = $('#ovList'); ul.replaceChildren();
+  S.ov.forEach((o, i) => {
+    const li = el('li'); const num = (k) => { const n = el('input', { type: 'number', min: 0, step: 0.5, value: +o[k].toFixed(1), ariaLabel: k === 'from' ? 'Início' : 'Fim' }); n.style.width = '64px'; n.onchange = () => { o[k] = Math.max(0, +n.value || 0); }; return n; };
+    const name = o.kind === 'title' ? el('input', { value: o.text, ariaLabel: 'Texto do título', oninput: e => { o.text = e.target.value; } }) : el('span', { textContent: 'Imagem: ' + o.name });
+    li.append(name, num('from'), el('span', { className: 'mut', textContent: 'a' }), num('to'), el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.ov.splice(i, 1); ovUI(); } })); ul.append(li);
+  });
+}
+$('#ovTitle').onclick = () => { const w = visible(); if (!w.length) { flash('Ainda não há transcrição para sugerir um título.'); return; } S.ov.push({ kind: 'title', text: hookTitle(w), from: 0, to: Math.min(4, S.dur || 4) }); ovUI(); };
+$('#ovImg').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  try { const img = await createImageBitmap(f); const t0 = Math.max(0, +S.cur.toFixed(1)); S.ov.push({ kind: 'image', img, name: f.name, from: t0, to: t0 + 3 }); ovUI(); } catch { flash('Não consegui abrir esta imagem.'); }
+};

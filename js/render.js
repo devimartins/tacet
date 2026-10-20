@@ -2,6 +2,7 @@
 // O áudio original (AAC) é copiado sem recodificar.
 import { drawCaption, chunksOf, resolve, loadFont } from './captions.js';
 import { makeReader } from './media.js';
+import { drawOverlays } from './overlays.js';
 import { silences, makeShift, inRange, zoomAt } from './edit.js';
 
 export async function pickCodec(W, H, fps) {
@@ -54,6 +55,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     ctx.drawImage(f, 0, 0); f.close();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     drawCaption(ctx, W, H, chunks, t, rs);
+    if (opts.overlays && opts.overlays.length) drawOverlays(ctx, W, H, opts.overlays, ta, rs.font);
     const vf = new VideoFrame(cv, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: n++ % (fps * 2) === 0 }); vf.close();
     while (enc.encodeQueueSize > 6) await new Promise(r => enc.addEventListener('dequeue', r, { once: true }));

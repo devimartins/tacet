@@ -168,6 +168,9 @@ li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px
    <div class="grp first"><b>Prender a atenção</b><div id="fxZoom"></div>
     <div class="row soonrow"><span>B-rolls automáticos<br><small class="mut">Troca momentos por imagens relevantes.</small></span><em>Em breve</em></div>
     <div class="row soonrow"><span>Título de gancho<br><small class="mut">Gera uma frase de abertura.</small></span><em>Em breve</em></div></div>
+   <div class="grp"><b>Títulos e imagens</b><p class="mut">Aparecem sobre o vídeo no preview e na exportação.</p>
+    <div class="row"><button class="btn" id="ovTitle" type="button">Sugerir título de gancho</button><label class="btn" style="cursor:pointer">Adicionar imagem<input id="ovImg" type="file" accept="image/*" hidden></label></div>
+    <ul class="list" id="ovList"></ul></div>
    <div class="grp"><b>Música de fundo</b><p class="mut" id="musMsg">Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.</p>
     <label class="btn" style="cursor:pointer">Escolher áudio<input id="musFile" type="file" accept="audio/*" hidden></label>
     <div class="row" id="musRow" hidden><span>Volume<br><small class="mut" id="musName"></small></span><input id="musVol" type="range" min="0" max="100" value="25" aria-label="Volume da música"><button class="btn" id="musOff" type="button">Remover</button></div></div>
