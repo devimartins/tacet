@@ -188,7 +188,7 @@ function saveSoon(key, patch, ms = 900) { clearTimeout(pend[key]); pend[key] = s
 // ---------- editor ----------
 function enterEdit() { view('edit'); tab('style'); setRatio(S.ratio); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
 function setVideo(f) {
-  const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
+  const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { if (v.currentTime === 0) v.currentTime = 0.05; $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
 }
 function tab(t) { for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'], ['pClips', 'clips']]) $('#' + id).hidden = k !== t; document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t)); }
 document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => tab(b.dataset.t); });
