@@ -1,4 +1,4 @@
-import { FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, drawCaption, safeRect, outsideSafe } from './captions.js';
+import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, drawCaption, safeRect, outsideSafe } from './captions.js';
 import { openMedia, extractAudio } from './media.js';
 import { renderClip } from './render.js';
 import { suggestClips } from './clips.js';
@@ -13,6 +13,7 @@ const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } } };
 const S = { sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
+let EG = null, HG = null;
 const canPro = () => !CFG.GATE || S.plan === 'pro';
 const flash = m => { const f = $('#flash'); f.textContent = m; f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
 
@@ -48,7 +49,8 @@ async function home() {
   const ul = $('#plist'); ul.replaceChildren(); $('#pempty').hidden = data.length > 0; $('#pempty').textContent = 'Nenhum projeto ainda.';
   for (const p of data) {
     const days = Math.max(0, Math.ceil((new Date(p.expires_at) - Date.now()) / 864e5));
-    ul.append(el('li', { className: 'item' }, el('div', { className: 'grow' }, el('b', { textContent: p.title || 'Sem título' }), el('div', { className: 'mut', textContent: (p.duration ? mmss(p.duration) + ' · ' : '') + 'expira em ' + days + (days === 1 ? ' dia' : ' dias') })),
+    const th = ls.get('th_' + p.id);
+    ul.append(el('li', { className: 'item' }, ...(th ? [el('img', { className: 'th', src: th, alt: '' })] : []), el('div', { className: 'grow' }, el('b', { textContent: p.title || 'Sem título' }), el('div', { className: 'mut', textContent: (p.duration ? mmss(p.duration) + ' · ' : '') + 'expira em ' + days + (days === 1 ? ' dia' : ' dias') })),
       el('button', { className: 'btn', textContent: 'Abrir', onclick: () => openProject(p.id) }),
       el('button', { className: 'btn', textContent: 'Excluir', onclick: async () => { if (!confirm('Excluir este projeto?')) return; const r = await S.sb.from('projects').delete().eq('id', p.id); if (r.error) flash(r.error.message); else home(); } })));
   }
@@ -66,7 +68,7 @@ async function newVideo(f) {
   if (!f) return;
   if (f.size > MAX_BYTES) { flash('O plano gratuito aceita vídeos de até 1 GB. Este tem ' + (f.size / 1024 ** 3).toFixed(2) + ' GB.'); return; }
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
-  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = structuredClone(DEFAULT_STYLE);
+  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' };
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
@@ -157,16 +159,16 @@ function saveSoon(key, patch, ms = 900) { clearTimeout(pend[key]); pend[key] = s
 // ---------- editor ----------
 function enterEdit() { view('edit'); tab('style'); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
 function setVideo(f) {
-  const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { $('#scrub').max = v.duration; S.dur = v.duration; }; S.playing = false; $('#pp').textContent = 'Reproduzir';
+  const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
 }
 function tab(t) { for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'], ['pClips', 'clips']]) $('#' + id).hidden = k !== t; document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t)); }
 document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => tab(b.dataset.t); });
 const rs = () => resolve(S.style);
-function rebuild() { S.chunks = chunksOf(S.words, Math.max(1, rs().n | 0)); }
+function rebuild() { S.chunks = chunksOf(S.words, Math.max(1, rs().n | 0)); drawTimeline(); }
 function setO(k, v) { if (['x', 'y', 'cropX'].includes(k)) S.style[k] = v; else S.style.o = { ...S.style.o, [k]: v }; rebuild(); applyCrop(); saveSoon('style', { style: S.style }); }
 function applyCrop() { $('#vid').style.objectPosition = rs().cropX * 100 + '% 50%'; }
 let rows = [];
-const sync = () => rows.forEach(f => f());
+const sync = () => { rows.forEach(f => f()); EG && EG.mark(); };
 function mkRange(k, label, min, max, step = 1, unit = '%', scale = 1) {
   const out = el('output'), inp = el('input', { type: 'range', min, max, step, id: 'c_' + k, oninput: () => { setO(k, +inp.value / scale); out.textContent = Math.round(+inp.value) + unit; } });
   rows.push(() => { inp.value = rs()[k] * scale; out.textContent = Math.round(inp.value) + unit; });
@@ -182,6 +184,11 @@ function mkWeight(k, label) {
   rows.push(() => { const ws = FONTS[rs().font]?.w || [400]; sel.replaceChildren(...ws.map(w => el('option', { value: w, textContent: ({ 300: 'Light 300', 400: 'Regular 400', 500: 'Medium 500', 600: 'Semibold 600', 700: 'Bold 700', 800: 'Extrabold 800', 900: 'Black 900' })[w] || w }))); sel.value = ws.reduce((a, b) => Math.abs(b - rs()[k]) < Math.abs(a - rs()[k]) ? b : a); });
   return el('div', { className: 'row' }, el('label', { htmlFor: 'c_' + k, textContent: label }), sel);
 }
+function mkAlign(label, key, vals) {
+  const wrap = el('div', { className: 'seg', role: 'group', ariaLabel: label });
+  vals.forEach(([v, t]) => wrap.append(el('button', { type: 'button', textContent: t, onclick: () => { S.style[key] = v; rebuild(); sync(); saveSoon('style', { style: S.style }); } })));
+  return el('div', { className: 'row' }, el('span', { textContent: label }), wrap);
+}
 function buildControls() {
   const grp = (t, ...c) => el('div', { className: 'grp' }, el('b', { textContent: t }), ...c), ctl = $('#ctl');
   const font = el('select', { id: 'c_font', onchange: async () => { await loadFont(font.value, rs().wLight, rs().wActive); setO('font', font.value); sync(); } });
@@ -194,16 +201,57 @@ function buildControls() {
     grp('Texto', el('div', { className: 'row' }, el('label', { htmlFor: 'c_font', textContent: 'Fonte' }), font), mkRange('fs', 'Tamanho da fonte', 0, 100), mkSeg('case', 'Caixa', [['none', 'Aa'], ['upper', 'AA'], ['lower', 'aa']]), mkWeight('wLight', 'Peso das palavras'), mkWeight('wActive', 'Peso da palavra falada'), mkRange('n', 'Palavras por linha', 1, 5, 1, ''), mkSeg('letter', 'Destaque por', [[false, 'Palavra'], [true, 'Letra']])),
     grp('Cores', mkColor('color', 'Texto'), mkColor('activeColor', 'Palavra falada'), mkColor('strokeColor', 'Contorno'), mkRange('stroke', 'Espessura do contorno', 0, 100), mkColor('bg', 'Fundo'), mkRange('bgOpacity', 'Opacidade do fundo', 0, 100)),
     grp('Efeitos', mkSeg('pop', 'Entrada com pulo', [[0, 'Não'], [1, 'Sim']]), mkSeg('shadow', 'Sombra', [[0, 'Não'], [1, 'Sim']])),
-    grp('Posição', mkRange('x', 'Horizontal', 0, 100, 1, '%', 100), mkRange('y', 'Vertical', 0, 100, 1, '%', 100), mkRange('cropX', 'Enquadramento do vídeo', 0, 100, 1, '%', 100), el('div', { className: 'row' }, el('label', { htmlFor: 'c_plat', textContent: 'Área segura' }), platform), el('div', { className: 'row' }, el('label', { htmlFor: 'c_safe', textContent: 'Mostrar área segura' }), safe), el('p', { className: 'mut', textContent: 'Dica: arraste a legenda direto no vídeo. A área segura usa margens publicadas para anúncios; não são regras oficiais para posts orgânicos.' })));
+    grp('Posição', mkAlign('Alinhar na horizontal', 'x', [[0.2, 'Esq.'], [0.5, 'Centro'], [0.8, 'Dir.']]), mkAlign('Alinhar na vertical', 'y', [[0.2, 'Topo'], [0.5, 'Meio'], [0.72, 'Base']]), mkRange('x', 'Horizontal', 0, 100, 1, '%', 100), mkRange('y', 'Vertical', 0, 100, 1, '%', 100), mkRange('cropX', 'Enquadramento do vídeo', 0, 100, 1, '%', 100), el('div', { className: 'row' }, el('label', { htmlFor: 'c_plat', textContent: 'Área segura' }), platform), el('div', { className: 'row' }, el('label', { htmlFor: 'c_safe', textContent: 'Mostrar área segura' }), safe), el('p', { className: 'mut', textContent: 'Dica: arraste a legenda direto no vídeo. A área segura usa margens publicadas para anúncios; não são regras oficiais para posts orgânicos.' })));
+}
+// galeria de estilos: prévia animada de cada estilo, filtro por categoria e busca
+const PREV = [{ w: 'Palavras', s: 0, e: .6 }, { w: 'que', s: .6, e: 1.1 }, { w: 'prendem', s: 1.1, e: 1.8 }, { w: 'a', s: 1.8, e: 2.1 }, { w: 'tela', s: 2.1, e: 2.9 }], PCH = chunksOf(PREV, 3);
+function mountGallery(box, getCur, onPick) {
+  box.replaceChildren(); let cat = 'Todos', q = '';
+  const chips = el('div', { className: 'chips', role: 'group', ariaLabel: 'Categorias' }), search = el('input', { type: 'search', placeholder: 'Buscar estilo', ariaLabel: 'Buscar estilo', id: 'gs_' + (box.id || 'x') }), grid = el('div', { className: 'gal' });
+  const mark = () => grid.querySelectorAll('.gcard').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === getCur())));
+  const paint = () => {
+    grid.replaceChildren();
+    for (const [id, p] of Object.entries(PRESETS)) {
+      if ((cat !== 'Todos' && p.cat !== cat) || (q && !p.name.toLowerCase().includes(q))) continue;
+      const locked = !canPro() && !p.free, cv = el('canvas', { width: 300, height: 170 }); cv.dataset.p = id;
+      const b = el('button', { type: 'button', className: 'gcard', onclick: async () => { if (locked) { $('#pay').showModal(); return; } await onPick(id); mark(); } }, cv, el('span', { className: 'gn', textContent: p.name }), ...(locked ? [el('span', { className: 'lk', textContent: 'PRO' })] : []));
+      b.dataset.id = id; grid.append(b);
+    }
+    if (!grid.children.length) grid.append(el('p', { className: 'mut', textContent: 'Nenhum estilo encontrado.' }));
+    mark();
+  };
+  CATS.forEach(c => { const b = el('button', { type: 'button', textContent: c, onclick: () => { cat = c; [...chips.children].forEach(x => x.setAttribute('aria-pressed', String(x === b))); paint(); } }); b.setAttribute('aria-pressed', String(c === 'Todos')); chips.append(b); });
+  search.oninput = () => { q = search.value.trim().toLowerCase(); paint(); };
+  box.append(el('div', { className: 'gbar' }, chips, search), grid); paint(); return { mark };
+}
+let lastG = 0;
+function animGal(now) {
+  if (now - lastG > 45) {
+    lastG = now; const t = (now / 1000) % 3.2;
+    document.querySelectorAll('.gcard canvas').forEach(cv => {
+      if (!cv.offsetParent) return; const c = cv.getContext('2d'), r = resolve({ preset: cv.dataset.p }), g = c.createLinearGradient(0, 0, 0, cv.height);
+      g.addColorStop(0, '#1b1d21'); g.addColorStop(1, '#0d0e10'); c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height);
+      drawCaption(c, cv.width, cv.height, PCH, t, { ...r, x: .5, y: .5, n: 3, fs: Math.min(100, r.fs * 2.2) });
+    });
+  }
+  requestAnimationFrame(animGal);
 }
 function buildPresets() {
-  const box = $('#presets'); box.replaceChildren();
-  for (const [id, p] of Object.entries(PRESETS)) {
-    const locked = !canPro() && !p.free;
-    const b = el('button', { type: 'button', textContent: p.name, onclick: async () => { if (locked) { $('#pay').showModal(); return; } await loadFont(p.font, p.wLight, p.wActive); S.style = { ...S.style, preset: id, o: {} }; rebuild(); sync(); box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); saveSoon('style', { style: S.style }); } });
-    b.style.fontFamily = `"${p.font}", sans-serif`; b.style.fontWeight = p.wActive;
-    b.setAttribute('aria-pressed', String(S.style.preset === id)); if (locked) b.append(el('span', { className: 'lk', textContent: 'PRO' })); box.append(b);
-  }
+  const pick = async id => { const p = PRESETS[id]; await loadFont(p.font, p.wLight, p.wActive); S.style = { ...S.style, preset: id, o: {} }; rebuild(); sync(); saveSoon('style', { style: S.style }); };
+  EG = mountGallery($('#presets'), () => S.style.preset, pick);
+  HG = mountGallery($('#gal'), () => S.homePreset || 'iman', async id => { await loadFont(PRESETS[id].font, PRESETS[id].wLight, PRESETS[id].wActive); S.homePreset = id; });
+}
+
+// linha do tempo: faixa de legendas e faixa de cortes, com cabeça de reprodução
+function drawTimeline() {
+  const c = $('#trkC'), k = $('#trkK'); if (!c) return; c.replaceChildren(); k.replaceChildren(); const D = Math.max(S.dur, 1);
+  S.chunks.forEach(ch => { const s0 = ch[0].s, e0 = ch[ch.length - 1].e; c.append(el('i', { style: `left:${s0 / D * 100}%;width:${Math.max(.35, (e0 - s0) / D * 100)}%`, title: ch.map(w => w.w).join(' ') })); });
+  S.clips.forEach((cl, i) => k.append(el('i', { style: `left:${cl.start / D * 100}%;width:${Math.max(.8, (cl.end - cl.start) / D * 100)}%`, textContent: cl.title || 'Corte ' + (i + 1), title: mmss(cl.start) + ' a ' + mmss(cl.end) })));
+}
+function thumb(pid) {
+  if (!pid) return; const v = $('#vid');
+  v.addEventListener('seeked', () => { try { const c = document.createElement('canvas'); c.width = 108; c.height = 192; const x = c.getContext('2d'), r = Math.max(108 / v.videoWidth, 192 / v.videoHeight); x.drawImage(v, (108 - v.videoWidth * r) / 2, (192 - v.videoHeight * r) / 2, v.videoWidth * r, v.videoHeight * r); ls.set('th_' + pid, c.toDataURL('image/jpeg', .7)); } catch { /* sem miniatura */ } v.currentTime = 0; }, { once: true });
+  v.currentTime = Math.min(1, (v.duration || 2) / 2);
 }
 
 // transcrição editável
@@ -211,7 +259,7 @@ $('#txt').oninput = () => { S.words = retime(S.words, tokens($('#txt').value), S
 
 // cortes
 function clipsUI() {
-  const ul = $('#clips'); ul.replaceChildren();
+  drawTimeline(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
   S.clips.forEach((c, i) => {
     const acts = el('div', { className: 'acts' }, el('button', { className: 'btn', textContent: 'Pré-visualizar', onclick: () => previewClip(c) }));
@@ -254,7 +302,7 @@ function frame(now) {
   if (!$('#edit').hidden) {
     if (hasVid()) S.cur = vid.currentTime; else if (S.playing) S.cur += dt;
     if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
-    $('#scrub').value = S.cur; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
+    $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
@@ -273,7 +321,8 @@ const endDrag = () => { drag = null; $('#stage').classList.remove('drag'); }; $(
 // ---------- início ----------
 async function boot() {
   const l = el('link', { rel: 'stylesheet', href: fontsUrl() }); document.head.append(l);
-  buildControls(); buildPresets(); requestAnimationFrame(frame);
+  buildControls(); buildPresets(); requestAnimationFrame(frame); requestAnimationFrame(animGal); Object.values(PRESETS).forEach(p => loadFont(p.font, p.wLight, p.wActive));
+  $('#tl').onpointerdown = e => { const r = $('#tl .tw').getBoundingClientRect(); S.prev = null; seek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * S.dur); };
   await loadFont('Montserrat', 300, 500, 900);
   if (!LIVE) { view('home'); $('#homeSub').textContent = 'Sem conta: a transcrição roda no seu aparelho e nada é salvo. Entre para guardar projetos.'; $('#nOut').hidden = true; return; }
   S.sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON);

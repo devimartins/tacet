@@ -39,6 +39,9 @@ export const PRESETS = {
   moderno: { ...B, name: 'Moderno', free: false, font: 'Space Grotesk', wLight: 400, wActive: 700, case: 'lower', color: '#ffffff', activeColor: '#B8FF3D', n: 4, fs: 42 },
   quadrinhos: { ...B, name: 'Quadrinhos', free: false, font: 'Bangers', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FF4D4D', stroke: 70, n: 3, pop: 1, fs: 56 },
 };
+const CAT = { iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', tabloide: 'Viral', minimal: 'Elegante', pilula: 'Elegante', editorial: 'Elegante', moderno: 'Elegante', karaoke: 'Divertido', neon: 'Divertido', manuscrito: 'Divertido', quadrinhos: 'Divertido' };
+Object.entries(CAT).forEach(([k, v]) => { PRESETS[k].cat = v; });
+export const CATS = ['Todos', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
 export function resolve(style) {   // preset + ajustes do usuário
   const s = style || DEFAULT_STYLE;

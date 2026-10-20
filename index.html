@@ -101,6 +101,15 @@ progress{width:100%;height:4px;accent-color:var(--ac)}
 dialog{border:1px solid var(--bd);border-radius:16px;background:var(--s1);color:var(--tx);max-width:min(92vw,420px);padding:26px}dialog::backdrop{background:rgba(0,0,0,.6)}
 #flash{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + var(--safe-b));z-index:30;background:var(--pri);color:var(--pro);padding:11px 18px;border-radius:10px;max-width:90vw;font-size:14px}
 @media(min-width:761px){#flash{bottom:24px}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{border:1px solid var(--bd);background:none;border-radius:999px;padding:6px 14px;font-size:13px;min-height:34px;color:var(--mut)}.chips button[aria-pressed=true]{background:var(--pri);color:var(--pro);border-color:var(--pri)}
+.gbar{display:grid;gap:10px;margin-bottom:12px}.gbar input{min-height:40px;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:6px 12px;width:100%}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}#presets .gal{grid-template-columns:repeat(2,1fr)}
+.gcard{position:relative;border:1px solid var(--bd);border-radius:12px;background:var(--s1);padding:0;overflow:hidden;text-align:left;transition:border-color .15s}.gcard:hover{border-color:var(--mut)}.gcard[aria-pressed=true]{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
+.gcard canvas{display:block;width:100%;height:auto;aspect-ratio:300/170}.gcard .gn{display:block;padding:9px 12px;font-size:13px;font-weight:500}.gcard .lk{position:absolute;right:8px;top:8px;font:500 9px/1 Geist,system-ui,sans-serif;letter-spacing:.1em;color:#8fd6c0;background:rgba(0,0,0,.55);padding:4px 6px;border-radius:5px}
+.tl{width:min(100%,560px);display:grid;grid-template-columns:62px 1fr;gap:8px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--s1);cursor:pointer;touch-action:none}
+.tl .tn{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}.trk{position:relative;height:22px;background:var(--bg);border-radius:6px;overflow:hidden}.trk i{position:absolute;top:3px;bottom:3px;min-width:3px;background:var(--ac);opacity:.55;border-radius:3px;font-style:normal;font-size:10px;line-height:16px;padding:0 6px;color:var(--pro);overflow:hidden;white-space:nowrap}.trk.k i{opacity:.9}
+.tnc{display:grid;gap:6px;grid-auto-rows:22px;align-items:center}.tw{position:relative;display:grid;gap:6px}.tw b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--tx);left:0;pointer-events:none}
+li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
 <nav id="rail" aria-label="Principal" hidden>
@@ -122,6 +131,7 @@ dialog{border:1px solid var(--bd);border-radius:16px;background:var(--s1);color:
 <section id="home" hidden><div class="wrap">
  <div class="hero"><p class="eyebrow">Tacet</p><h1>Legendas que prendem. Cortes que circulam.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">No plano gratuito, os projetos ficam salvos por 3 dias. O vídeo fica no seu aparelho.</p></div>
  <label class="drop" id="drop" style="position:relative"><b>Escolher vídeo</b><span class="mut">MP4 ou MOV, até 1 GB. A transcrição começa sozinha.</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
+ <h2>Escolha um estilo</h2><div id="gal"></div>
  <h2>Seus projetos</h2><ul class="list" id="plist"></ul><p class="mut" id="pempty" hidden>Nenhum projeto ainda.</p>
  <div class="ad" id="ad" hidden></div>
 </div></section>
@@ -130,11 +140,12 @@ dialog{border:1px solid var(--bd);border-radius:16px;background:var(--s1);color:
   <div class="stage" id="stage"><video id="vid" playsinline loop></video><canvas id="cv"></canvas>
    <div class="ph" id="ph"><span id="phTxt">Selecione o vídeo para pré-visualizar.</span><label class="btn" style="position:relative">Selecionar vídeo<input id="attach" type="file" accept="video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
   <div class="transport"><button class="btn" id="pp" type="button" style="min-width:104px">Reproduzir</button><input id="scrub" type="range" min="0" max="8" step="0.01" value="0" aria-label="Posição no vídeo"><span class="t" id="tm">0:00</span></div>
+  <div class="tl" id="tl" aria-label="Linha do tempo"><div class="tnc"><span class="tn">Legendas</span><span class="tn">Cortes</span></div><div class="tw"><div class="trk" id="trkC"></div><div class="trk k" id="trkK"></div><b id="ph2"></b></div></div>
  </div>
  <div class="right">
   <div class="card" id="statusCard"><p class="mut" id="status" style="margin:0" role="status"></p><progress id="pg" max="1" value="0" hidden style="margin-top:8px"></progress></div>
   <div class="tabs" role="tablist" style="margin-top:14px"><button role="tab" id="tabS" aria-selected="true" data-t="style">Estilo</button><button role="tab" id="tabT" aria-selected="false" data-t="text">Transcrição</button><button role="tab" id="tabC" aria-selected="false" data-t="clips">Cortes</button></div>
-  <div id="pStyle"><div class="presets" id="presets"></div><div id="ctl"></div><p class="warn" id="warn" role="status"></p></div>
+  <div id="pStyle"><div id="presets"></div><div id="ctl"></div><p class="warn" id="warn" role="status"></p></div>
   <div id="pText" hidden><textarea id="txt" aria-label="Transcrição editável" placeholder="A transcrição aparece aqui."></textarea><p class="mut">Edite o texto: o tempo das palavras que você não mudou é preservado.</p></div>
   <div id="pClips" hidden><p class="mut" id="cmsg"></p><ul class="list" id="clips"></ul>
    <h2>Corte manual</h2><div class="row"><label for="ms">Início (segundos)</label><input id="ms" type="number" min="0" step="0.1" value="0"></div><div class="row"><label for="me">Fim (segundos)</label><input id="me" type="number" min="0" step="0.1" value="30"></div><button class="btn" id="addManual" type="button">Adicionar corte</button></div>
