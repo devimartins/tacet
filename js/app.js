@@ -61,8 +61,18 @@ async function home() {
   }
   ads();
 }
-function ads() {   // anúncios só no plano gratuito e só se houver ID do AdSense configurado
+const adConsent = () => { try { return localStorage.getItem('tacet-ads'); } catch { return null; } };
+function adBanner() {   // LGPD: pergunta antes de carregar qualquer anúncio (só o plano gratuito vê)
+  if (document.getElementById('adc')) return;
+  const set = v => { try { localStorage.setItem('tacet-ads', v); } catch { /* sem armazenamento */ } b.remove(); if (v === 'ok') ads(); };
+  const b = el('div', { id: 'adc' }, el('span', { textContent: 'O plano gratuito é mantido por anúncios, que podem usar cookies para exibir propagandas. Aceitar? Recusando, você usa o Tacet sem anúncios personalizados.' }),
+    el('button', { className: 'btn', textContent: 'Recusar', onclick: () => set('no') }), el('button', { className: 'btn pri', textContent: 'Aceitar', onclick: () => set('ok') }));
+  b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:50;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px;border-radius:12px;background:#1b1b22;color:#fff;font-size:13px;box-shadow:0 4px 20px #0008';
+  document.body.append(b);
+}
+function ads() {   // anúncios só no plano gratuito, com ID do AdSense configurado e consentimento
   const box = $('#ad'); if (!CFG.ADS_CLIENT || !CFG.ADS_SLOT || S.plan === 'pro' || box.dataset.on) return;
+  const c = adConsent(); if (c === 'no') return; if (c !== 'ok') { adBanner(); return; }
   box.dataset.on = '1'; box.hidden = false;
   const s = el('script', { async: true, src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(CFG.ADS_CLIENT), crossOrigin: 'anonymous' });
   const ins = el('ins', { className: 'adsbygoogle' }); ins.style.display = 'block'; Object.assign(ins.dataset, { adClient: CFG.ADS_CLIENT, adSlot: CFG.ADS_SLOT, adFormat: 'auto', fullWidthResponsive: 'true' });
