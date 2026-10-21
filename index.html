@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://devimartins.github.io/tacet/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=32"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=33"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -266,7 +266,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 </section>
 <noscript><p style="padding:24px;text-align:center">O ForjaClip precisa de JavaScript para editar vídeos no navegador.</p></noscript>
 <section id="home" hidden><div class="wrap">
- <div class="hero"><p class="eyebrow">ForjaClip</p><h1>Legendas que prendem. Cortes que circulam.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">No plano gratuito, os projetos ficam salvos por 3 dias. O vídeo fica no seu aparelho.</p><ul class="perks"><li>Roda no seu navegador</li><li>Vídeo não sai do aparelho</li><li>Legendas animadas</li><li>Cortes com IA</li></ul></div>
+ <div class="hero"><p class="eyebrow">ForjaClip</p><h1>Cortes virais e legendas animadas, direto do seu navegador.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">Para Reels, TikTok e Shorts. Seu vídeo não sai do seu aparelho. No plano gratuito, os projetos ficam salvos por 3 dias.</p><ul class="perks"><li>Roda no seu navegador</li><li>Vídeo não sai do aparelho</li><li>Legendas animadas</li><li>Cortes com IA</li></ul></div>
  <div class="start">
   <label class="drop" id="drop" data-mode="clips"><b>Cortes de vídeo longo</b><span class="mut">A IA acha os melhores momentos e aplica as legendas. MP4 ou MOV, até 350 MB no grátis e 1 GB no Pro.</span><span class="btn pri up">Selecionar vídeo</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
   <label class="drop" id="drop2" data-mode="captions"><b>Só legendas</b><span class="mut">Transcrição automática e legendas animadas no vídeo todo (até 2 min na exportação).</span><span class="btn pri up">Selecionar vídeo</span><input id="newfile2" type="file" accept="video/mp4,video/quicktime,video/*"></label>
@@ -303,9 +303,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
   <div id="pStyle"><div id="presets"></div><div id="ctl"></div><p class="warn" id="warn" role="status"></p></div>
   <div id="pText" hidden><div class="grp first" id="trBox"><b>Traduzir legendas</b><div class="row"><select id="trLang" aria-label="Idioma de destino"><option value="en">Inglês</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="pt-BR">Português</option><option value="ja">Japonês</option><option value="ko">Coreano</option><option value="ru">Russo</option><option value="hi">Hindi</option><option value="ar">Árabe</option><option value="zh">Chinês</option></select><button class="btn" id="trGo" type="button">Traduzir com IA</button></div><div class="row"><button class="btn" id="trUndo" type="button" hidden>Voltar ao texto original</button></div><p class="mut" id="trMsg" role="status" style="font-size:13px;margin:4px 0 0"></p></div><div class="phr" id="phr"></div><details class="txtmode"><summary>Editar como texto corrido</summary><textarea id="txt" aria-label="Transcrição editável" placeholder="A transcrição aparece aqui."></textarea></details><p class="mut">Edite uma frase e saia do campo: o tempo das palavras que você não mudou é preservado. O olho esconde a frase.</p></div>
   <div id="pClips" hidden>
-   <div class="grp first"><b>Prender a atenção</b><div id="fxZoom"></div>
-    <div class="row soonrow"><span>B-rolls automáticos<br><small class="mut">Troca momentos por imagens relevantes.</small></span><em>Em breve</em></div>
-    <div class="row soonrow"><span>Título de gancho<br><small class="mut">Gera uma frase de abertura.</small></span><em>Em breve</em></div></div>
+   <div class="grp first"><b>Prender a atenção</b><div id="fxZoom"></div></div>
    <div class="grp"><b>Títulos e imagens</b><p class="mut">Aparecem sobre o vídeo no preview e na exportação.</p>
     <div class="row"><button class="btn" id="ovTitle" type="button">Sugerir título de gancho</button><button class="btn" id="ovBroll" type="button">B-roll automático (IA)</button><label class="btn" style="cursor:pointer">Adicionar imagem<input id="ovImg" type="file" accept="image/*" hidden></label></div>
     <div class="row"><label class="btn" style="cursor:pointer">Logo da marca (marca d'água)<input id="logoIn" type="file" accept="image/*" hidden></label><button class="btn" id="logoOff" type="button" hidden>Remover logo</button><span class="mut" id="logoSt">Nenhum logo definido.</span></div>
@@ -315,15 +313,14 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
    <div class="grp"><b>Música de fundo</b><p class="mut" id="musMsg">Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.</p>
     <label class="btn" style="cursor:pointer">Escolher áudio<input id="musFile" type="file" accept="audio/*" hidden></label>
     <div class="row" id="musRow" hidden><span>Volume<br><small class="mut" id="musName"></small></span><input id="musVol" type="range" min="0" max="100" value="25" aria-label="Volume da música"><button class="btn" id="musOff" type="button">Remover</button></div></div>
-   <div class="grp"><b>Som</b><div id="fxCut"></div>
-    <div class="row soonrow"><span>Limpar áudio<br><small class="mut">Reduz ruído de fundo.</small></span><em>Em breve</em></div></div>
+   <div class="grp"><b>Som</b><div id="fxCut"></div></div>
    <div class="grp"><b>Cortes</b><p class="mut" id="cmsg"></p><ul class="list" id="clips"></ul>
    <h2>Corte manual</h2><div class="row"><label for="ms">Início (segundos)</label><input id="ms" type="number" min="0" step="0.1" value="0"></div><div class="row"><label for="me">Fim (segundos)</label><input id="me" type="number" min="0" step="0.1" value="30"></div><button class="btn" id="addManual" type="button">Adicionar corte</button></div></div>
  </div></div></section>
 </main>
 <dialog id="desc"><h2 style="margin-top:0">Descrição e hashtags</h2><textarea id="descTxt" aria-label="Texto gerado" style="min-height:200px"></textarea><div class="ytr" style="margin-top:12px"><button class="btn pri" id="descCopy" type="button">Copiar</button><form method="dialog"><button class="btn">Fechar</button></form></div></dialog>
-<dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, que está em desenvolvimento. Os pagamentos serão por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
+<dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=32"></script>
+<script type="module" src="js/app.js?v=33"></script>
 </body></html>
