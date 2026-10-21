@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://devimartins.github.io/tacet/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=31"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=32"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -115,6 +115,8 @@ progress{width:100%;height:4px;accent-color:var(--ac)}
 dialog{border:1px solid var(--bd);border-radius:16px;background:var(--s1);color:var(--tx);max-width:min(92vw,420px);padding:26px}dialog::backdrop{background:rgba(0,0,0,.6)}
 #flash{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + var(--safe-b));z-index:30;background:var(--pri);color:var(--pro);padding:11px 18px;border-radius:10px;max-width:90vw;font-size:14px}
 @media(min-width:761px){#flash{bottom:24px}}
+#flash .btn{min-height:44px;color:inherit;border-color:currentColor;background:transparent}
+.btn,button,select,input[type=file]+*{min-height:44px}
 .chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{border:1px solid var(--bd);background:none;border-radius:999px;padding:6px 14px;font-size:13px;min-height:34px;color:var(--mut)}.chips button[aria-pressed=true]{background:var(--pri);color:var(--pro);border-color:var(--pri)}
 .gbar{display:grid;gap:10px;margin-bottom:12px}.gbar input{min-height:40px;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:6px 12px;width:100%}
 .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}#presets .gal{grid-template-columns:repeat(2,1fr)}
@@ -323,5 +325,5 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, que está em desenvolvimento. Os pagamentos serão por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=31"></script>
+<script type="module" src="js/app.js?v=32"></script>
 </body></html>

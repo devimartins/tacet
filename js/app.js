@@ -24,7 +24,7 @@ let EG = null, HG = null;
 S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
 const DIMS = { '9:16': [1080, 1920], '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1920, 1080] };
 const canPro = () => !CFG.GATE || S.plan === 'pro';
-const flash = m => { const f = $('#flash'); f.textContent = m; f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
+const flash = (m, cta) => { const f = $('#flash'); f.textContent = m; if (cta) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = cta.label; b.style.marginLeft = '10px'; b.onclick = () => { f.hidden = true; cta.fn(); }; f.append(b); } f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
 
 // ---------- tema ----------
 function theme(t) { if (t) { document.documentElement.dataset.theme = t; ls.set('theme', t); } const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches; $('#themeLbl').textContent = dark ? 'Tema claro' : 'Tema escuro'; if (t) { document.querySelectorAll('meta[name=theme-color]').forEach(m => m.remove()); const m = document.createElement('meta'); m.name = 'theme-color'; m.content = dark ? '#0f0a08' : '#fbf6f1'; document.head.append(m); } return dark; }
@@ -87,7 +87,7 @@ const fp = f => `${f.name}|${f.size}|${f.lastModified}`;
 async function newVideo(f, mode = 'clips') {
   if (!f) return; S.mode = mode;
   const pro = S.plan === 'pro', max = pro ? LIMIT.pro : LIMIT.free, mb = Math.round(f.size / MB);
-  if (f.size > max) { flash(pro ? `Este vídeo tem ${mb} MB e o limite do Pro é 1 GB. Tente comprimir o vídeo antes de enviar.` : `Este vídeo tem ${mb} MB. O plano gratuito aceita até 350 MB. Com o Pro você envia até 1 GB, ou pode comprimir o vídeo antes.`); return; }
+  if (f.size > max) { flash(pro ? `Este vídeo tem ${mb} MB e o limite do Pro é 1 GB. Tente comprimir o vídeo antes de enviar.` : `Este vídeo tem ${mb} MB. O plano gratuito aceita até 350 MB. Com o Pro você envia até 1 GB, ou pode comprimir o vídeo antes.`, { label: 'Ver Pro', fn: () => $('#nPro').onclick && $('#nPro').onclick() }); return; }
   if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
   S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
@@ -347,7 +347,7 @@ function clipsUI() {
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
   S.clips.forEach((c, i) => {
     const acts = el('div', { className: 'acts' }, el('button', { className: 'btn', textContent: 'Pré-visualizar', onclick: () => previewClip(c) }));
-    if (c.state === 'rendering') { const p = el('progress', { max: 1, value: c.p || 0 }); p.style.maxWidth = '160px'; acts.append(p, el('span', { className: 'mut', textContent: 'Gerando… mantenha a tela aberta' })); }
+    if (c.state === 'rendering') { const p = el('progress', { max: 1, value: c.p || 0 }); p.style.maxWidth = '160px'; const eta = el('span', { className: 'mut eta', role: 'status', textContent: 'Preparando…' }); acts.append(p, eta, el('button', { className: 'btn', textContent: 'Cancelar', onclick: () => S.abort && S.abort.abort() })); }
     else acts.append(el('button', { className: 'btn pri', textContent: c.url ? 'Gerar de novo' : 'Gerar vídeo', disabled: S.busy, onclick: () => renderOne(c) }));
     if (c.url) acts.append(el('a', { className: 'btn', textContent: 'Baixar', href: c.url, download: `forjaclip-corte-${i + 1}.mp4` }));
     { const d = el('button', { className: 'btn', textContent: 'Descrição e hashtags', onclick: () => describeClip(c, d) }); acts.append(d); }
@@ -365,10 +365,10 @@ async function renderOne(c) {
   if (S.busy) return;
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
-  S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll() }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
-  catch (e) { c.state = 'error'; c.err = e.message; }
-  finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
+  S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll() }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
+  finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
 
 // ---------- reprodução e prévia ----------

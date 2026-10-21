@@ -61,6 +61,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     const vf = new VideoFrame(cv, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: n++ % (fps * 2) === 0 }); vf.close();
     while (enc.encodeQueueSize > 6) await new Promise(r => enc.addEventListener('dequeue', r, { once: true }));
+    if (opts.signal && opts.signal.aborted) { try { enc.close(); } catch { /* já fechado */ } throw new Error('Geração cancelada.'); }
     onProgress && onProgress(Math.min(0.98, t / len));
   }
 
