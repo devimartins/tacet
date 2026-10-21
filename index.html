@@ -274,6 +274,13 @@ h1 em,h1 span.hl{font-style:normal}
 .gcard:hover{border-color:var(--ac)}
 @media(hover:none){.drop:hover,.drop.on{transform:none}}
 @media(prefers-reduced-motion:reduce){.btn.pri::after{display:none}}
+
+/* inspiração motionsites: palavra de destaque com brilho e botões em pílula */
+h1 .hl{font-style:italic;font-weight:600;background:linear-gradient(100deg,#fff 0%,#ffb27a 45%,#ff6a1f 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--ac) 55%,transparent))}
+:root[data-theme="light"] h1 .hl{background:linear-gradient(100deg,#b83a09,#e5322d);-webkit-background-clip:text;background-clip:text;filter:none}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) h1 .hl{background:linear-gradient(100deg,#b83a09,#e5322d);-webkit-background-clip:text;background-clip:text;filter:none}}
+.drop .up,.plan .btn.pri{border-radius:999px;padding-inline:22px}
+.hero .eyebrow{font-weight:600;letter-spacing:.18em}
 </style><meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <script>if(window.top!==window.self){try{window.top.location=window.self.location}catch(e){document.documentElement.remove()}}</script>
 <meta name="google-adsense-account" content="ca-pub-8154134382569744">
@@ -317,7 +324,7 @@ h1 em,h1 span.hl{font-style:normal}
 </section>
 <noscript><p style="padding:24px;text-align:center">O ForjaClip precisa de JavaScript para editar vídeos no navegador.</p></noscript>
 <section id="home" hidden><div class="wrap">
- <div class="hero"><p class="eyebrow">ForjaClip</p><h1>Cortes virais e legendas animadas, direto do seu navegador.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">Para Reels, TikTok e Shorts. Seu vídeo não sai do seu aparelho. No plano gratuito, os projetos ficam salvos por 3 dias.</p><ul class="perks"><li>Roda no seu navegador</li><li>Vídeo não sai do aparelho</li><li>Legendas animadas</li><li>Cortes com IA</li></ul></div>
+ <div class="hero"><p class="eyebrow">ForjaClip</p><h1>Cortes virais e <span class="hl">legendas animadas</span>, direto do seu navegador.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">Para Reels, TikTok e Shorts. Seu vídeo não sai do seu aparelho. No plano gratuito, os projetos ficam salvos por 3 dias.</p><ul class="perks"><li>Roda no seu navegador</li><li>Vídeo não sai do aparelho</li><li>Legendas animadas</li><li>Cortes com IA</li></ul></div>
  <div class="start">
   <label class="drop" id="drop" data-mode="clips"><b>Cortes de vídeo longo</b><span class="mut">A IA acha os melhores momentos e aplica as legendas. MP4 ou MOV, até 350 MB no grátis e 1 GB no Pro.</span><span class="btn pri up">Selecionar vídeo</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
   <label class="drop" id="drop2" data-mode="captions"><b>Só legendas</b><span class="mut">Transcrição automática e legendas animadas no vídeo todo (até 2 min na exportação).</span><span class="btn pri up">Selecionar vídeo</span><input id="newfile2" type="file" accept="video/mp4,video/quicktime,video/*"></label>
