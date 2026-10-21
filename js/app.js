@@ -364,7 +364,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll() }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll() }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = 'error'; c.err = e.message; }
   finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -423,6 +423,20 @@ window.__tacet = { S };
 initGuide({ home: () => home() });   // útil para testes
 
 // ---------- música de fundo ----------
+S.aud = [];
+function audUI() {
+  const ul = $('#audList'); ul.replaceChildren();
+  S.aud.forEach((o, i) => {
+    const at = el('input', { type: 'number', min: 0, step: 0.5, value: +o.at.toFixed(1), ariaLabel: 'Início do áudio (s)' }); at.style.width = '64px'; at.onchange = () => { o.at = Math.max(0, +at.value || 0); };
+    const vol = el('input', { type: 'range', min: 0, max: 150, value: Math.round(o.vol * 100), ariaLabel: 'Volume do áudio' }); vol.oninput = () => { o.vol = +vol.value / 100; };
+    ul.append(el('li', {}, el('span', { textContent: o.name + ' (' + o.buf.duration.toFixed(1) + ' s)' }), el('span', { className: 'mut', textContent: 'em' }), at, el('span', { className: 'mut', textContent: 's' }), vol, el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.aud.splice(i, 1); audUI(); } })));
+  });
+}
+$('#audIn').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  try { const ac = new AudioContext({ sampleRate: S.media?.audio?.sampleRate || 48000 }), buf = await ac.decodeAudioData(await f.arrayBuffer()); ac.close(); S.aud.push({ buf, name: f.name, at: Math.max(0, +S.cur.toFixed(1)), vol: 1 }); audUI(); flash('Áudio adicionado em ' + S.cur.toFixed(1) + ' s. Ajuste o ponto se precisar.'); }
+  catch { flash('Não consegui ler este áudio. Tente MP3, M4A ou WAV.'); }
+};
 S.music = null; let musEl = null;
 function musSync() { if (!musEl) return; musEl.volume = S.music.vol; if (S.playing) { if (musEl.paused) musEl.play().catch(() => { }); } else musEl.pause(); }
 $('#musFile').onchange = async e => {

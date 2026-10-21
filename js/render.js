@@ -32,7 +32,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const { mux, cfg } = await pickCodec(W, H, fps);
   const M = window.Mp4Muxer, target = new M.ArrayBufferTarget(), A = media.audio;
   const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: mux, width: W, height: H, frameRate: fps },
-    ...(opts.music || opts.sfx || opts.denoise ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: A ? A.sampleRate : 48000 } } : A ? { audio: { codec: 'aac', numberOfChannels: A.channels, sampleRate: A.sampleRate } } : {}) });
+    ...(opts.music || opts.sfx || opts.denoise || (opts.tracks && opts.tracks.length) ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: A ? A.sampleRate : 48000 } } : A ? { audio: { codec: 'aac', numberOfChannels: A.channels, sampleRate: A.sampleRate } } : {}) });
   let eerr = null, derr = null;
   const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { eerr = e; } });
   enc.configure(cfg);
@@ -77,7 +77,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   await enc.flush(); enc.close();
   if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
 
-  if (opts.music || opts.sfx || opts.denoise) await mixAudio({ file, A, muxer, read, start, end, rem, shift, base, len, denoise: opts.denoise, music: opts.music, sfx: opts.sfx ? sfxEvents(chunks, opts.overlays, shift, base) : null });
+  if (opts.music || opts.sfx || opts.denoise || (opts.tracks && opts.tracks.length)) await mixAudio({ file, A, muxer, read, start, end, rem, shift, base, len, tracks: opts.tracks, denoise: opts.denoise, music: opts.music, sfx: opts.sfx ? sfxEvents(chunks, opts.overlays, shift, base) : null });
   else if (A) {   // copia os blocos de áudio do trecho, sem recodificar
     let first = true;
     for (const s of A.samples) {
@@ -93,7 +93,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
 
 // Mistura o áudio original (decodificado) com a música e recodifica em AAC estéreo.
 // music = { buffer: AudioBuffer (já na taxa do vídeo), volume: 0..1 }
-async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, music, sfx, denoise: dn }) {
+async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, music, sfx, tracks, denoise: dn }) {
   if (typeof AudioEncoder === 'undefined') throw new Error('Este navegador não codifica áudio. Use Chrome ou Edge atualizado, ou remova a música.');
   const sr = A ? A.sampleRate : 48000, N = Math.ceil(len * sr), L = new Float32Array(N), R = new Float32Array(N);
   if (A) {
@@ -119,6 +119,11 @@ async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, mus
     const mb = music.buffer, mc = mb.numberOfChannels, ml = mb.length, g = Math.max(0, Math.min(1, music.volume ?? 0.25)), fade = Math.min(N, Math.round(sr * 1.2));
     const m0 = mb.getChannelData(0), m1 = mc > 1 ? mb.getChannelData(1) : m0;
     for (let i = 0; i < N; i++) { const k = i % ml, f = i > N - fade ? (N - i) / fade : 1; L[i] += m0[k] * g * f; R[i] += m1[k] * g * f; }
+  }
+  for (const tk of tracks || []) {   // áudios extras posicionados no tempo do vídeo original
+    const t0 = Math.round((shift(Math.min(Math.max(tk.at, start), end)) - base) * sr); if (tk.at < start || tk.at >= end) continue;
+    const c0 = tk.buf.getChannelData(0), c1 = tk.buf.numberOfChannels > 1 ? tk.buf.getChannelData(1) : c0, g = tk.vol ?? 1;
+    for (let i = 0; i < c0.length; i++) { const k = t0 + i; if (k >= N) break; if (k >= 0) { L[k] += c0[i] * g; R[k] += c1[i] * g; } }
   }
   if (sfx) addSfx(L, R, sr, sfx);
   for (let i = 0; i < N; i++) { L[i] = Math.max(-1, Math.min(1, L[i])); R[i] = Math.max(-1, Math.min(1, R[i])); }
