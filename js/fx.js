@@ -64,7 +64,54 @@ function embers(host) {
   go();
 }
 
+
+// Nebulosa de fundo (WebGL, render em baixa resolução, pausa fora de vista). Paleta forja: brasa, vermelho, laranja.
+function nebula() {
+  const bg = document.querySelector('#bg'); if (!bg || bg.querySelector('canvas.neb')) return;
+  if (document.documentElement.classList.contains('still')) return;
+  const cv = document.createElement('canvas'); cv.className = 'neb';
+  const gl = cv.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'low-power' }); if (!gl) return;
+  const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+  const fs = `precision mediump float;uniform vec2 R;uniform float T,S;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p=p*2.02+vec2(1.7,9.2);a*=.5;}return v;}
+void main(){vec2 uv=gl_FragCoord.xy/R.y;uv.y+=S*.35;float t=T*.035;
+vec2 q=vec2(fbm(uv*1.3+t),fbm(uv*1.3+vec2(5.2,1.3)-t));
+vec2 r=vec2(fbm(uv*1.6+q*2.2+vec2(1.7,9.2)+t*1.5),fbm(uv*1.6+q*2.2+vec2(8.3,2.8)-t));
+float f=fbm(uv*1.4+r*2.4);
+vec3 c=vec3(.016,.007,.005);
+c=mix(c,vec3(.26,.025,.035),smoothstep(.35,.8,f)*.85);
+c=mix(c,vec3(.95,.28,.06),smoothstep(.62,1.,r.x*f*2.4)*.32);
+c+=vec3(1.,.7,.25)*pow(smoothstep(.75,1.,f*r.y*2.6),3.)*.14;
+float v=smoothstep(1.25,.25,length(gl_FragCoord.xy/R-.5)*1.5);
+c*=.22+.78*v*smoothstep(.1,.9,length(gl_FragCoord.xy/R-vec2(.5,.52))*1.6+.25);gl_FragColor=vec4(c,1.);}`;
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return gl.getShaderParameter(o, gl.COMPILE_STATUS) ? o : null; };
+  const v = sh(gl.VERTEX_SHADER, vs), f = sh(gl.FRAGMENT_SHADER, fs); if (!v || !f) return;
+  const pr = gl.createProgram(); gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return; gl.useProgram(pr);
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const a = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+  const uR = gl.getUniformLocation(pr, 'R'), uT = gl.getUniformLocation(pr, 'T'), uS = gl.getUniformLocation(pr, 'S');
+  const scale = innerWidth < 760 ? .32 : .42;
+  const size = () => { cv.width = Math.max(2, Math.round(innerWidth * scale)); cv.height = Math.max(2, Math.round(innerHeight * scale)); gl.viewport(0, 0, cv.width, cv.height); };
+  size(); addEventListener('resize', size, { passive: true });
+  bg.prepend(cv); bg.classList.add('neb');
+  let sm = 0, t0 = performance.now();
+  const draw = now => {
+    requestAnimationFrame(draw);
+    if (document.hidden || !cv.offsetParent && getComputedStyle(cv).display === 'none') return;
+    const sp = parseFloat(document.documentElement.style.getPropertyValue('--sp')) || 0;
+    sm += (sp - sm) * .08;
+    gl.uniform2f(uR, cv.width, cv.height); gl.uniform1f(uT, (now - t0) / 1000); gl.uniform1f(uS, sm * 3 + fx.vel * .02);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+  requestAnimationFrame(draw);
+}
+
 export function initFx() {
+  nebula();
   scrollFx();
   if (reduce) return;
   const land = document.querySelector('#landing');
