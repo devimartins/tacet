@@ -3,7 +3,7 @@ import { openMedia, extractAudio } from './media.js';
 import { renderClip } from './render.js';
 import { silences, zoomAt } from './edit.js';
 import { suggestClips } from './clips.js';
-import { retime, tokens, fromWhisper } from './transcript.js';
+import { retime, tokens, fromWhisper, fixCase } from './transcript.js';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
 import { findBroll } from './broll.js';
@@ -183,7 +183,7 @@ async function pipeline() {
       words = words.concat(await part(blob, off));
     }, p => prog(p));
     if (!words.length) throw new Error('Não encontrei fala neste vídeo.');
-    S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
+    words = fixCase(words); S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
     await save({ transcript: { words }, duration: S.media.duration });
     if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); return; }
     if (!LIVE) { clipsUI(); status('Transcrição pronta. A sugestão de cortes por IA precisa do servidor; crie um corte manual na aba Ferramentas.'); return; }
@@ -280,7 +280,7 @@ function mountGallery(box, getCur, onPick, hover) {
     for (const [id, p] of Object.entries(PRESETS)) {
       if ((cat !== 'Todos' && p.cat !== cat) || (q && !p.name.toLowerCase().includes(q))) continue;
       const locked = !canPro() && !p.free, cv = el('canvas', { width: 300, height: 170 }); cv.dataset.p = id;
-      const b = el('button', { type: 'button', className: 'gcard', onclick: async () => { if (locked) { $('#pay').showModal(); return; } await onPick(id); mark(); } }, cv, el('span', { className: 'gn', textContent: p.name }), ...(locked ? [el('span', { className: 'lk', textContent: 'PRO' })] : []));
+      const b = el('button', { type: 'button', className: 'gcard', onclick: async () => { if (locked) { $('#pay').showModal(); return; } await onPick(id); mark(); } }, cv, el('span', { className: 'gn', textContent: p.name }), el('span', { className: 'lk' + (p.free ? ' fr' : ''), textContent: p.free ? 'GRÁTIS' : 'PRO' }));
       b.dataset.id = id; if (hover && !locked) { const on = async () => { await loadFont(p.font, p.wLight, p.wActive); S.tmp = id; rebuild(); }, off = () => { if (S.tmp) { S.tmp = null; rebuild(); } }; b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse' && S.file) on(); }); b.addEventListener('pointerleave', off); b.addEventListener('focus', () => { if (S.file) on(); }); b.addEventListener('blur', off); b.addEventListener('click', () => { S.tmp = null; }); } grid.append(b);
     }
     if (!grid.children.length) grid.append(el('p', { className: 'mut', textContent: 'Nenhum estilo encontrado.' }));
@@ -322,6 +322,19 @@ function drawTimeline() {
   const c = $('#trkC'), k = $('#trkK'); if (!c) return; c.replaceChildren(); k.replaceChildren(); const D = Math.max(S.dur, 1);
   S.chunks.forEach(ch => { const s0 = ch[0].s, e0 = ch[ch.length - 1].e; c.append(el('i', { style: `left:${s0 / D * 100}%;width:${Math.max(.35, (e0 - s0) / D * 100)}%`, title: ch.map(w => w.w).join(' ') })); });
   S.clips.forEach((cl, i) => k.append(el('i', { style: `left:${cl.start / D * 100}%;width:${Math.max(.8, (cl.end - cl.start) / D * 100)}%`, textContent: cl.title || 'Corte ' + (i + 1), title: mmss(cl.start) + ' a ' + mmss(cl.end) })));
+  // faixas extras: áudios (arrastáveis), música e imagens/B-roll/títulos
+  document.querySelectorAll('#tl .x').forEach(n => n.remove());
+  const nc = document.querySelector('#tl .tnc'), tw = document.querySelector('#tl .tw'), ph = $('#ph2');
+  const addTrack = (name, fill) => { const t = el('div', { className: 'trk x' }); nc.append(el('span', { className: 'tn x', textContent: name })); tw.insertBefore(t, ph); fill(t); };
+  if ((S.aud || []).length) addTrack('Áudio', t => S.aud.forEach(o => {
+    const b = el('i', { className: 'drag', style: `left:${o.at / D * 100}%;width:${Math.max(1.5, o.buf.duration / D * 100)}%`, textContent: o.name, title: 'Arraste para mover o áudio' });
+    b.onpointerdown = e => { e.stopPropagation(); b.setPointerCapture(e.pointerId); const r = t.getBoundingClientRect(), x0 = e.clientX, a0 = o.at;
+      b.onpointermove = ev => { o.at = Math.max(0, Math.min(D - 0.2, a0 + (ev.clientX - x0) / r.width * D)); b.style.left = o.at / D * 100 + '%'; };
+      b.onpointerup = () => { b.onpointermove = b.onpointerup = null; audUI(); }; };
+    b.onclick = e => e.stopPropagation(); t.append(b); }));
+  if (S.music) addTrack('Música', t => t.append(el('i', { style: 'left:0;width:100%;opacity:.55', textContent: S.music.name })));
+  const ovs = (S.ov || []).filter(o => o.from != null);
+  if (ovs.length) addTrack('Imagens', t => ovs.forEach(o => t.append(el('i', { style: `left:${o.from / D * 100}%;width:${Math.max(1.5, (o.to - o.from) / D * 100)}%`, textContent: o.kind === 'title' ? o.text : o.name, title: o.kind === 'broll' ? 'B-roll' : o.kind === 'title' ? 'Título' : 'Imagem' }))));
 }
 function thumb(pid) {
   if (!pid) return; const v = $('#vid');
@@ -343,7 +356,7 @@ function phrasesUI() {
 }
 function setRatio(r) {
   S.ratio = r; S.style.ratio = r; const [w, h] = DIMS[r], ar = w / h; $('#ratio').value = r;
-  $('#stage').style.aspectRatio = w + '/' + h; $('#stage').style.width = `min(100%,${(74 * ar).toFixed(2)}dvh)`; document.querySelector('.transport').style.width = `min(100%,${(74 * ar).toFixed(2)}dvh)`;
+  $('#stage').style.aspectRatio = w + '/' + h; const sw = `min(100%,calc(var(--sh,74) * ${ar.toFixed(4)} * 1dvh))`; $('#stage').style.width = sw; document.querySelector('.transport').style.width = sw;
   saveSoon('style', { style: S.style });
 }
 $('#ratio').onchange = e => setRatio(e.target.value);
@@ -396,7 +409,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -446,7 +459,7 @@ async function boot() {
   const apply = async s => {
     if (!s) { S.user = null; view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; $('#nOut').title = s.user.email || '';
-    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; buildPresets(); planUI(); home();
+    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); home();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
@@ -457,13 +470,36 @@ initGuide({ home: () => home() });   // útil para testes
 
 // ---------- música de fundo ----------
 S.aud = [];
+// ---------- configurações do vídeo, trocar e remover ----------
+S.res = 1; S.fps = 30;
+const dimsNow = () => { const [w, h] = DIMS[S.ratio], k = S.res; return [Math.round(w * k / 2) * 2, Math.round(h * k / 2) * 2]; };
+$('#ratio2').onchange = e => setRatio(e.target.value);
+$('#ratio').addEventListener('change', () => { $('#ratio2').value = $('#ratio').value; });
+$('#resSel').onchange = e => { S.res = +e.target.value; };
+$('#fpsSel').onchange = e => { S.fps = +e.target.value; };
+$('#vidCfg').onclick = () => { tab('clips'); $('#vidSet').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+async function dropProject() { if (LIVE && S.pid) { const r = await S.sb.from('projects').delete().eq('id', S.pid); if (r.error) { flash('Não foi possível apagar: ' + r.error.message); return false; } } return true; }
+async function swapVideo(e) {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (!confirm('Trocar o vídeo apaga a transcrição e os cortes deste projeto. Continuar?')) return;
+  const mode = S.mode, old = S.pid; if (!(await dropProject())) return; S.pid = null; stopPlay(); await newVideo(f, mode); if (old && !S.pid && LIVE) home();
+}
+$('#swapIn').onchange = swapVideo; $('#swapIn2').onchange = swapVideo;
+$('#vidDel').onclick = async () => { if (!confirm('Remover o vídeo e descartar este projeto?')) return; if (!(await dropProject())) return; S.file = null; S.media = null; S.words = []; S.clips = []; S.ov = []; S.aud = []; home(); flash('Projeto descartado.'); };
+const dbFmt = d => (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' dB', dbLin = d => Math.pow(10, d / 20);
 function audUI() {
   const ul = $('#audList'); ul.replaceChildren();
   S.aud.forEach((o, i) => {
-    const at = el('input', { type: 'number', min: 0, step: 0.5, value: +o.at.toFixed(1), ariaLabel: 'Início do áudio (s)' }); at.style.width = '64px'; at.onchange = () => { o.at = Math.max(0, +at.value || 0); };
-    const vol = el('input', { type: 'range', min: 0, max: 150, value: Math.round(o.vol * 100), ariaLabel: 'Volume do áudio' }); vol.oninput = () => { o.vol = +vol.value / 100; };
-    ul.append(el('li', {}, el('span', { textContent: o.name + ' (' + o.buf.duration.toFixed(1) + ' s)' }), el('span', { className: 'mut', textContent: 'em' }), at, el('span', { className: 'mut', textContent: 's' }), vol, el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.aud.splice(i, 1); audUI(); } })));
+    if (o.db == null) o.db = Math.round(20 * Math.log10(o.vol || 1));
+    const at = el('input', { type: 'number', min: 0, step: 0.5, value: +o.at.toFixed(1), ariaLabel: 'Início do áudio (s)' }); at.style.width = '64px'; at.onchange = () => { o.at = Math.max(0, +at.value || 0); drawTimeline(); };
+    const out = el('output', { textContent: dbFmt(o.db) });
+    const vol = el('input', { type: 'range', min: -30, max: 12, step: 1, value: o.db, ariaLabel: 'Volume do áudio em decibéis' }); vol.oninput = () => { o.db = +vol.value; o.vol = dbLin(o.db); out.textContent = dbFmt(o.db); };
+    ul.append(el('li', {}, el('span', { className: 'nm', textContent: o.name + ' (' + o.buf.duration.toFixed(1) + ' s)', title: o.name }),
+      el('div', { className: 'rg' }, el('span', { textContent: 'Início (s)' }), at, el('span')),
+      el('div', { className: 'rg' }, el('span', { textContent: 'Volume' }), vol, out),
+      el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.aud.splice(i, 1); audUI(); } })));
   });
+  drawTimeline();
 }
 $('#audIn').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
@@ -479,11 +515,11 @@ $('#musFile').onchange = async e => {
     const buf = await ac.decodeAudioData(await f.arrayBuffer()); ac.close();
     if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); }
     musEl = new Audio(URL.createObjectURL(f)); musEl.loop = true;
-    S.music = { buf, vol: +$('#musVol').value / 100, name: f.name }; $('#musRow').hidden = false; $('#musName').textContent = f.name; m.textContent = 'Música pronta. Será misturada ao gerar o corte.'; musSync();
+    S.music = { buf, vol: dbLin(+$('#musVol').value), name: f.name }; $('#musRow').hidden = false; $('#musName').textContent = f.name; drawTimeline(); m.textContent = 'Música pronta. Será misturada ao gerar o corte.'; musSync();
   } catch (err) { m.textContent = 'Não consegui ler este áudio (' + (err.message || 'formato') + '). Tente MP3, M4A ou WAV.'; }
 };
-$('#musVol').oninput = e => { if (S.music) { S.music.vol = +e.target.value / 100; musSync(); } };
-$('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); musEl = null; } S.music = null; $('#musRow').hidden = true; $('#musFile').value = ''; $('#musMsg').textContent = 'Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.'; };
+$('#musVol').oninput = e => { $('#musDb').textContent = dbFmt(+e.target.value); if (S.music) { S.music.vol = dbLin(+e.target.value); musSync(); } };
+$('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); musEl = null; } S.music = null; $('#musRow').hidden = true; $('#musFile').value = ''; drawTimeline(); $('#musMsg').textContent = 'Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.'; };
 setInterval(() => { if (musEl) { if (S.playing && musEl.paused) musEl.play().catch(() => { }); if (!S.playing && !musEl.paused) musEl.pause(); } }, 300);
 
 // ---------- assinatura (Mercado Pago: PIX, débito e crédito) ----------
@@ -559,10 +595,11 @@ $('#logoOff').onclick = () => { try { localStorage.removeItem('forjaclip.logo');
 function ovUI() {
   const ul = $('#ovList'); ul.replaceChildren();
   S.ov.forEach((o, i) => {
-    const li = el('li'); const num = (k) => { const n = el('input', { type: 'number', min: 0, step: 0.5, value: +o[k].toFixed(1), ariaLabel: k === 'from' ? 'Início' : 'Fim' }); n.style.width = '64px'; n.onchange = () => { o[k] = Math.max(0, +n.value || 0); }; return n; };
+    const li = el('li'); const num = (k) => { const n = el('input', { type: 'number', min: 0, step: 0.5, value: +o[k].toFixed(1), ariaLabel: k === 'from' ? 'Início' : 'Fim' }); n.style.width = '64px'; n.onchange = () => { o[k] = Math.max(0, +n.value || 0); drawTimeline(); }; return n; };
     const name = o.kind === 'title' ? el('input', { value: o.text, ariaLabel: 'Texto do título', oninput: e => { o.text = e.target.value; } }) : el('span', { textContent: (o.kind === 'broll' ? 'B-roll: ' : 'Imagem: ') + o.name });
     li.append(name, num('from'), el('span', { className: 'mut', textContent: 'a' }), num('to'), el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.ov.splice(i, 1); ovUI(); } })); ul.append(li);
   });
+  drawTimeline(); const at = $('#ovCredit'); if (at) at.hidden = !S.ov.some(o => o.frames);
 }
 $('#ovTitle').onclick = async () => {
   const w = visible(); if (!w.length) { flash('Ainda não há transcrição para sugerir um título.'); return; }

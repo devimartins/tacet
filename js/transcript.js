@@ -33,3 +33,18 @@ export function retime(old, toks, dur) {
 }
 // Resposta do Whisper (palavras com start/end) → [{w,s,e}], somando o deslocamento do bloco.
 export const fromWhisper = (data, offset) => (data.words || []).map(x => ({ w: String(x.word).trim(), s: +(x.start + offset).toFixed(2), e: +(x.end + offset).toFixed(2) })).filter(x => x.w);
+
+// Capitalização contextual (só maiúsculas/minúsculas; nunca troca nem apaga palavras):
+// início de frase, nomes sagrados e próprios comuns, "Espírito Santo".
+const PROPER = new Set(['deus', 'jesus', 'cristo', 'jeová', 'javé', 'bíblia', 'brasil', 'portugal', 'israel', 'jerusalém', 'maria', 'pai nosso'].filter(x => !x.includes(' ') && x !== 'maria'));
+const split = w => { const m = /^(\P{L}*)(\p{L}[\p{L}\p{N}'’-]*)(.*)$/su.exec(w); return m ? [m[1], m[2], m[3]] : null; };
+const cap = w => { const p = split(w); return p ? p[0] + p[1][0].toLocaleUpperCase('pt-BR') + p[1].slice(1) + p[2] : w; };
+export function fixCase(words) {
+  let start = true;
+  return words.map((o, i) => {
+    let w = o.w; const p = split(w), core = p ? p[1].toLocaleLowerCase('pt-BR') : '', prev = i ? split(words[i - 1].w)?.[1].toLocaleLowerCase('pt-BR') : '', next = words[i + 1] ? split(words[i + 1].w)?.[1].toLocaleLowerCase('pt-BR') : '';
+    if (start || PROPER.has(core) || (core === 'santo' && prev === 'espírito') || (core === 'espírito' && next === 'santo')) w = cap(w);
+    start = /[.!?…]["')\]]*$/.test(o.w);
+    return w === o.w ? o : { ...o, w };
+  });
+}

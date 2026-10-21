@@ -137,9 +137,9 @@ export function openTeleprompter({ onUse, flash }) {
     const file = new File([blob], 'teleprompter-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.' + ext, { type });
     h(`<div class="bar"><b>Gravação pronta</b></div>
     <div class="res"><video id="pv" src="${url}" controls playsinline></video>
-    <p class="tip" id="wm"></p>
+    <p class="tip" id="wm" style="font-size:14px;color:#fff">Atenção: a gravação ainda não está no editor. Toque em <b>Usar no ForjaClip</b> para legendar agora, ou toque em <b>Salvar no aparelho</b> e depois envie esse arquivo ao ForjaClip em <b>Só legendas</b>.</p>
     <div class="ctl"><button id="sv" type="button">Salvar no aparelho</button><button class="pri" id="us" type="button">Usar no ForjaClip</button><button id="again" type="button">Gravar de novo</button><button id="x" type="button">Fechar</button></div></div>`);
-    if (ext === 'webm') $('#wm').textContent = 'Este navegador gravou em WebM. Se a edição não aceitar, grave em um navegador que salve MP4 (Safari ou Chrome recente).';
+    if (ext === 'webm') $('#wm').append(document.createElement('br'), 'Este navegador gravou em WebM. Se o editor não aceitar, grave em um navegador que salve MP4 (Safari ou Chrome recente).');
     $('#sv').onclick = async () => {
       try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch (e) { if (e.name === 'AbortError') return; }
       const a = document.createElement('a'); a.href = url; a.download = file.name; a.click();

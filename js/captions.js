@@ -77,12 +77,18 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   let k = -1; for (let i = 0; i < chunks.length; i++) if (t >= chunks[i][0].s) k = i; else break;
   const c = chunks[k]; if (!c || t > c[c.length - 1].e + 0.4) return null;
   let a = -1; for (let i = 0; i < c.length; i++) if (t >= c[i].s) a = i;
-  const px = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6), gap = px * 0.28, lh = px * 1.28;
+  const px0 = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6);
   const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case), on: i === a, past: i < a }));
-  words.forEach(o => { ctx.font = fnt(rs, Math.max(rs.wLight, rs.wActive), px); o.rw = ctx.measureText(o.t).width; });   // largura reservada no peso maior: a linha não "treme"
-  const lines = []; let cur = [], cw = 0;
-  words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
-  if (cur.length) lines.push(cur);
+  // quebra em no máximo 2 linhas: se passar, reduz a fonte até caber (mínimo 62%)
+  let px = px0, gap = 0, lh = 0, lines = [];
+  for (let f = 1; f >= 0.62; f -= 0.06) {
+    px = px0 * f; ctx.font = fnt(rs, Math.max(rs.wLight, rs.wActive), px); gap = Math.max(px * 0.3, ctx.measureText(' ').width * 1.1); lh = px * 1.28;
+    words.forEach(o => { o.rw = ctx.measureText(o.t).width; });   // largura reservada no peso maior: a linha não "treme"
+    lines = []; let cur = [], cw = 0;
+    words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
+    if (cur.length) lines.push(cur);
+    if (lines.length <= 2) break;
+  }
   const lw = l => l.reduce((s, o, i) => s + o.rw + (i ? gap : 0), 0);
   const bw = Math.max(...lines.map(lw)), bh = lines.length * lh;
   const cx = rs.x * W, cy = rs.y * H, left = cx - bw / 2, top = cy - bh / 2;
