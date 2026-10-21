@@ -764,3 +764,10 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
 }
 
 import('./fx.js?v=4').then(m => m.initFx()).catch(() => {});
+
+// editor em tela estreita: reduzir/ampliar o vídeo flutuante e mostrar opções do vídeo
+{
+  const ed = document.querySelector('#edit .edit'), sz = document.querySelector('#flSize'), mo = document.querySelector('#flMore');
+  sz?.addEventListener('click', () => { const m = ed.classList.toggle('mini'); sz.textContent = m ? 'Ampliar vídeo' : 'Reduzir vídeo'; });
+  mo?.addEventListener('click', () => { const m = ed.classList.toggle('more'); mo.textContent = m ? 'Ocultar opções' : 'Opções do vídeo'; });
+}
