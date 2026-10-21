@@ -1,8 +1,9 @@
 // Teleprompter do ForjaClip (plano pago). Módulo leve, carregado só quando o usuário abre.
 // Tudo roda no aparelho: câmera (getUserMedia) + MediaRecorder. Nada é enviado a servidor.
 const KEY = 'fc_tp';
-const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
-const save = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch { /* sem armazenamento */ } };
+// só os ajustes (velocidade, tamanho, espelho) ficam salvos; o texto sempre começa vazio
+const load = () => { try { const o = JSON.parse(localStorage.getItem(KEY)) || {}; delete o.text; return o; } catch { return {}; } };
+const save = o => { try { const { text, ...rest } = o; localStorage.setItem(KEY, JSON.stringify(rest)); } catch { /* sem armazenamento */ } };
 
 const CSS = `
 #tp{position:fixed;inset:0;z-index:90;background:#0b0b0f;color:#fff;display:flex;flex-direction:column;font:16px/1.4 system-ui,sans-serif}
@@ -51,7 +52,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
   // ---------- 1. texto e ajustes ----------
   function editor() {
     h(`<div class="bar"><b>Teleprompter</b>${ai ? '<button id="sug" type="button">✨ Sugerir roteiro</button>' : ''}<button id="x" type="button">Fechar</button></div>
-    <textarea id="t" placeholder="Cole ou escreva o texto que você vai ler." aria-label="Texto do teleprompter"></textarea>
+    <textarea id="t" placeholder="Cole aqui o seu texto" aria-label="Texto do teleprompter"></textarea>
     <div class="opts">
       <label for="w">Velocidade</label><input id="w" type="range" min="60" max="220" step="5"><span id="wv"></span>
       <label for="s">Tamanho do texto</label><input id="s" type="range" min="22" max="64" step="2"><span id="sv"></span>
