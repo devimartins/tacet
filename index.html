@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=61"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=62"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -351,7 +351,8 @@ body:has(#login:not([hidden])) main{margin-left:0}
 
 /* editor em tela estreita/vertical: vídeo grande em cartão de vidro fixo; só os controles rolam (sem tremor) */
 .flrow{display:none}
-.stplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;border:1px solid rgba(255,255,255,.35);color:#fff;display:grid;place-items:center;background:rgba(20,10,6,.38);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);box-shadow:0 0 30px -4px var(--ac),inset 0 1px 0 rgba(255,255,255,.3);cursor:pointer;z-index:3;padding:0 0 0 4px;transition:transform .15s,box-shadow .2s}
+.stplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;border:1px solid rgba(255,255,255,.35);color:#fff;display:grid;place-items:center;background:rgba(20,10,6,.38);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);box-shadow:0 0 30px -4px var(--ac),inset 0 1px 0 rgba(255,255,255,.3);cursor:pointer;z-index:3;padding:0;transition:transform .15s,box-shadow .2s}
+.stplay svg{filter:drop-shadow(0 0 10px rgba(255,106,31,.8))}
 .stplay:hover{transform:translate(-50%,-50%) scale(1.06);box-shadow:0 0 44px -2px var(--ac),inset 0 1px 0 rgba(255,255,255,.3)}
 .stplay[hidden]{display:none}.stage:has(.ph:not([hidden])) .stplay{display:none}
 /* barra de progresso incandescente (claro e escuro) */
@@ -462,7 +463,7 @@ progress::-moz-progress-bar{background:linear-gradient(90deg,#ffb020,#ff6a1f);bo
 </div></section>
 <section id="edit" hidden><div class="wrap edit">
  <div class="left">
-  <div class="stage" id="stage"><canvas id="bgv" width="48" height="85"></canvas><video id="vid" playsinline loop></video><canvas id="cv"></canvas><button type="button" class="stplay" id="stPlay" aria-label="Reproduzir"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+  <div class="stage" id="stage"><canvas id="bgv" width="48" height="85"></canvas><video id="vid" playsinline loop></video><canvas id="cv"></canvas><button type="button" class="stplay" id="stPlay" aria-label="Reproduzir"><svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true"><use href="#fc-mark"/></svg></button>
    <div class="ph" id="ph"><span id="phTxt">Selecione o vídeo para pré-visualizar.</span><label class="btn" style="position:relative">Selecionar vídeo<input id="attach" type="file" accept="video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
   <label class="ratio"><span class="mut">Formato</span><select id="ratio" aria-label="Formato do vídeo"><option value="9:16">9:16 vertical</option><option value="4:5">4:5 feed</option><option value="1:1">1:1 quadrado</option><option value="16:9">16:9 horizontal</option></select></label>
   <div class="vrow"><button class="btn" id="vidCfg" type="button">Configurações do vídeo</button><label class="btn" style="cursor:pointer">Trocar vídeo<input id="swapIn" type="file" accept="video/*" hidden></label></div>
@@ -515,5 +516,5 @@ progress::-moz-progress-bar{background:linear-gradient(90deg,#ffb020,#ff6a1f);bo
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=61"></script>
+<script type="module" src="js/app.js?v=62"></script>
 </body></html>
