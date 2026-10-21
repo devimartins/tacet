@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=45"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=46"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -130,6 +130,8 @@ dialog{border:1px solid var(--bd);border-radius:16px;background:var(--s1);color:
 .twS{overflow-x:auto;overflow-y:hidden;min-width:0;scrollbar-width:thin}.tlz{display:flex;gap:8px;align-items:center;justify-content:flex-end;width:min(100%,560px);margin-top:-8px}.tlz .btn{min-height:30px;padding:0 12px;font-size:15px}
 .tnc{display:grid;gap:6px;grid-auto-rows:22px;align-items:center}.tw{position:relative;display:grid;gap:6px}.tw b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--tx);left:0;pointer-events:none}
 li.item .th{width:44px;height:78px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
+.avb{display:inline-block;width:28px;height:28px;border-radius:50%;overflow:hidden;flex:none}.avb svg{display:block;width:100%;height:100%}
+.avg{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:10px;margin:14px 0}.avg button,.avc button{border:2px solid transparent;border-radius:50%;padding:0;overflow:hidden;background:none;cursor:pointer;aspect-ratio:1}.avg button svg{display:block;width:100%;height:100%}.avg button[aria-checked=true],.avc button[aria-checked=true]{border-color:var(--ac);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ac)}.avc{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}.avc button{width:30px;height:30px;aspect-ratio:auto}
 .feat{text-align:left;font:inherit;color:inherit;border-color:color-mix(in srgb,var(--ac) 55%,var(--bd))}.feat .fb{align-self:flex-start;font:600 10px/1 system-ui;letter-spacing:.12em;color:var(--ac);border:1px solid var(--ac);border-radius:999px;padding:4px 8px}
 .start{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.start .drop{min-height:170px}
 .yt{margin-top:18px;display:grid;gap:8px}.ytr{display:flex;gap:8px}.ytr input{flex:1;min-width:0;min-height:44px;border:1px solid var(--bd);border-radius:10px;background:var(--in);padding:6px 12px}
@@ -256,6 +258,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
  <button id="nPro" type="button" title="Plano Pro" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/></svg><span class="lbl" id="nProL">Plano Pro</span></button>
  <span class="sp"></span>
  <button id="nTheme" type="button" title="Alternar tema claro/escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span class="lbl" id="themeLbl">Tema</span></button>
+ <button id="nAv" type="button" title="Escolher avatar" aria-label="Escolher avatar" hidden><span class="avb" id="avBadge"></span><span class="lbl">Avatar</span></button>
  <button id="nOut" type="button" title="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg><span class="lbl" id="who">Sair</span></button>
 </nav>
 <main>
@@ -355,8 +358,9 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 </main>
 <footer class="lf"><a href="guias/">Guias</a> · <a href="termos.html">Termos de uso</a> · <a href="privacidade.html">Política de privacidade</a> · ForjaClip</footer>
 <dialog id="desc"><h2 style="margin-top:0">Descrição e hashtags</h2><textarea id="descTxt" aria-label="Texto gerado" style="min-height:200px"></textarea><div class="ytr" style="margin-top:12px"><button class="btn pri" id="descCopy" type="button">Copiar</button><form method="dialog"><button class="btn">Fechar</button></form></div></dialog>
+<dialog id="avD"><h2 style="margin-top:0">Escolha seu avatar</h2><p class="mut">Ele aparece no seu perfil. Você pode trocar quando quiser.</p><div class="avg" id="avG" role="radiogroup" aria-label="Avatares"></div><div class="avc" id="avC" role="radiogroup" aria-label="Cor de fundo"></div><div class="row btns"><button class="btn pri" id="avOk" type="button">Salvar</button><button class="btn" id="avLater" type="button">Escolher depois</button></div></dialog>
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=45"></script>
+<script type="module" src="js/app.js?v=46"></script>
 </body></html>

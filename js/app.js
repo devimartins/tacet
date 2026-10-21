@@ -9,6 +9,7 @@ import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
 import { findBroll } from './broll.js';
 import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 import { initGuide } from './guide.js';
+import { avatarSvg, parseAv, AV_COUNT, BG_COUNT } from './avatar.js';
 import { assist, translateWords, toLines } from './ai.js';
 import { addEmojis } from './extras.js';
 import { detectTone, TONES } from './musicgen.js';
@@ -489,9 +490,18 @@ async function boot() {
   await loadFont('Montserrat', 300, 500, 900);
   if (!LIVE) { view('home'); $('#homeSub').textContent = 'Sem conta: a transcrição roda no seu aparelho e nada é salvo. Entre para guardar projetos.'; $('#nOut').hidden = true; return; }
   S.sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON);
+  const avSet = v => { S.av = v; const a = parseAv(v); $('#avBadge').innerHTML = a ? avatarSvg(a[0], a[1], 28) : ''; $('#nAv').hidden = false; };
+  const avOpen = () => {
+    const cur = parseAv(S.av) || [0, 0]; let sel = cur[0], bg = cur[1]; const g = $('#avG'), c = $('#avC');
+    const draw = () => { g.replaceChildren(); c.replaceChildren(); for (let i = 0; i < AV_COUNT; i++) { const b = el('button', { type: 'button', ariaLabel: 'Avatar ' + (i + 1), onclick: () => { sel = i; draw(); } }); b.innerHTML = avatarSvg(i, bg, 64); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(i === sel)); g.append(b); } for (let j = 0; j < BG_COUNT; j++) { const b = el('button', { type: 'button', ariaLabel: 'Cor ' + (j + 1), onclick: () => { bg = j; draw(); } }); b.innerHTML = avatarSvg(sel, j, 30); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(j === bg)); c.append(b); } };
+    draw(); $('#avOk').onclick = async () => { const v = 'a' + sel + '-' + bg; avSet(v); try { localStorage.setItem('forjaclip.av', v); } catch { /* ok */ } $('#avD').close(); try { await S.sb.auth.updateUser({ data: { avatar: v } }); } catch { /* fica só neste aparelho */ } };
+    $('#avLater').onclick = () => { try { localStorage.setItem('forjaclip.avSkip', '1'); } catch { /* ok */ } $('#avD').close(); };
+    $('#avD').showModal();
+  };
+  $('#nAv').onclick = avOpen;
   const apply = async s => {
     if (!s) { S.user = null; view('login'); return; }
-    if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; $('#nOut').title = s.user.email || '';
+    if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
     const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); home();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
