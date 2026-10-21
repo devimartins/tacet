@@ -2,7 +2,7 @@
 // O áudio original (AAC) é copiado sem recodificar.
 import { drawCaption, chunksOf, resolve, loadFont } from './captions.js';
 import { makeReader } from './media.js';
-import { drawOverlays } from './overlays.js';
+import { drawOverlays, drawBroll } from './overlays.js';
 import { silences, makeShift, inRange, zoomAt } from './edit.js';
 import { addEmojis, sfxEvents, addSfx, denoise } from './extras.js';
 
@@ -55,6 +55,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (rot === 90) { ctx.translate(V.height, 0); ctx.rotate(Math.PI / 2); } else if (rot === 180) { ctx.translate(V.width, V.height); ctx.rotate(Math.PI); } else if (rot === 270) { ctx.translate(0, V.width); ctx.rotate(-Math.PI / 2); }
     ctx.drawImage(f, 0, 0); f.close();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (opts.overlays && opts.overlays.length) drawBroll(ctx, W, H, opts.overlays, ta);
     drawCaption(ctx, W, H, chunks, t, rs);
     if (opts.overlays && opts.overlays.length) drawOverlays(ctx, W, H, opts.overlays, ta, rs.font);
     const vf = new VideoFrame(cv, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / fps) });

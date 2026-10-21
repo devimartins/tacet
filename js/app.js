@@ -5,10 +5,11 @@ import { silences, zoomAt } from './edit.js';
 import { suggestClips } from './clips.js';
 import { retime, tokens, fromWhisper } from './transcript.js';
 import { ICONS } from './icons.js';
-import { drawOverlays, hookTitle } from './overlays.js';
+import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
+import { findBroll } from './broll.js';
 import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 import { initGuide } from './guide.js';
-import { assist, translateWords } from './ai.js';
+import { assist, translateWords, toLines } from './ai.js';
 import { addEmojis } from './extras.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
@@ -387,7 +388,7 @@ function frame(now) {
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur).toFixed(3) + ')' : '';
     $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
-    const r = rs(); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length) drawOverlays(ctx, W, H, S.ov, S.cur, r.font);
+    const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length) drawOverlays(ctx, W, H, S.ov, S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
     if (S.safeOn && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
     const boxOut = S.bbox ? outsideSafe(S.bbox, S.safeP, W, H) : (r.y * H < safeRect(S.safeP, W, H).y || r.y * H > safeRect(S.safeP, W, H).y + safeRect(S.safeP, W, H).h);
@@ -491,7 +492,7 @@ function ovUI() {
   const ul = $('#ovList'); ul.replaceChildren();
   S.ov.forEach((o, i) => {
     const li = el('li'); const num = (k) => { const n = el('input', { type: 'number', min: 0, step: 0.5, value: +o[k].toFixed(1), ariaLabel: k === 'from' ? 'Início' : 'Fim' }); n.style.width = '64px'; n.onchange = () => { o[k] = Math.max(0, +n.value || 0); }; return n; };
-    const name = o.kind === 'title' ? el('input', { value: o.text, ariaLabel: 'Texto do título', oninput: e => { o.text = e.target.value; } }) : el('span', { textContent: 'Imagem: ' + o.name });
+    const name = o.kind === 'title' ? el('input', { value: o.text, ariaLabel: 'Texto do título', oninput: e => { o.text = e.target.value; } }) : el('span', { textContent: (o.kind === 'broll' ? 'B-roll: ' : 'Imagem: ') + o.name });
     li.append(name, num('from'), el('span', { className: 'mut', textContent: 'a' }), num('to'), el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.ov.splice(i, 1); ovUI(); } })); ul.append(li);
   });
 }
@@ -500,6 +501,22 @@ $('#ovTitle').onclick = async () => {
   const b = $('#ovTitle'); let text = hookTitle(w);
   if (LIVE && S.user) { b.disabled = true; b.textContent = 'Criando com IA…'; try { const r = await assist(CFG, await token(), 'hook', w.map(x => x.w).join(' ').slice(0, 8000)); const t = (r.titles || []).find(x => typeof x === 'string' && x.trim()); if (t) text = t.trim().toUpperCase(); } catch (e) { flash(e.message + ' Usei uma sugestão simples.'); } b.disabled = false; b.textContent = 'Sugerir título de gancho'; }
   S.ov.push({ kind: 'title', text, from: 0, to: Math.min(4, S.dur || 4) }); ovUI();
+};
+$('#ovBroll').onclick = async () => {
+  const w = visible(); if (!w.length) { flash('Ainda não há transcrição para escolher os B-rolls.'); return; }
+  if (!(LIVE && S.user)) { flash('Entre na sua conta para usar o B-roll automático.'); return; }
+  const b = $('#ovBroll'); b.disabled = true; b.textContent = 'Escolhendo cenas…';
+  try {
+    const lines = toLines(w, 14, 0.8).map(l => '[' + l[0].s.toFixed(1) + '] ' + l.map(x => x.w).join(' ')).join('\n').slice(0, 12000);
+    const r = await assist(CFG, await token(), 'broll', lines); let n = 0, last = -99;
+    for (const it of (r.items || []).slice(0, 8)) {
+      const t = +it.t, q = String(it.query || '').trim(); if (!(t >= 0) || !q || t - last < 5) continue;
+      b.textContent = 'Buscando: ' + q.slice(0, 20) + '…'; const img = await findBroll(q).catch(() => null); if (!img) continue;
+      S.ov.push({ kind: 'broll', img, name: q, from: t, to: Math.min(t + 2.5, S.dur || t + 2.5) }); last = t; n++;
+    }
+    ovUI(); flash(n ? n + ' B-roll(s) adicionados. Ajuste os tempos ou remova os que não gostar.' : 'Não encontrei imagens livres para este vídeo.');
+  } catch (e) { flash(e.message); }
+  b.disabled = false; b.textContent = 'B-roll automático (IA)';
 };
 $('#ovImg').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
