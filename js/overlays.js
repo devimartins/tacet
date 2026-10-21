@@ -32,10 +32,11 @@ export function drawOverlays(ctx, W, H, list, t, font = 'sans-serif') {
 // B-roll: imagem em tela cheia (cobre o quadro) com zoom lento, desenhada ANTES das legendas.
 export function drawBroll(ctx, W, H, list, t) {
   for (const o of list) {
-    if (o.kind !== 'broll' || !o.img || t < o.from || t >= o.to) continue;
+    if (o.kind !== 'broll' || !(o.img || o.frames) || t < o.from || t >= o.to) continue;
+    const img = o.frames ? o.frames[Math.min(o.frames.length - 1, Math.floor((t - o.from) * o.fps))] : o.img;   // vídeo: quadro pelo tempo
     const p = (t - o.from) / Math.max(0.1, o.to - o.from), a = Math.min(1, (t - o.from) / 0.2, (o.to - t) / 0.2);
-    const s = Math.max(W / o.img.width, H / o.img.height) * (1 + 0.1 * p), w = o.img.width * s, h = o.img.height * s;
-    ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.drawImage(o.img, (W - w) / 2, (H - h) / 2, w, h);
+    const s = Math.max(W / img.width, H / img.height) * (1 + (o.frames ? 0 : 0.1) * p), w = img.width * s, h = img.height * s;
+    ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
     ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, 0, W, H); ctx.restore();
   }
 }

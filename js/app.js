@@ -492,13 +492,22 @@ async function checkout(btn, msg, plan) {
   try { const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/checkout', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token, 'content-type': 'application/json' }, body: JSON.stringify({ plan: plan || 'month' }) }); const j = await r.json(); if (!r.ok || !j.url) throw new Error(j.error || 'Falha ao iniciar o pagamento.'); location.href = j.url; }
   catch (e) { msg.textContent = e.message; btn.disabled = false; }
 }
+$('#refBtn').onclick = async () => {
+  if (!confirm('Pedir reembolso integral dos pagamentos feitos nos últimos 7 dias? O plano Pro será encerrado agora.')) return;
+  const b = $('#refBtn'), m = $('#planMsg'); b.disabled = true; m.textContent = 'Solicitando o reembolso…';
+  try {
+    const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/refund', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token, 'content-type': 'application/json' }, body: '{}' });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Não foi possível pedir o reembolso agora.');
+    m.textContent = 'Reembolso solicitado. O valor volta pela mesma forma de pagamento (cartão: na fatura; PIX: na conta). Seu plano voltou ao gratuito.'; S.plan = 'free'; S.proUntil = null; setTimeout(() => location.reload(), 4000);
+  } catch (e) { m.textContent = e.message; b.disabled = false; }
+};
 function planUI() {   // pontos de entrada visíveis para o plano Pro: menu lateral e cartão na tela inicial
   if (!(CFG.PAY && LIVE)) return;
   $('#nPro').hidden = false; const pro = S.plan === 'pro', card = $('#plan'); card.hidden = false; card.classList.toggle('on', pro);
   const until = S.proUntil ? new Date(S.proUntil).toLocaleDateString('pt-BR') : '';
   $('#planT').textContent = pro ? 'ForjaClip Pro ativo' : 'ForjaClip Pro'; $('#nProL').textContent = pro ? 'Pro ativo' : 'Plano Pro';
   $('#planS').textContent = pro ? (until ? 'Seu acesso vai até ' + until + '. Renove quando quiser: cada pagamento soma 31 dias (ou 1 ano no plano anual).' : 'Obrigado por apoiar o ForjaClip.') : 'Estilos exclusivos, cortes por IA sem limite e sem anúncios.';
-  $('#planPrice').hidden = pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro'; $('#planBtnY').textContent = pro ? 'Renovar por 1 ano · R$ 199' : 'Plano anual · R$ 199/ano'; $('#yrS').innerHTML = 'Só <b>R$ 16,58 por mês</b>. Economize mais de R$ 100 por ano.';
+  $('#planPrice').hidden = pro; $('#refBtn').hidden = !pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro'; $('#planBtnY').textContent = pro ? 'Renovar por 1 ano · R$ 199' : 'Plano anual · R$ 199/ano'; $('#yrS').innerHTML = 'Só <b>R$ 16,58 por mês</b>. Economize mais de R$ 100 por ano.';
 }
 if (CFG.PAY && LIVE) {
   const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90, ou R$ 199 por ano (economize mais de R$ 100). Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
@@ -567,13 +576,17 @@ $('#ovBroll').onclick = async () => {
   const b = $('#ovBroll'); b.disabled = true; b.textContent = 'Escolhendo cenas…';
   try {
     const lines = toLines(w, 14, 0.8).map(l => '[' + l[0].s.toFixed(1) + '] ' + l.map(x => x.w).join(' ')).join('\n').slice(0, 12000);
-    const r = await assist(CFG, await token(), 'broll', lines); let n = 0, last = -99;
+    const r = await assist(CFG, await token(), 'broll', lines); let n = 0, last = -99, noVid = false;
     for (const it of (r.items || []).slice(0, 8)) {
       const t = +it.t, q = String(it.query || '').trim(); if (!(t >= 0) || !q || t - last < 5) continue;
-      b.textContent = 'Buscando: ' + q.slice(0, 20) + '…'; const img = await findBroll(q).catch(() => null); if (!img) continue;
+      b.textContent = 'Buscando: ' + q.slice(0, 20) + '…';
+      let vid = null;
+      if (S.plan === 'pro' && !noVid) { try { vid = await (await import('./brollvideo.js?v=1')).findBrollVideo(CFG, await token(), q); } catch (e) { if (e.status === 503 || e.status === 402) noVid = true; } }
+      if (vid) { const d = vid.frames.length / vid.fps; S.ov.push({ kind: 'broll', frames: vid.frames, fps: vid.fps, name: q + ' (vídeo Pexels: ' + vid.credit + ')', from: t, to: Math.min(t + d, S.dur || t + d) }); S.credit = true; last = t; n++; continue; }
+      const img = await findBroll(q).catch(() => null); if (!img) continue;
       S.ov.push({ kind: 'broll', img, name: q, from: t, to: Math.min(t + 2.5, S.dur || t + 2.5) }); last = t; n++;
     }
-    ovUI(); flash(n ? n + ' B-roll(s) adicionados. Ajuste os tempos ou remova os que não gostar.' : 'Não encontrei imagens livres para este vídeo.');
+    ovUI(); flash(n ? n + ' B-roll(s) adicionados' + (S.credit ? ' (vídeos: Pexels)' : '') + '. Ajuste os tempos ou remova os que não gostar.' : 'Não encontrei imagens livres para este vídeo.');
   } catch (e) { flash(e.message); }
   b.disabled = false; b.textContent = 'B-roll automático (IA)';
 };
