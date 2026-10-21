@@ -14,7 +14,7 @@ import { addEmojis } from './extras.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
 const LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);
-const MAX_BYTES = 1024 ** 3, SAMPLE = 'o segredo não é trabalhar mais horas. é escolher melhor onde colocar a sua energia todos os dias.';
+const MB = 1024 ** 2, LIMIT = { free: 350 * MB, pro: 1024 * MB }, SAMPLE = 'o segredo não é trabalhar mais horas. é escolher melhor onde colocar a sua energia todos os dias.';
 const el = (t, a = {}, ...c) => { const e = document.createElement(t); Object.assign(e, a); c.forEach(x => e.append(x)); return e; };
 const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -86,7 +86,9 @@ function ads() {   // anúncios só no plano gratuito, com ID do AdSense configu
 const fp = f => `${f.name}|${f.size}|${f.lastModified}`;
 async function newVideo(f, mode = 'clips') {
   if (!f) return; S.mode = mode;
-  if (f.size > MAX_BYTES) { flash('O plano gratuito aceita vídeos de até 1 GB. Este tem ' + (f.size / 1024 ** 3).toFixed(2) + ' GB.'); return; }
+  const pro = S.plan === 'pro', max = pro ? LIMIT.pro : LIMIT.free, mb = Math.round(f.size / MB);
+  if (f.size > max) { flash(pro ? `Este vídeo tem ${mb} MB e o limite do Pro é 1 GB. Tente comprimir o vídeo antes de enviar.` : `Este vídeo tem ${mb} MB. O plano gratuito aceita até 350 MB. Com o Pro você envia até 1 GB, ou pode comprimir o vídeo antes.`); return; }
+  if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
   S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
