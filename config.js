@@ -6,7 +6,7 @@ window.CFG = {
   PROVIDERS: ["github"],   // provedores de login ativados no Supabase       // chave "anon" pública do Supabase
   PAY: true,        // true = botão "Assinar o Pro" (Mercado Pago) ativo; exige MP_TOKEN no Worker
   GATE: false,       // true = estilos pagos bloqueados para o plano gratuito (ligue quando houver cobrança)
-  CONTACT: "",     // e-mail de contato exibido nos Termos e na Política (opcional)
+  CONTACT: "contato@forjaclip.com.br",     // e-mail de contato exibido nos Termos e na Política (opcional)
   ADS_CLIENT: "",    // ca-pub-XXXXXXXXXXXXXXXX (AdSense); vazio = sem anúncios
   ADS_SLOT: "",
 };
