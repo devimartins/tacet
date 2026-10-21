@@ -148,6 +148,7 @@ $('#ytForm').onsubmit = async e => {
   } catch (err) { m.textContent = err.message || 'Não foi possível abrir o vídeo.'; }
 };
 
+$('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=1'); m.openTeleprompter({ flash, onUse: f => newVideo(f, 'captions') }); };
 $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('on'); }; $('#drop').ondragleave = () => $('#drop').classList.remove('on');
 $('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'clips'); };
 $('#drop2').ondragover = e => { e.preventDefault(); $('#drop2').classList.add('on'); }; $('#drop2').ondragleave = () => $('#drop2').classList.remove('on');
