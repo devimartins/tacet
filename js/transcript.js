@@ -32,7 +32,21 @@ export function retime(old, toks, dur) {
   return [...old.slice(0, p), ...mid, ...old.slice(old.length - q)];
 }
 // Resposta do Whisper (palavras com start/end) → [{w,s,e}], somando o deslocamento do bloco.
-export const fromWhisper = (data, offset) => (data.words || []).map(x => ({ w: String(x.word).trim(), s: +(x.start + offset).toFixed(2), e: +(x.end + offset).toFixed(2) })).filter(x => x.w);
+// O Whisper devolve palavras sem pontuação nem maiúsculas; o texto completo (data.text) vem pontuado.
+// Alinha as duas listas para cada palavra herdar a pontuação e a capitalização do texto do modelo.
+const nz = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+function punctuate(words, text) {
+  const toks = String(text || '').trim().split(/\s+/).filter(Boolean); if (!toks.length) return words;
+  let j = 0;
+  return words.map(o => {
+    const k = nz(o.w); if (!k) return o;
+    for (let d = 0; d < 4 && j + d < toks.length; d++) {
+      if (nz(toks[j + d]) === k) { const w = toks[j + d]; j += d + 1; return w === o.w ? o : { ...o, w }; }
+    }
+    return o;
+  });
+}
+export const fromWhisper = (data, offset) => punctuate((data.words || []).map(x => ({ w: String(x.word).trim(), s: +(x.start + offset).toFixed(2), e: +(x.end + offset).toFixed(2) })).filter(x => x.w), data.text);
 
 // Capitalização contextual (só maiúsculas/minúsculas; nunca troca nem apaga palavras):
 // início de frase, nomes sagrados e próprios comuns, "Espírito Santo".

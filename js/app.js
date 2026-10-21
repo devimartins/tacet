@@ -22,7 +22,7 @@ const el = (t, a = {}, ...c) => { const e = document.createElement(t); Object.as
 const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } } };
-const S = { ov: [], sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
+const S = { ov: [], sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: true, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
 let EG = null, HG = null;
 S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
 const DIMS = { '9:16': [1080, 1920], '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1920, 1080] };
@@ -286,7 +286,7 @@ function buildControls() {
   for (const [c, ns] of Object.entries(cats)) { const og = el('optgroup', { label: c }); ns.forEach(n => og.append(el('option', { value: n, textContent: n }))); font.append(og); }
   rows.push(() => { font.value = rs().font; });
   const platform = el('select', { id: 'c_plat', onchange: () => { S.safeP = platform.value; } }); Object.entries(PLATFORMS).forEach(([k, p]) => platform.append(el('option', { value: k, textContent: p.name })));
-  const safe = el('input', { type: 'checkbox', id: 'c_safe', onchange: () => { S.safeOn = safe.checked; } });
+  const safe = el('input', { type: 'checkbox', id: 'c_safe', checked: true, onchange: () => { S.safeOn = safe.checked; } });
   ctl.append(
     grp('Texto', el('div', { className: 'row' }, el('label', { htmlFor: 'c_font', textContent: 'Fonte' }), font), mkRange('fs', 'Tamanho da fonte', 0, 100), mkSeg('case', 'Caixa', [['none', 'Aa'], ['upper', 'AA'], ['lower', 'aa']]), mkWeight('wLight', 'Peso das palavras'), mkWeight('wActive', 'Peso da palavra falada'), mkRange('n', 'Palavras por linha', 1, 5, 1, ''), mkSeg('letter', 'Destaque por', [[false, 'Palavra'], [true, 'Letra']])),
     grp('Cores', mkColor('color', 'Texto'), mkColor('activeColor', 'Palavra falada'), mkColor('strokeColor', 'Contorno'), mkRange('stroke', 'Espessura do contorno', 0, 100), mkColor('bg', 'Fundo'), mkRange('bgOpacity', 'Opacidade do fundo', 0, 100)),
@@ -383,7 +383,7 @@ function phrasesUI() {
 }
 function setRatio(r) {
   S.ratio = r; S.style.ratio = r; const [w, h] = DIMS[r], ar = w / h; $('#ratio').value = r;
-  $('#stage').style.aspectRatio = w + '/' + h; const sw = `min(100%,calc(var(--sh,74) * ${ar.toFixed(4)} * 1dvh))`; applyFit(); $('#stage').style.width = sw; document.querySelector('.transport').style.width = sw;
+  $('#stage').style.aspectRatio = w + '/' + h; const sw = `min(100%,calc(var(--sh,74) * ${ar.toFixed(4)} * 1dvh))`; document.documentElement.style.setProperty('--ar', ar.toFixed(4)); applyFit(); $('#stage').style.width = sw; document.querySelector('.transport').style.width = sw;
   saveSoon('style', { style: S.style });
 }
 $('#ratio').onchange = e => setRatio(e.target.value);
@@ -461,11 +461,13 @@ async function renderOne(c) {
 // ---------- reprodução e prévia ----------
 const vid = $('#vid');
 const hasVid = () => !!S.file;
-function play(on) { S.playing = on; if (hasVid()) { on ? vid.play() : vid.pause(); } $('#pp').textContent = on ? 'Pausar' : 'Reproduzir'; }
+function play(on) { S.playing = on; if (hasVid()) { on ? vid.play().catch(() => { S.playing = false; $('#pp').textContent = 'Reproduzir'; $('#stPlay').hidden = false; }) : vid.pause(); } $('#pp').textContent = on ? 'Pausar' : 'Reproduzir'; $('#stPlay').hidden = on; }
+$('#stPlay').onclick = () => { S.prev = null; play(true); };
+$('#stage').addEventListener('dblclick', e => { if (e.target.closest('label,button')) return; S.prev = null; play(!S.playing); });
 const stopPlay = () => { if (!$('#edit').hidden || S.playing) { S.playing = false; try { vid.pause(); } catch { /* sem vídeo */ } } };
 function seek(t) { S.cur = t; if (hasVid()) vid.currentTime = t; }
 $('#pp').onclick = () => { if (S.playing) play(false); else { if (!S.prev) S.prev = null; play(true); } };
-$('#scrub').oninput = e => { S.prev = null; seek(+e.target.value); };
+$('#scrub').oninput = e => { S.prev = null; e.target.style.setProperty('--p', (+e.target.value / Math.max(S.dur, 1) * 100).toFixed(2) + '%'); seek(+e.target.value); };
 let last = performance.now();
 const cv = $('#cv'), ctx = cv.getContext('2d');
 function fit() { const r = $('#stage').getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); if (cv.width !== Math.round(r.width * d) || cv.height !== Math.round(r.height * d)) { cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); } }
@@ -477,7 +479,7 @@ function frame(now) {
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur, ZL[S.fx.zoomL || 2]).toFixed(3) + ')' : '';
     if (S.faceOn && S.track && hasVid() && !S.blurOn) { const fx = trackAt(S.track, S.cur), vw = vid.videoWidth, vh = vid.videoHeight, st = $('#stage').getBoundingClientRect(); if (fx != null && vw && st.height) { const sw = vh * st.width / st.height; vid.style.objectPosition = (vw > sw ? Math.min(1, Math.max(0, (fx * vw - sw / 2) / (vw - sw))) * 100 : 50) + '% 50%'; } }
     if (colorUI) colorUI.preview(); drawBg();
-    $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; if (S.tlz > 1 && S.playing) { const sc = $('#twS'), x = S.cur / Math.max(S.dur, 1) * sc.scrollWidth; if (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth * 0.9) sc.scrollLeft = x - sc.clientWidth * 0.2; } $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
+    $('#scrub').value = S.cur; $('#scrub').style.setProperty('--p', (S.cur / Math.max(S.dur, 1) * 100).toFixed(2) + '%'); $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; if (S.tlz > 1 && S.playing) { const sc = $('#twS'), x = S.cur / Math.max(S.dur, 1) * sc.scrollWidth; if (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth * 0.9) sc.scrollLeft = x - sc.clientWidth * 0.2; } $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length || S.logo) drawOverlays(ctx, W, H, ovAll(), S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);

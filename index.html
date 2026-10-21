@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=60"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=61"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -349,23 +349,38 @@ body:has(#login:not([hidden])) main{margin-left:0}
 #landing{background:transparent}.lg-orb{display:none}
 .lg-strip{bottom:9vh}
 
-/* editor em tela estreita/vertical: vídeo grande num cartão de vidro flutuante, controles rolam embaixo */
+/* editor em tela estreita/vertical: vídeo grande em cartão de vidro fixo; só os controles rolam (sem tremor) */
 .flrow{display:none}
+.stplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;border:1px solid rgba(255,255,255,.35);color:#fff;display:grid;place-items:center;background:rgba(20,10,6,.38);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);box-shadow:0 0 30px -4px var(--ac),inset 0 1px 0 rgba(255,255,255,.3);cursor:pointer;z-index:3;padding:0 0 0 4px;transition:transform .15s,box-shadow .2s}
+.stplay:hover{transform:translate(-50%,-50%) scale(1.06);box-shadow:0 0 44px -2px var(--ac),inset 0 1px 0 rgba(255,255,255,.3)}
+.stplay[hidden]{display:none}.stage:has(.ph:not([hidden])) .stplay{display:none}
+/* barra de progresso incandescente (claro e escuro) */
+#scrub{-webkit-appearance:none;appearance:none;height:22px;min-height:22px;background:transparent;--p:0%;cursor:pointer}
+#scrub::-webkit-slider-runnable-track{height:6px;border-radius:99px;background:linear-gradient(90deg,#ffb020,#ff6a1f var(--p),color-mix(in srgb,var(--tx) 16%,transparent) var(--p));box-shadow:0 0 14px -2px rgba(255,106,31,.75)}
+#scrub::-moz-range-track{height:6px;border-radius:99px;background:color-mix(in srgb,var(--tx) 16%,transparent)}
+#scrub::-moz-range-progress{height:6px;border-radius:99px;background:linear-gradient(90deg,#ffb020,#ff6a1f);box-shadow:0 0 14px -2px rgba(255,106,31,.75)}
+#scrub::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#ffd9a0 45%,#ff7a3d);border:0;box-shadow:0 0 0 3px rgba(255,122,61,.28),0 0 18px 3px rgba(255,122,61,.85)}
+#scrub::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#ffd9a0 45%,#ff7a3d);border:0;box-shadow:0 0 0 3px rgba(255,122,61,.28),0 0 18px 3px rgba(255,122,61,.85)}
+progress{accent-color:#ff6a1f}
+progress::-webkit-progress-bar{background:color-mix(in srgb,var(--tx) 14%,transparent);border-radius:99px}
+progress::-webkit-progress-value{background:linear-gradient(90deg,#ffb020,#ff6a1f);border-radius:99px;box-shadow:0 0 12px rgba(255,106,31,.8)}
+progress::-moz-progress-bar{background:linear-gradient(90deg,#ffb020,#ff6a1f);border-radius:99px}
 @media(max-width:899px){
- main:has(#edit:not([hidden])){padding:0 0 calc(70px + var(--safe-b))}
- .edit{display:block;height:auto}
- .edit .left{position:sticky;top:calc(8px + var(--safe-t));z-index:8;margin:8px 10px 0;padding:10px 10px 12px;border-radius:24px;gap:10px;
+ html:has(#edit:not([hidden])),body:has(#edit:not([hidden])){overflow:hidden;overscroll-behavior:none}
+ main:has(#edit:not([hidden])){padding:0}
+ .edit{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);height:calc(100vh - 62px - var(--safe-b));height:calc(100svh - 62px - var(--safe-b))}
+ .edit .left{position:relative;margin:8px 10px 0;padding:10px 10px 12px;border-radius:24px;gap:10px;max-height:calc(100svh - 62px - var(--safe-b) - 150px);overflow:hidden;transform:translateZ(0);
   background:color-mix(in srgb,var(--stg) 58%,transparent);border:1px solid color-mix(in srgb,var(--tx) 14%,transparent);
   -webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);
-  box-shadow:0 18px 50px -18px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.12);max-height:calc(100dvh - 62px - var(--safe-b) - 150px);overflow:hidden}
- .edit .left .stage{width:min(100%,calc(38dvh*9/16));min-width:150px;border-radius:16px;transition:width .3s cubic-bezier(.2,.7,.2,1)}
- .edit.mini .left .stage{width:min(100%,calc(22dvh*9/16))}
- .edit .left .transport{width:100%;max-width:none;box-shadow:none;background:color-mix(in srgb,var(--s1) 55%,transparent)}
+  box-shadow:0 18px 50px -18px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.12)}
+ .edit .left .stage{width:min(100%,calc(var(--shm,38) * var(--ar,.5625) * 1vh))!important;width:min(100%,calc(var(--shm,38) * var(--ar,.5625) * 1svh))!important;min-width:150px;border-radius:16px;transition:none}
+ .edit.mini{--shm:22}
+ .edit .left .transport{width:100%!important;max-width:none;box-shadow:none;background:color-mix(in srgb,var(--s1) 55%,transparent)}
  .edit .left .ratio,.edit .left .vrow,.edit .left .tl,.edit .left .tlz{display:none}
- .edit.more .left{overflow-y:auto}.edit.more .left .ratio,.edit.more .left .vrow,.edit.more .left .tlz{display:flex}.edit.more .left .tl{display:block}
+ .edit.more .left{overflow-y:auto;-webkit-overflow-scrolling:touch}.edit.more .left .ratio,.edit.more .left .vrow,.edit.more .left .tlz{display:flex}.edit.more .left .tl{display:block}
  .flrow{display:flex;gap:8px;width:100%;justify-content:center}
  .flrow button{flex:1;min-height:34px;border:1px solid var(--bd);border-radius:999px;background:color-mix(in srgb,var(--in) 60%,transparent);font-size:12px}
- .edit .right{border-top:0;background:transparent;box-shadow:none;padding:14px 14px 36px;margin-top:6px}
+ .edit .right{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-top:0;background:transparent;box-shadow:none;padding:14px 14px 36px;margin-top:6px}
 }
 </style><meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <script>if(window.top!==window.self){try{window.top.location=window.self.location}catch(e){document.documentElement.remove()}}</script>
@@ -421,7 +436,7 @@ body:has(#login:not([hidden])) main{margin-left:0}
 </section>
 <noscript><p style="padding:24px;text-align:center">O ForjaClip precisa de JavaScript para editar vídeos no navegador.</p></noscript>
 <section id="home" hidden><div class="wrap">
- <div class="hero"><p class="eyebrow">ForjaClip</p><h1>Cortes virais e <span class="hl">legendas animadas</span>, direto do seu navegador.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:52ch">Para Reels, TikTok e Shorts. Seu vídeo não sai do seu aparelho. No plano gratuito, os projetos ficam salvos por 3 dias.</p><ul class="perks"><li>Roda no seu navegador</li><li>Vídeo não sai do aparelho</li><li>Legendas animadas</li><li>Cortes com IA</li></ul></div>
+ <div class="hero"><p class="eyebrow">ForjaClip</p><h1>Transforme vídeos longos em <span class="hl">cortes virais</span> com legendas animadas.</h1><p class="mut" id="homeSub" style="font-size:16px;max-width:56ch">Envie o vídeo e a IA encontra os melhores momentos, legenda palavra por palavra e entrega em 9:16 para Reels, TikTok e Shorts. Tudo roda no seu navegador: o vídeo não sai do seu aparelho.</p><ul class="perks"><li>Sem instalar nada</li><li>Privado por padrão</li><li>Legendas animadas</li><li>Cortes com IA</li></ul></div>
  <div class="start">
   <label class="drop" id="drop" data-mode="clips"><b>Cortes de vídeo longo</b><span class="mut">A IA acha os melhores momentos e aplica as legendas. MP4 ou MOV, até 350 MB no grátis e 1 GB no Pro.</span><span class="btn pri up">Selecionar vídeo</span><input id="newfile" type="file" accept="video/mp4,video/quicktime,video/*"></label>
   <label class="drop" id="drop2" data-mode="captions"><b>Só legendas</b><span class="mut">Transcrição automática e legendas animadas no vídeo todo (até 2 min na exportação).</span><span class="btn pri up">Selecionar vídeo</span><input id="newfile2" type="file" accept="video/mp4,video/quicktime,video/*"></label>
@@ -447,7 +462,7 @@ body:has(#login:not([hidden])) main{margin-left:0}
 </div></section>
 <section id="edit" hidden><div class="wrap edit">
  <div class="left">
-  <div class="stage" id="stage"><canvas id="bgv" width="48" height="85"></canvas><video id="vid" playsinline loop></video><canvas id="cv"></canvas>
+  <div class="stage" id="stage"><canvas id="bgv" width="48" height="85"></canvas><video id="vid" playsinline loop></video><canvas id="cv"></canvas><button type="button" class="stplay" id="stPlay" aria-label="Reproduzir"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></button>
    <div class="ph" id="ph"><span id="phTxt">Selecione o vídeo para pré-visualizar.</span><label class="btn" style="position:relative">Selecionar vídeo<input id="attach" type="file" accept="video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
   <label class="ratio"><span class="mut">Formato</span><select id="ratio" aria-label="Formato do vídeo"><option value="9:16">9:16 vertical</option><option value="4:5">4:5 feed</option><option value="1:1">1:1 quadrado</option><option value="16:9">16:9 horizontal</option></select></label>
   <div class="vrow"><button class="btn" id="vidCfg" type="button">Configurações do vídeo</button><label class="btn" style="cursor:pointer">Trocar vídeo<input id="swapIn" type="file" accept="video/*" hidden></label></div>
@@ -500,5 +515,5 @@ body:has(#login:not([hidden])) main{margin-left:0}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=60"></script>
+<script type="module" src="js/app.js?v=61"></script>
 </body></html>
