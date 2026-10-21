@@ -731,7 +731,7 @@ $('#ovBroll').onclick = async () => {
       if (f.vid) { const d = f.vid.frames.length / f.vid.fps; S.ov.push({ kind: 'broll', frames: f.vid.frames, fps: f.vid.fps, name: f.q, query: q, from: t, to: Math.min(t + Math.max(d, 1.5), S.dur || t + d) }); S.credit = true; }
       else S.ov.push({ kind: 'broll', img: f.img, name: f.q, query: q, from: t, to: Math.min(t + secs, S.dur || t + secs) });
     }
-    S.ov.sort((a, b2) => a.from - b2.from); ovUI(); flash(n ? n + ' B-roll(s) adicionados' + (S.credit ? ' (vídeos: Pexels)' : '') + '. Veja as miniaturas, troque ou remova os que não gostar.' : 'Não encontrei cenas livres para este vídeo.');
+    S.ov.sort((a, b2) => a.from - b2.from); ovUI(); flash(n ? n + ' B-roll(s) adicionados' + (S.credit ? ' (vídeos: Pixabay/Pexels)' : '') + '. Veja as miniaturas, troque ou remova os que não gostar.' : 'Não encontrei cenas livres para este vídeo.');
   } catch (e) { flash(e.message); }
   b.disabled = false; b.textContent = 'B-roll automático (IA)';
 };

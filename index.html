@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=49"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=50"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -346,7 +346,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
     <div class="row btns"><button class="btn" id="ovTitle" type="button">Sugerir título de gancho</button><button class="btn" id="ovBroll" type="button">B-roll automático (IA)</button><label class="btn" style="cursor:pointer">Adicionar imagem<input id="ovImg" type="file" accept="image/*" hidden></label></div>
     <div class="row btns"><label class="btn" style="cursor:pointer">Logo da marca (marca d'água)<input id="logoIn" type="file" accept="image/*" hidden></label><button class="btn" id="logoOff" type="button" hidden>Remover logo</button><span class="mut" id="logoSt">Nenhum logo definido.</span></div>
     <div id="logoCfg" hidden><div class="row"><label for="logoS">Tamanho do logo</label><input id="logoS" type="range" min="5" max="60" value="20"></div><div class="row"><label for="logoO">Opacidade do logo</label><input id="logoO" type="range" min="10" max="100" value="90"></div><p class="mut">Arraste o logo direto no vídeo para posicioná-lo.</p></div>
-    <ul class="list" id="ovList"></ul><p class="mut" id="ovCredit" hidden style="font-size:12px">Vídeos de B-roll por <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> e seus criadores.</p></div>
+    <ul class="list" id="ovList"></ul><p class="mut" id="ovCredit" hidden style="font-size:12px">Vídeos de B-roll de <a href="https://pixabay.com" target="_blank" rel="noopener">Pixabay</a> e <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> e seus criadores.</p></div>
    <div class="grp"><b>Áudios extras</b><p class="mut">Locução, efeito ou trecho de áudio no ponto do vídeo que você escolher (ouvido ao exportar).</p>
     <label class="btn" style="cursor:pointer">Adicionar áudio no ponto atual<input id="audIn" type="file" accept="audio/*" hidden></label><ul class="list alist" id="audList"></ul></div>
    <div class="grp"><b>Música de fundo</b><p class="mut" id="musMsg">Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.</p>
@@ -365,5 +365,5 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=49"></script>
+<script type="module" src="js/app.js?v=50"></script>
 </body></html>
