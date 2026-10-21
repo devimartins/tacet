@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=37"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=38"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -307,6 +307,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
   <div id="pText" hidden><div class="grp first" id="trBox"><b>Traduzir legendas</b><div class="row"><select id="trLang" aria-label="Idioma de destino"><option value="en">Inglês</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="pt-BR">Português</option><option value="ja">Japonês</option><option value="ko">Coreano</option><option value="ru">Russo</option><option value="hi">Hindi</option><option value="ar">Árabe</option><option value="zh">Chinês</option></select><button class="btn" id="trGo" type="button">Traduzir com IA</button></div><div class="row"><button class="btn" id="trUndo" type="button" hidden>Voltar ao texto original</button></div><p class="mut" id="trMsg" role="status" style="font-size:13px;margin:4px 0 0"></p></div><div class="phr" id="phr"></div><details class="txtmode"><summary>Editar como texto corrido</summary><textarea id="txt" aria-label="Transcrição editável" placeholder="A transcrição aparece aqui."></textarea></details><p class="mut">Edite uma frase e saia do campo: o tempo das palavras que você não mudou é preservado. O olho esconde a frase.</p></div>
   <div id="pClips" hidden>
    <div class="grp first"><b>Prender a atenção</b><div id="fxZoom"></div></div>
+   <details class="grp" id="fxColorD"><summary><b>Cor e look</b></summary><div id="fxColor"></div></details>
    <div class="grp"><b>Títulos e imagens</b><p class="mut">Aparecem sobre o vídeo no preview e na exportação.</p>
     <div class="row"><button class="btn" id="ovTitle" type="button">Sugerir título de gancho</button><button class="btn" id="ovBroll" type="button">B-roll automático (IA)</button><label class="btn" style="cursor:pointer">Adicionar imagem<input id="ovImg" type="file" accept="image/*" hidden></label></div>
     <div class="row"><label class="btn" style="cursor:pointer">Logo da marca (marca d'água)<input id="logoIn" type="file" accept="image/*" hidden></label><button class="btn" id="logoOff" type="button" hidden>Remover logo</button><span class="mut" id="logoSt">Nenhum logo definido.</span></div>
@@ -326,5 +327,5 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=37"></script>
+<script type="module" src="js/app.js?v=38"></script>
 </body></html>

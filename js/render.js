@@ -4,6 +4,7 @@ import { drawCaption, chunksOf, resolve, loadFont } from './captions.js';
 import { makeReader } from './media.js';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { silences, makeShift, inRange, zoomAt } from './edit.js';
+import { createGrader } from './color.js';
 import { addEmojis, sfxEvents, addSfx, denoise } from './extras.js';
 
 export async function pickCodec(W, H, fps) {
@@ -29,6 +30,8 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const sc = Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * rs.cropX, sy = (dh - sh) / 2;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
 
+  const gP = opts.grade || null, grader = gP ? createGrader(W, H) : null;   // correção de cor em GPU (só se houver ajuste)
+  const cssF = gP && !grader ? `brightness(${1 + gP.g.bright * 0.6}) contrast(${1 + gP.g.contrast}) saturate(${1 + gP.g.sat})` : '';
   const { mux, cfg } = await pickCodec(W, H, fps);
   const M = window.Mp4Muxer, target = new M.ArrayBufferTarget(), A = media.audio;
   const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: mux, width: W, height: H, frameRate: fps },
@@ -53,8 +56,10 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     const z = opts.zoom ? zoomAt(chunks, t) : 1;
     ctx.setTransform(z, 0, 0, z, W * (1 - z) / 2, H * (1 - z) / 2); ctx.transform(sc, 0, 0, sc, -sx * sc, -sy * sc);
     if (rot === 90) { ctx.translate(V.height, 0); ctx.rotate(Math.PI / 2); } else if (rot === 180) { ctx.translate(V.width, V.height); ctx.rotate(Math.PI); } else if (rot === 270) { ctx.translate(0, V.width); ctx.rotate(-Math.PI / 2); }
+    if (cssF && 'filter' in ctx) ctx.filter = cssF;
     ctx.drawImage(f, 0, 0); f.close();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); if (cssF && 'filter' in ctx) ctx.filter = 'none';
+    if (grader) { try { ctx.drawImage(grader.apply(cv, gP.g, gP.lut), 0, 0); } catch { /* segue sem cor */ } }
     if (opts.overlays && opts.overlays.length) drawBroll(ctx, W, H, opts.overlays, ta);
     drawCaption(ctx, W, H, chunks, t, rs);
     if (opts.overlays && opts.overlays.length) drawOverlays(ctx, W, H, opts.overlays, ta, rs.font);
@@ -75,7 +80,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     while (dec.decodeQueueSize > 8 || q.length > 4) { if (q.length) await process(q.shift()); else await new Promise(r => setTimeout(r, 2)); }
   }
   await dec.flush(); while (q.length) await process(q.shift()); dec.close();
-  await enc.flush(); enc.close();
+  await enc.flush(); enc.close(); if (grader) grader.dispose();
   if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
 
   if (opts.music || opts.sfx || opts.denoise || (opts.tracks && opts.tracks.length)) await mixAudio({ file, A, muxer, read, start, end, rem, shift, base, len, tracks: opts.tracks, denoise: opts.denoise, music: opts.music, sfx: opts.sfx ? sfxEvents(chunks, opts.overlays, shift, base) : null });
