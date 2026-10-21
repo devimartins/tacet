@@ -762,3 +762,5 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
     t.style.setProperty('--my', (e.clientY - r.top) + 'px');
   }, { passive: true });
 }
+
+import('./fx.js?v=1').then(m => m.initFx()).catch(() => {});
