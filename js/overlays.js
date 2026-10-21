@@ -8,10 +8,11 @@ const rr = (c, x, y, w, h, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x 
 export function drawOverlays(ctx, W, H, list, t, font = 'sans-serif') {
   for (const o of list) {
     if (o.kind === 'broll' || t < o.from || t >= o.to) continue;
-    const a = o.kind === 'logo' ? 0.9 : Math.min(1, (t - o.from) / 0.25, (o.to - t) / 0.25);   // entrada e saída suaves
+    const a = o.kind === 'logo' ? (o.cfg?.o ?? 0.9) : Math.min(1, (t - o.from) / 0.25, (o.to - t) / 0.25);   // entrada e saída suaves
     ctx.save(); ctx.globalAlpha = Math.max(0, a);
     if (o.kind === 'logo' && o.img) {   // marca d'água do kit de marca: canto superior esquerdo
-      const s = Math.min(W * 0.2 / o.img.width, H * 0.1 / o.img.height); ctx.drawImage(o.img, W * 0.04, H * 0.035, o.img.width * s, o.img.height * s);
+      const c = o.cfg || { x: 0.04 + 0.1, y: 0.035 + 0.04, s: 0.2 }, lw = W * c.s, lh = lw * o.img.height / o.img.width, mh = H * 0.3, f = lh > mh ? mh / lh : 1, w = lw * f, h = lh * f;
+      const x = Math.min(W - w, Math.max(0, c.x * W - w / 2)), y = Math.min(H - h, Math.max(0, c.y * H - h / 2)); ctx.drawImage(o.img, x, y, w, h); o.box = { x, y, w, h };
     } else
     if (o.kind === 'image' && o.img) {
       const mw = W * 0.7, mh = H * 0.28, s = Math.min(mw / o.img.width, mh / o.img.height), w = o.img.width * s, h = o.img.height * s, x = (W - w) / 2, y = H * 0.12;

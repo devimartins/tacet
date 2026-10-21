@@ -1,7 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, drawCaption, safeRect, outsideSafe } from './captions.js';
 import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
-import { silences, zoomAt } from './edit.js';
+import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips } from './clips.js';
 import { retime, tokens, fromWhisper, fixCase } from './transcript.js';
 import { ICONS } from './icons.js';
@@ -381,6 +381,7 @@ const syncFx = () => { fadeUI && fadeUI(); fxBtns.forEach(b => b.setAttribute('a
 let colorUI = null;   // painel de cor: módulo carregado sob demanda, só quando o usuário abre a seção
 const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=1'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
 $('#fxColorD').addEventListener('toggle', e => { if (e.target.open) ensureColor(); });
+const ZL = { 1: 1.05, 2: 1.1, 3: 1.16 };
 const FILLERS = new Set(['hum', 'ahn', 'ãh', 'ah', 'éh', 'hm', 'hmm', 'uh', 'um', 'né', 'tipo', 'então', 'ééé', 'eh']);
 function fillerBtn() {
   const b = el('button', { type: 'button', className: 'ghost', textContent: 'Esconder vícios de fala nas legendas', onclick: () => {
@@ -390,7 +391,23 @@ function fillerBtn() {
   } });
   return b;
 }
-function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Corta graves e chiado entre as falas (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
+function acutPanel() {
+  const sel = el('select', { id: 'acutS', onchange: () => { S.fx.acutS = +sel.value; S.fx.acutSkip = []; S.style.fx = S.fx; saveSoon('style', { style: S.style }); list(); } }, ...[[1, 'Suave: só pausas claras'], [2, 'Média (recomendada)'], [3, 'Forte: corta mais']].map(([v, t]) => el('option', { value: v, textContent: t })));
+  const box = el('div', { className: 'acut' }), wrap = el('details', { className: 'grp' }, el('summary', { textContent: 'Ver o que será cortado' }), el('div', { className: 'row' }, el('label', { htmlFor: 'acutS', textContent: 'Sensibilidade' }), sel), box);
+  function list() {
+    sel.value = S.fx.acutS || 2; box.replaceChildren();
+    const c0 = S.clips[0] ? [S.clips.reduce((a, c) => Math.min(a, c.start), 1e9), S.clips.reduce((a, c) => Math.max(a, c.end), 0)] : [0, S.dur], cuts = S.words.length ? autoCuts(S.words, c0[0], c0[1], S.fx.acutS || 2) : [];
+    if (!cuts.length) { box.append(el('p', { className: 'mut', textContent: S.words.length ? 'Nada para cortar nesta sensibilidade.' : 'Transcreva o vídeo para ver os cortes.' })); return; }
+    const skip = new Set(S.fx.acutSkip || []);
+    box.append(el('p', { className: 'mut', textContent: cuts.length + ' trechos, ' + cuts.reduce((s, c) => s + c.b - c.a, 0).toFixed(1) + ' s no total. Desmarque o que quiser manter; desligar o auto-corte desfaz tudo.' }));
+    cuts.forEach(c => {
+      const cb = el('input', { type: 'checkbox', checked: !skip.has(c.key), onchange: () => { const k = new Set(S.fx.acutSkip || []); cb.checked ? k.delete(c.key) : k.add(c.key); S.fx.acutSkip = [...k]; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } });
+      box.append(el('div', { className: 'row' }, el('label', {}, cb, ' ' + mmss(c.a) + ' · ' + c.kind + ': “' + c.text + '”'), el('button', { type: 'button', className: 'ghost', textContent: 'Ir', onclick: () => { S.prev = null; seek(Math.max(0, c.a - 1.5)); play(true); } })));
+    });
+  }
+  wrap.addEventListener('toggle', () => wrap.open && list()); return wrap;
+}
+function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxCut').append(mkFx('acut', 'Auto-corte inteligente', 'Tira contagem regressiva (3, 2, 1), hesitações e vícios isolados. Dá para ver e desmarcar cada corte.')); $('#fxCut').append(acutPanel()); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima de leve em início de frase, pergunta ou ênfase, no máximo a cada ~2,5 s.')); { const z = el('select', { id: 'zoomL', onchange: () => { S.fx.zoomL = +z.value; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } }, ...[[1, 'Suave'], [2, 'Média'], [3, 'Forte']].map(([v, t]) => el('option', { value: v, textContent: t }))); z.value = S.fx.zoomL || 2; $('#fxZoom').append(el('div', { className: 'row' }, el('label', { htmlFor: 'zoomL', textContent: 'Intensidade do zoom' }), z)); } $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Corta graves e chiado entre as falas (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
 function clipsUI() {
   drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
@@ -409,13 +426,13 @@ $('#addManual').onclick = () => {
   if (!(e - s >= 3)) { flash('O corte precisa ter pelo menos 3 segundos.'); return; }
   S.clips.push({ id: 'm' + Date.now(), start: s, end: e, title: 'Corte manual', reason: '' }); save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI();
 };
-function previewClip(c) { S.prev = { s: c.start, e: c.end }; S.prevRem = S.fx.cut ? silences(S.words, c.start, c.end) : []; seek(c.start); play(true); $('#stage').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+function previewClip(c) { S.prev = { s: c.start, e: c.end }; S.prevRem = cutRanges(visible(), c.start, c.end, S.fx, S.words); seek(c.start); play(true); $('#stage').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 async function renderOne(c) {
   if (S.busy) return;
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -436,13 +453,13 @@ function frame(now) {
   if (!$('#edit').hidden) {
     if (hasVid()) S.cur = vid.currentTime; else if (S.playing) S.cur += dt;
     if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (S.prev && S.prevRem && S.prevRem.length && S.prevRem.some(([a, b]) => S.cur >= a && S.cur < b)) seek(S.prevRem.find(([a, b]) => S.cur >= a && S.cur < b)[1]); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
-    vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur).toFixed(3) + ')' : '';
+    vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur, ZL[S.fx.zoomL || 2]).toFixed(3) + ')' : '';
     if (colorUI) colorUI.preview(); drawBg();
     $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length || S.logo) drawOverlays(ctx, W, H, ovAll(), S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
-    if (S.safeOn && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
+    if (S.safeOn && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.rect(s.x, s.y, s.w, s.h); ctx.fill('evenodd'); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
     const boxOut = S.bbox ? outsideSafe(S.bbox, S.safeP, W, H) : (r.y * H < safeRect(S.safeP, W, H).y || r.y * H > safeRect(S.safeP, W, H).y + safeRect(S.safeP, W, H).h);
     $('#warn').textContent = boxOut ? 'A legenda está fora da área segura e pode ficar coberta pelos botões do app (' + PLATFORMS[S.safeP].name + ').' : '';
   }
@@ -450,8 +467,11 @@ function frame(now) {
 }
 // arrastar a legenda
 let drag = null;
-$('#stage').addEventListener('pointerdown', e => { if (e.target.closest('label,button')) return; const r = $('#stage').getBoundingClientRect(); drag = { x: e.clientX, y: e.clientY, sx: rs().x, sy: rs().y, w: r.width, h: r.height }; $('#stage').classList.add('drag'); $('#stage').setPointerCapture(e.pointerId); });
-$('#stage').addEventListener('pointermove', e => { if (!drag) return; const nx = Math.min(0.92, Math.max(0.08, drag.sx + (e.clientX - drag.x) / drag.w)), ny = Math.min(0.97, Math.max(0.03, drag.sy + (e.clientY - drag.y) / drag.h)); S.style.x = nx; S.style.y = ny; sync(); saveSoon('style', { style: S.style }); });
+$('#stage').addEventListener('pointerdown', e => { if (e.target.closest('label,button')) return; const r = $('#stage').getBoundingClientRect();
+  const lb = S.logo && logoOv.box, px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  if (lb && px * $('#cv').width >= lb.x && px * $('#cv').width <= lb.x + lb.w && py * $('#cv').height >= lb.y && py * $('#cv').height <= lb.y + lb.h) { drag = { logo: true, x: e.clientX, y: e.clientY, sx: S.logoCfg.x, sy: S.logoCfg.y, w: r.width, h: r.height }; $('#stage').classList.add('drag'); $('#stage').setPointerCapture(e.pointerId); return; }
+  drag = { x: e.clientX, y: e.clientY, sx: rs().x, sy: rs().y, w: r.width, h: r.height }; $('#stage').classList.add('drag'); $('#stage').setPointerCapture(e.pointerId); });
+$('#stage').addEventListener('pointermove', e => { if (!drag) return; if (drag.logo) { S.logoCfg.x = Math.min(1, Math.max(0, drag.sx + (e.clientX - drag.x) / drag.w)); S.logoCfg.y = Math.min(1, Math.max(0, drag.sy + (e.clientY - drag.y) / drag.h)); saveLogoCfg(); return; } const nx = Math.min(0.92, Math.max(0.08, drag.sx + (e.clientX - drag.x) / drag.w)), ny = Math.min(0.97, Math.max(0.03, drag.sy + (e.clientY - drag.y) / drag.h)); S.style.x = nx; S.style.y = ny; sync(); saveSoon('style', { style: S.style }); });
 const endDrag = () => { drag = null; $('#stage').classList.remove('drag'); }; $('#stage').addEventListener('pointerup', endDrag); $('#stage').addEventListener('pointercancel', endDrag);
 
 // ---------- início ----------
@@ -595,8 +615,14 @@ $('#descCopy').onclick = async () => { try { await navigator.clipboard.writeText
 // ---------- títulos e imagens ----------
 S.ov = S.ov || [];
 // Kit de marca: logo salvo no navegador e aplicado como marca d'água em todos os cortes
-const ovAll = () => S.logo ? [...S.ov, { kind: 'logo', img: S.logo, from: 0, to: 1e9 }] : S.ov;
-async function setLogo(src) { try { S.logo = src ? await createImageBitmap(await (await fetch(src)).blob()) : null; } catch { S.logo = null; } $('#logoOff').hidden = !S.logo; $('#logoSt').textContent = S.logo ? 'Logo ativo em todos os cortes.' : 'Nenhum logo definido.'; }
+S.logoCfg = (() => { try { return { x: 0.14, y: 0.075, s: 0.2, o: 0.9, ...JSON.parse(localStorage.getItem('forjaclip.logoCfg') || '{}') }; } catch { return { x: 0.14, y: 0.075, s: 0.2, o: 0.9 }; } })();
+const logoOv = { kind: 'logo', from: 0, to: 1e9 };
+const ovAll = () => S.logo ? [...S.ov, Object.assign(logoOv, { img: S.logo, cfg: S.logoCfg })] : S.ov;
+const saveLogoCfg = () => { try { localStorage.setItem('forjaclip.logoCfg', JSON.stringify(S.logoCfg)); } catch { /* ok */ } };
+$('#logoS').oninput = e => { S.logoCfg.s = +e.target.value / 100; saveLogoCfg(); };
+$('#logoO').oninput = e => { S.logoCfg.o = +e.target.value / 100; saveLogoCfg(); };
+$('#logoS').value = Math.round(S.logoCfg.s * 100); $('#logoO').value = Math.round(S.logoCfg.o * 100);
+async function setLogo(src) { try { S.logo = src ? await createImageBitmap(await (await fetch(src)).blob()) : null; } catch { S.logo = null; } $('#logoOff').hidden = !S.logo; $('#logoCfg').hidden = !S.logo; $('#logoSt').textContent = S.logo ? 'Logo ativo em todos os cortes.' : 'Nenhum logo definido.'; }
 try { setLogo((localStorage.getItem('forjaclip.logo') || localStorage.getItem('tacet.logo'))); } catch { setLogo(null); }
 $('#logoIn').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';

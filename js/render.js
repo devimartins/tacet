@@ -3,7 +3,7 @@
 import { drawCaption, chunksOf, resolve, loadFont } from './captions.js';
 import { makeReader } from './media.js';
 import { drawOverlays, drawBroll } from './overlays.js';
-import { silences, makeShift, inRange, zoomAt } from './edit.js';
+import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
 import { createGrader } from './color.js';
 import { addEmojis, sfxEvents, addSfx, denoise } from './extras.js';
 
@@ -22,7 +22,7 @@ export const useBlur = (fit, dw, dh, W, H) => fit === 'blur' || (fit !== 'cover'
 export async function renderClip({ file, media, clip, words, style, onProgress, W = 1080, H = 1920, fps = 30, opts = {} }) {
   const V = media.video; if (!V) throw new Error('O arquivo não tem vídeo.');
   const start = clip.start, end = Math.min(clip.end, media.duration);
-  const rem = opts.cutSilence ? silences(words, start, end) : [], shift = makeShift(rem), base = shift(start), len = shift(end) - base;
+  const rem = cutRanges(words, start, end, opts.cutFx || { cut: opts.cutSilence }, opts.allWords || words), shift = makeShift(rem), base = shift(start), len = shift(end) - base;
   if (!(len > 0.5)) throw new Error('Corte curto demais.');
   const rs = resolve(style);
   await loadFont(rs.font, rs.wLight, rs.wActive);
@@ -57,7 +57,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (t < -0.0005 || t > len || t < nextT - 0.001) { f.close(); return; }
     nextT = Math.max(nextT + 1 / fps, t + 0.5 / fps); lastT = t;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-    const z = opts.zoom ? zoomAt(chunks, t) : 1;
+    const z = opts.zoom ? zoomAt(chunks, t, opts.zoomLevel || 1.1) : 1;
     if (bgc) {   // fundo: o próprio vídeo ampliado e desfocado (reduz a 1/14 e amplia, barato)
       const b = bgc.getContext('2d'), k = bgc.width / W; b.setTransform(1, 0, 0, 1, 0, 0); b.transform(k * scB, 0, 0, k * scB, -k * scB * (dw - W / scB) * 0.5, -k * scB * (dh - H / scB) / 2); rotate(b); b.drawImage(f, 0, 0);
       ctx.imageSmoothingEnabled = true; ctx.drawImage(bgc, 0, 0, W, H); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, 0, W, H);
