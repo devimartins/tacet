@@ -751,3 +751,14 @@ $('#ovImg').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
   try { const img = await createImageBitmap(f); const t0 = Math.max(0, +S.cur.toFixed(1)); S.ov.push({ kind: 'image', img, name: f.name, from: t0, to: t0 + 3 }); ovUI(); } catch { flash('Não consegui abrir esta imagem.'); }
 };
+
+// holofote que segue o cursor nos cartões (efeito premium, só ponteiro fino)
+if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
+  addEventListener('pointermove', e => {
+    const t = e.target.closest && e.target.closest('.drop,.plan,.gcard,#about .gridf>div');
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    t.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+    t.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  }, { passive: true });
+}
