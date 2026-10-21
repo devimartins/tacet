@@ -2,15 +2,16 @@
 // e guarda só alguns quadros reduzidos na memória (12 por segundo, até ~2,5 s) para a prévia e para a exportação.
 import { openMedia, makeReader } from './media.js';
 
-export async function findBrollVideo(CFG, token, query, secs = 2.5, fps = 12, outW = 360) {
+export async function findBrollVideo(CFG, token, query, secs = 2.5, fps = 12, outW = 360, used = new Set()) {
   const r = await fetch(CFG.AI + '/broll', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ q: query }) });
   if (!r.ok) { const j = await r.json().catch(() => ({})); throw Object.assign(new Error(j.error || 'B-roll indisponível.'), { status: r.status }); }
   const { items = [] } = await r.json();
   for (const it of items) {
+    if (used.has(it.id)) continue;
     try {
       const resp = await fetch(it.file, { mode: 'cors' }); if (!resp.ok) continue;
       const blob = await resp.blob(); if (blob.size > 12e6) continue;
-      const frames = await grab(blob, secs, fps, outW); if (frames.length >= 6) return { frames, fps, credit: it.user, page: it.page };
+      const frames = await grab(blob, secs, fps, outW); if (frames.length >= 6) { used.add(it.id); return { frames, fps, credit: it.user, page: it.page, id: it.id }; }
     } catch { /* tenta o próximo vídeo */ }
   }
   return null;

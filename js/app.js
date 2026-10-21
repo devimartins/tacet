@@ -11,6 +11,7 @@ import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 import { initGuide } from './guide.js';
 import { assist, translateWords, toLines } from './ai.js';
 import { addEmojis } from './extras.js';
+import { detectTone, TONES } from './musicgen.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
 const LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);
@@ -107,7 +108,7 @@ async function newVideo(f, mode = 'clips') {
   if (f.size > max) { flash(pro ? `Este vídeo tem ${mb} MB e o limite do Pro é 1 GB. Tente comprimir o vídeo antes de enviar.` : `Este vídeo tem ${mb} MB. O plano gratuito aceita até 350 MB. Com o Pro você envia até 1 GB, ou pode comprimir o vídeo antes.`, { label: 'Ver Pro', fn: () => $('#nPro').onclick && $('#nPro').onclick() }); return; }
   if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
-  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
+  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
@@ -120,7 +121,7 @@ async function openProject(id) {
   const { data: p, error } = await S.sb.from('projects').select('*').eq('id', id).single();
   if (error) { flash('Não foi possível abrir: ' + error.message); return; }
   S.pid = id; S.file = null; S.media = null; S.title = p.title || ''; S.dur = p.duration || 8; S.words = p.transcript?.words || []; S.clips = (p.clips || []).map(c => ({ ...c }));
-  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) }; S.ratio = p.style?.ratio || '9:16'; S.hid = new Set(p.style?.hid || []);
+  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) }; S.tone = p.style?.tone || 'auto'; $('#toneSel').value = S.tone; S.ratio = p.style?.ratio || '9:16'; S.hid = new Set(p.style?.hid || []);
   enterEdit(); rebuild(); sync(); clipsUI(); $('#txt').value = S.words.map(w => w.w).join(' ');
   $('#phTxt').textContent = 'Para pré-visualizar e gerar cortes, selecione de novo o vídeo "' + S.title + '".';
   status(S.words.length ? 'Projeto carregado. A transcrição e os cortes estão salvos.' : 'Este projeto ainda não tem transcrição. Selecione o vídeo para continuar.');
@@ -230,7 +231,10 @@ function tab(t) { for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'],
 document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => tab(b.dataset.t); });
 const rs = () => resolve(S.tmp ? { ...S.style, preset: S.tmp, o: {} } : S.style);
 const hkey = w => +w.s.toFixed(2), visible = () => S.words.filter(w => !S.hid.has(hkey(w)));
-function rebuild() { S.chunks = chunksOf(S.fx.emoji ? addEmojis(visible()) : visible(), Math.max(1, rs().n | 0)); drawTimeline(); phrasesUI(); }
+S.tone = 'auto';
+let toneC = { w: null, n: -1, v: 'inspirador' };
+const effTone = () => { if (S.tone && S.tone !== 'auto') return S.tone; if (!S.words || !S.words.length) return 'inspirador'; if (toneC.w !== S.words || toneC.n !== S.words.length) toneC = { w: S.words, n: S.words.length, v: detectTone(S.words) }; return toneC.v; };
+function rebuild() { S.chunks = chunksOf(S.fx.emoji ? addEmojis(visible(), 2.5, effTone()) : visible(), Math.max(1, rs().n | 0)); drawTimeline(); phrasesUI(); toneInfo(); }
 function setO(k, v) { if (['x', 'y', 'cropX'].includes(k)) S.style[k] = v; else S.style.o = { ...S.style.o, [k]: v }; rebuild(); applyCrop(); saveSoon('style', { style: S.style }); }
 function applyFit() {   // fundo desfocado (prévia): vídeo inteiro por cima de uma cópia pequena e desfocada
   const v = $('#vid'); if (!v.videoWidth) return; const [W, H] = DIMS[S.ratio], on = useBlur(S.style.fit || 'auto', v.videoWidth, v.videoHeight, W, H);
@@ -324,6 +328,9 @@ function buildPresets() {
 }
 
 // linha do tempo: faixa de legendas e faixa de cortes, com cabeça de reprodução
+S.tlz = 1;
+function tlZoom(z) { S.tlz = Math.min(12, Math.max(1, z)); $('#tl .tw').style.width = S.tlz * 100 + '%'; $('#tlZv').textContent = (Math.round(S.tlz * 10) / 10) + '×'; }
+$('#tlZp').onclick = () => tlZoom(S.tlz * 1.6); $('#tlZm').onclick = () => tlZoom(S.tlz / 1.6);
 function drawTimeline() {
   const c = $('#trkC'), k = $('#trkK'); if (!c) return; c.replaceChildren(); k.replaceChildren(); const D = Math.max(S.dur, 1);
   S.chunks.forEach(ch => { const s0 = ch[0].s, e0 = ch[ch.length - 1].e; c.append(el('i', { style: `left:${s0 / D * 100}%;width:${Math.max(.35, (e0 - s0) / D * 100)}%`, title: ch.map(w => w.w).join(' ') })); });
@@ -432,7 +439,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -455,7 +462,7 @@ function frame(now) {
     if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (S.prev && S.prevRem && S.prevRem.length && S.prevRem.some(([a, b]) => S.cur >= a && S.cur < b)) seek(S.prevRem.find(([a, b]) => S.cur >= a && S.cur < b)[1]); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur, ZL[S.fx.zoomL || 2]).toFixed(3) + ')' : '';
     if (colorUI) colorUI.preview(); drawBg();
-    $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
+    $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; if (S.tlz > 1 && S.playing) { const sc = $('#twS'), x = S.cur / Math.max(S.dur, 1) * sc.scrollWidth; if (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth * 0.9) sc.scrollLeft = x - sc.clientWidth * 0.2; } $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length || S.logo) drawOverlays(ctx, W, H, ovAll(), S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
@@ -542,15 +549,24 @@ $('#audIn').onchange = async e => {
 };
 S.music = null; let musEl = null;
 function musSync() { if (!musEl) return; musEl.volume = S.music.vol; if (S.playing) { if (musEl.paused) musEl.play().catch(() => { }); } else musEl.pause(); }
-$('#musFile').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return; const m = $('#musMsg'); m.textContent = 'Lendo o áudio…';
+async function loadMusic(f, label) {
+  const m = $('#musMsg'); m.textContent = 'Lendo o áudio…';
   try {
     const sr = S.media?.audio?.sampleRate || 48000, ac = new AudioContext({ sampleRate: sr });
     const buf = await ac.decodeAudioData(await f.arrayBuffer()); ac.close();
     if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); }
-    musEl = new Audio(URL.createObjectURL(f)); musEl.loop = true;
-    S.music = { buf, vol: dbLin(+$('#musVol').value), name: f.name }; $('#musRow').hidden = false; $('#musName').textContent = f.name; drawTimeline(); m.textContent = 'Música pronta. Será misturada ao gerar o corte.'; musSync();
+    musEl = new Audio(URL.createObjectURL(f)); musEl.loop = true; label = label || f.name;
+    S.music = { buf, vol: dbLin(+$('#musVol').value), name: label }; $('#musRow').hidden = false; $('#musName').textContent = label; drawTimeline(); m.textContent = 'Música pronta. Será misturada ao gerar o corte.'; musSync();
   } catch (err) { m.textContent = 'Não consegui ler este áudio (' + (err.message || 'formato') + '). Tente MP3, M4A ou WAV.'; }
+}
+$('#musFile').onchange = e => { const f = e.target.files[0]; if (f) loadMusic(f); };
+$('#toneSel').onchange = e => { S.tone = e.target.value; S.style.tone = S.tone; saveSoon('style', { style: S.style }); toneInfo(); rebuild(); };
+function toneInfo() { $('#toneAuto').textContent = S.tone === 'auto' && S.words.length ? '(detectado: ' + (TONES[effTone()]?.name || '') + ')' : ''; }
+$('#musGen').onclick = async () => {
+  const b = $('#musGen'), t = effTone(); b.disabled = true; b.textContent = 'Criando música…';
+  try { const { generateMusic } = await import('./musicgen.js?v=1'); const blob = await generateMusic(t, 30, 44100); await loadMusic(new File([blob], 'musica.wav', { type: 'audio/wav' }), 'Música ' + TONES[t].name.toLowerCase() + ' (original)'); }
+  catch (e) { $('#musMsg').textContent = 'Não consegui gerar a música neste navegador.'; }
+  b.disabled = false; b.textContent = 'Gerar música deste tom';
 };
 $('#musVol').oninput = e => { $('#musDb').textContent = dbFmt(+e.target.value); if (S.music) { S.music.vol = dbLin(+e.target.value); musSync(); } };
 $('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); musEl = null; } S.music = null; $('#musRow').hidden = true; $('#musFile').value = ''; drawTimeline(); $('#musMsg').textContent = 'Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.'; };
@@ -636,8 +652,9 @@ function ovUI() {
   const ul = $('#ovList'); ul.replaceChildren();
   S.ov.forEach((o, i) => {
     const li = el('li'); const num = (k) => { const n = el('input', { type: 'number', min: 0, step: 0.5, value: +o[k].toFixed(1), ariaLabel: k === 'from' ? 'Início' : 'Fim' }); n.style.width = '64px'; n.onchange = () => { o[k] = Math.max(0, +n.value || 0); drawTimeline(); }; return n; };
+    const th = (o.frames || o.img) ? (() => { const c = el('canvas', { width: 36, height: 64, ariaHidden: 'true' }); c.style.cssText = 'width:36px;height:64px;border-radius:4px;background:#000;flex:none'; const src = o.frames ? o.frames[0] : o.img; try { const r = Math.max(36 / src.width, 64 / src.height); c.getContext('2d').drawImage(src, (36 - src.width * r) / 2, (64 - src.height * r) / 2, src.width * r, src.height * r); } catch { /* sem miniatura */ } return c; })() : null;
     const name = o.kind === 'title' ? el('input', { value: o.text, ariaLabel: 'Texto do título', oninput: e => { o.text = e.target.value; } }) : el('span', { textContent: (o.kind === 'broll' ? 'B-roll: ' : 'Imagem: ') + o.name });
-    li.append(name, num('from'), el('span', { className: 'mut', textContent: 'a' }), num('to'), el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.ov.splice(i, 1); ovUI(); } })); ul.append(li);
+    li.append(...(th ? [th] : []), name, num('from'), el('span', { className: 'mut', textContent: 'a' }), num('to'), ...(o.kind === 'broll' && o.query ? [el('button', { type: 'button', className: 'btn', textContent: 'Trocar', onclick: async e => { const bt = e.target; bt.disabled = true; bt.textContent = '…'; const f = await brollFor(o.query, Math.max(1.5, o.to - o.from)); if (f) { delete o.frames; delete o.img; if (f.vid) { o.frames = f.vid.frames; o.fps = f.vid.fps; } else o.img = f.img; } else flash('Não achei outra opção para esta cena.'); ovUI(); } })] : []), el('button', { type: 'button', className: 'btn', textContent: 'Remover', onclick: () => { S.ov.splice(i, 1); ovUI(); } })); ul.append(li);
   });
   drawTimeline(); const at = $('#ovCredit'); if (at) at.hidden = !S.ov.some(o => o.frames);
 }
@@ -647,23 +664,33 @@ $('#ovTitle').onclick = async () => {
   if (LIVE && S.user) { b.disabled = true; b.textContent = 'Criando com IA…'; try { const r = await assist(CFG, await token(), 'hook', w.map(x => x.w).join(' ').slice(0, 8000)); const t = (r.titles || []).find(x => typeof x === 'string' && x.trim()); if (t) text = t.trim().toUpperCase(); } catch (e) { flash(e.message + ' Usei uma sugestão simples.'); } b.disabled = false; b.textContent = 'Sugerir título de gancho'; }
   S.ov.push({ kind: 'title', text, from: 0, to: Math.min(4, S.dur || 4) }); ovUI();
 };
+const brUsed = new Set(), brSeen = new Set();
+async function brollFor(q, secs) {   // vídeo (plano pago) com cena ainda não usada; senão foto livre; tenta uma busca mais simples se faltar
+  const tries = [q]; const ws = q.split(/\s+/); if (ws.length > 1) tries.push(ws[ws.length - 1]);
+  for (const qq of tries) {
+    if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=2')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
+    const img = await findBroll(qq).catch(() => null); if (img) return { img, q: qq };
+  }
+  return null;
+}
 $('#ovBroll').onclick = async () => {
   const w = visible(); if (!w.length) { flash('Ainda não há transcrição para escolher os B-rolls.'); return; }
   if (!(LIVE && S.user)) { flash('Entre na sua conta para usar o B-roll automático.'); return; }
-  const b = $('#ovBroll'); b.disabled = true; b.textContent = 'Escolhendo cenas…';
+  const qty = +$('#brQty').value || 5, secs = +$('#brDur').value || 3, minGap = qty >= 7 ? 4 : qty >= 5 ? 6 : 9;
+  const b = $('#ovBroll'); b.disabled = true; b.textContent = 'Lendo a fala inteira…'; S.noVid = false;
   try {
-    const lines = toLines(w, 14, 0.8).map(l => '[' + l[0].s.toFixed(1) + '] ' + l.map(x => x.w).join(' ')).join('\n').slice(0, 12000);
-    const r = await assist(CFG, await token(), 'broll', lines); let n = 0, last = -99, noVid = false;
-    for (const it of (r.items || []).slice(0, 8)) {
-      const t = +it.t, q = String(it.query || '').trim(); if (!(t >= 0) || !q || t - last < 5) continue;
+    let all = toLines(w, 14, 0.8).map(l => '[' + l[0].s.toFixed(1) + '] ' + l.map(x => x.w).join(' ')); while (all.join('\n').length > 12000) all = all.filter((_, i) => i % 2 === 0);   // amostra a fala toda, não só o começo
+    const r = await assist(CFG, await token(), 'broll', all.join('\n')); let n = 0; const last = S.ov.filter(o => o.kind === 'broll').map(o => o.from);
+    for (const it of (r.items || []).slice(0, 12)) {
+      if (n >= qty) break;
+      const t = +it.t, q = String(it.query || '').trim().toLowerCase(); if (!(t >= 0) || !q || brSeen.has(q) || last.some(x => Math.abs(x - t) < minGap)) continue;
       b.textContent = 'Buscando: ' + q.slice(0, 20) + '…';
-      let vid = null;
-      if (S.plan === 'pro' && !noVid) { try { vid = await (await import('./brollvideo.js?v=1')).findBrollVideo(CFG, await token(), q); } catch (e) { if (e.status === 503 || e.status === 402) noVid = true; } }
-      if (vid) { const d = vid.frames.length / vid.fps; S.ov.push({ kind: 'broll', frames: vid.frames, fps: vid.fps, name: q + ' (vídeo Pexels: ' + vid.credit + ')', from: t, to: Math.min(t + d, S.dur || t + d) }); S.credit = true; last = t; n++; continue; }
-      const img = await findBroll(q).catch(() => null); if (!img) continue;
-      S.ov.push({ kind: 'broll', img, name: q, from: t, to: Math.min(t + 2.5, S.dur || t + 2.5) }); last = t; n++;
+      const f = await brollFor(q, secs); if (!f) continue;
+      brSeen.add(q); last.push(t); n++;
+      if (f.vid) { const d = f.vid.frames.length / f.vid.fps; S.ov.push({ kind: 'broll', frames: f.vid.frames, fps: f.vid.fps, name: f.q, query: q, from: t, to: Math.min(t + Math.max(d, 1.5), S.dur || t + d) }); S.credit = true; }
+      else S.ov.push({ kind: 'broll', img: f.img, name: f.q, query: q, from: t, to: Math.min(t + secs, S.dur || t + secs) });
     }
-    ovUI(); flash(n ? n + ' B-roll(s) adicionados' + (S.credit ? ' (vídeos: Pexels)' : '') + '. Ajuste os tempos ou remova os que não gostar.' : 'Não encontrei imagens livres para este vídeo.');
+    S.ov.sort((a, b2) => a.from - b2.from); ovUI(); flash(n ? n + ' B-roll(s) adicionados' + (S.credit ? ' (vídeos: Pexels)' : '') + '. Veja as miniaturas, troque ou remova os que não gostar.' : 'Não encontrei cenas livres para este vídeo.');
   } catch (e) { flash(e.message); }
   b.disabled = false; b.textContent = 'B-roll automático (IA)';
 };

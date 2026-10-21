@@ -15,10 +15,21 @@ for (const [e, ws] of Object.entries(D)) ws.split(' ').forEach(w => { if (!MAP.h
 const key = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
 // Acrescenta no máximo um emoji a cada ~2,5 s para não poluir; nunca no mesmo emoji duas vezes seguidas.
-export function addEmojis(words, gap = 2.5) {
+// Por tom: troca/limita emojis para combinar com o clima do vídeo (dramático e reflexivo ficam sóbrios).
+const TONE = {
+  dramatico: { gap: 4, ban: '😂🎉😍🍕👏🥇🚀', extra: { dor: '💔', morte: '🕯️', medo: '😨', sozinho: '🌑', sozinha: '🌑', perdi: '💔', guerra: '⚔️' } },
+  reflexivo: { gap: 4, ban: '😂🎉🍕👏🥇🚀😡', extra: { vida: '🌱', tempo: '⏳', silencio: '🤫', caminho: '🛤️', paz: '🕊️', escolha: '🧭' } },
+  inspirador: { gap: 3, ban: '😂😡', extra: { sonho: '✨', sonhos: '✨', fe: '🙏', coragem: '💪', esperanca: '🌅', vencer: '🏆', futuro: '🌄' } },
+  epico: { gap: 3, ban: '😂🍕', extra: { guerra: '⚔️', batalha: '⚔️', gloria: '🏆', forca: '💪', heroi: '🦸', fogo: '🔥', lenda: '👑' } },
+  calmo: { gap: 4, ban: '😂😡🔥🚀⚡', extra: { calma: '🌿', respirar: '🌬️', paz: '🕊️', tranquilo: '🌿' } },
+  animado: { gap: 2, ban: '', extra: { festa: '🎉', bora: '🚀', vamos: '🚀', demais: '🤩' } },
+};
+export function addEmojis(words, gap = 2.5, tone = '') {
+  const T = TONE[tone]; if (T) gap = Math.max(gap, T.gap);
   let last = -1e9, prev = '';
   return words.map(w => {
-    const e = MAP.get(key(w.w)); if (!e || e === prev || w.s - last < gap || /\p{Extended_Pictographic}/u.test(w.w)) return w;
+    const k = key(w.w); let e = T && T.extra[k] || MAP.get(k); if (e && T && T.ban.includes(e) && !(T.extra[k])) e = null;
+    if (!e || e === prev || w.s - last < gap || /\p{Extended_Pictographic}/u.test(w.w)) return w;
     last = w.s; prev = e; return { ...w, w: w.w + ' ' + e };
   });
 }
