@@ -31,7 +31,7 @@ const CSS = `
 #tp .res video{position:static;transform:none;max-height:100%;width:auto;max-width:100%;flex:1;min-height:0;border-radius:10px;background:#000}
 `;
 
-export function openTeleprompter({ onUse, flash }) {
+export function openTeleprompter({ onUse, flash, ai }) {
   if (document.getElementById('tp')) return;
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { flash('Seu navegador não permite gravar com a câmera. Grave pelo app de câmera do celular e envie o vídeo.'); return; }
   const cfg = Object.assign({ wpm: 130, size: 34, mirror: false, text: '' }, load());
@@ -50,7 +50,7 @@ export function openTeleprompter({ onUse, flash }) {
 
   // ---------- 1. texto e ajustes ----------
   function editor() {
-    h(`<div class="bar"><b>Teleprompter</b><button id="x" type="button">Fechar</button></div>
+    h(`<div class="bar"><b>Teleprompter</b>${ai ? '<button id="sug" type="button">✨ Sugerir roteiro</button>' : ''}<button id="x" type="button">Fechar</button></div>
     <textarea id="t" placeholder="Cole ou escreva o texto que você vai ler." aria-label="Texto do teleprompter"></textarea>
     <div class="opts">
       <label for="w">Velocidade</label><input id="w" type="range" min="60" max="220" step="5"><span id="wv"></span>
@@ -64,6 +64,10 @@ export function openTeleprompter({ onUse, flash }) {
     const upd = () => { $('#wv').textContent = w.value + ' pal/min'; $('#sv').textContent = s.value + ' px'; };
     upd(); w.oninput = s.oninput = upd;
     $('#x').onclick = close;
+    if (ai) $('#sug').onclick = async () => {
+      const m = await import('./roteiro.js?v=1');
+      m.openScriptHelper({ host: root, api: ai, flash, onUse: text => { t.value = text; cfg.text = text; save(cfg); flash('Roteiro colocado no teleprompter. Revise e toque em Iniciar TP.'); } });
+    };
     $('#go').onclick = () => {
       if (!t.value.trim()) { flash('Escreva o texto primeiro.'); return; }
       Object.assign(cfg, { text: t.value, wpm: +w.value, size: +s.value, mirror: m.checked }); save(cfg); camera();
