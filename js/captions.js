@@ -26,7 +26,7 @@ export async function loadFont(font, ...weights) {
 // Presets: free = true entram no plano gratuito. Nomes próprios, exceto "Iman", pedido expressamente.
 const B = { font: 'Montserrat', wLight: 800, wActive: 800, color: '#ffffff', activeColor: '#ffffff', stroke: 0, strokeColor: '#000000', bgOpacity: 0, bg: '#000000', case: 'none', n: 3, pop: 0, shadow: 1, fs: 50, mode: 'word' };
 export const PRESETS = {
-  iman: { ...B, name: 'Iman', free: true, wLight: 300, wActive: 500, case: 'lower', n: 4, fs: 40, shadow: 1 },
+  iman: { ...B, name: 'Iman', free: true, wLight: 300, wActive: 600, case: 'lower', n: 4, fs: 40, shadow: 1, dim: 0.6 },
   impacto: { ...B, name: 'Impacto', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', activeColor: '#FFD500', stroke: 55, n: 3, pop: 1, fs: 50 },
   uma_palavra: { ...B, name: 'Uma palavra', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', stroke: 55, n: 1, pop: 1, fs: 72 },
   minimal: { ...B, name: 'Minimal', free: true, font: 'Inter', wLight: 500, wActive: 700, n: 4, fs: 38 },
@@ -37,7 +37,7 @@ export const PRESETS = {
   neon: { ...B, name: 'Neon', free: false, font: 'Poppins', wLight: 600, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', stroke: 0, n: 3, fs: 48, mode: 'glow' },
   manuscrito: { ...B, name: 'Manuscrito', free: false, font: 'Pacifico', wLight: 400, wActive: 400, color: '#ffffff', activeColor: '#FF9EC7', stroke: 30, n: 3, fs: 50 },
   moderno: { ...B, name: 'Moderno', free: false, font: 'Space Grotesk', wLight: 400, wActive: 700, case: 'lower', color: '#ffffff', activeColor: '#B8FF3D', n: 4, fs: 42 },
-  chama: { ...B, name: 'Chama', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#FFD500', cycle: ['#FFD500', '#3DDC84', '#FF4D4D', '#4DC3FF'], stroke: 60, n: 3, anim: 'bounce', emph: 1, fs: 54 },
+  chama: { ...B, name: 'Chama', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#FFD500', cycle: ['#FFD500', '#3DDC84', '#FF4D4D', '#4DC3FF'], stroke: 60, n: 3, anim: 'bounce', emph: 1, fs: 54, mode: 'flame', strokeColor: '#3a0a00' },
   marca_texto: { ...B, name: 'Marca-texto', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#1a0a02', hl: '#FFB020', mode: 'marker', stroke: 0, n: 3, anim: 'bounce', fs: 48 },
   onda: { ...B, name: 'Onda', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#ffffff', reveal: 1, anim: 'slide', n: 3, stroke: 40, fs: 50 },
   preenchido: { ...B, name: 'Preenchido', free: false, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: 'rgba(255,255,255,.55)', activeColor: '#FF7A3D', fill: 1, stroke: 45, n: 3, fs: 52 },
@@ -94,12 +94,13 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   const cx = rs.x * W, cy = rs.y * H, left = cx - bw / 2, top = cy - bh / 2;
   ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round'; ctx.textAlign = 'left';
   lines.forEach((l, li) => {
-    let x = cx - lw(l) / 2; const base = top + li * lh + lh * 0.5 + px * 0.34;
+    let x = rs.align === 'left' ? left : rs.align === 'right' ? left + bw - lw(l) : cx - lw(l) / 2; const base = top + li * lh + lh * 0.5 + px * 0.34;
     l.forEach(o => {
       const act = o.on, wt = act ? rs.wActive : rs.wLight, age = Math.max(0, t - o.w.s), an = rs.anim || (rs.pop ? 'pop' : 'none');
       let col = act ? rs.activeColor : rs.color; if (act && rs.cycle) col = rs.cycle[(k * 7 + o.i) % rs.cycle.length]; if (rs.fill && o.past) col = rs.activeColor;
       let sc = 1, dy = 0, rot = 0, al = 1, shown = !(rs.reveal && o.i > a);
       if (rs.reveal && !shown) al = 0;
+      if (rs.dim && !act) al *= rs.dim;
       if (rs.reveal && shown) { const p0 = cl(age / 0.22); al = eo(p0); if (an === 'slide') dy = (1 - eo(p0)) * px * 0.55; }
       if (act) {
         const p1 = cl(age / 0.3);
@@ -115,9 +116,22 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
       const w = ctx.measureText(o.t).width, off = (o.rw - w) / 2;
       if (rs.mode === 'marker' && act) { const pw = eo(cl(age / 0.16)); ctx.fillStyle = rs.hl || '#FFB020'; rr(ctx, off - px * 0.2, -px * 0.9, (w + px * 0.4) * pw, px * 1.2, px * 0.22); ctx.fill(); }
       if (rs.mode === 'pill' && act && rs.bgOpacity) { ctx.fillStyle = hexA(rs.bg, rs.bgOpacity / 100); rr(ctx, off - px * 0.25, -px * 0.92, w + px * 0.5, px * 1.3, px * 0.3); ctx.fill(); }
-      if (rs.shadow && rs.mode !== 'glow') { ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = px * 0.22; ctx.shadowOffsetY = px * 0.04; }
+      if (rs.shadow && rs.mode !== 'glow' && rs.mode !== 'flame') { ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = px * 0.22; ctx.shadowOffsetY = px * 0.04; }
+      if (rs.mode === 'flame' && act) {   // palavra em chamas: línguas de fogo animadas + gradiente quente + brilho laranja
+        const fl = Math.max(0.1, o.w.e - o.w.s) + 0.5, ph = t * 11;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = 'transparent';
+        const nT = Math.max(4, Math.round(w / (px * 0.28)));
+        for (let q = 0; q < nT; q++) {
+          const fx = off + (q + 0.5) / nT * w, hh = px * 1.5 * (0.38 + 0.3 * Math.abs(Math.sin(ph + q * 1.7))) * (0.7 + 0.3 * Math.sin(q * 2.3 + 1)), ww = px * 0.22, sway = Math.sin(ph * 0.8 + q) * px * 0.06;
+          const g = ctx.createLinearGradient(0, -px * 0.62, 0, -px * 0.62 - hh); g.addColorStop(0, 'rgba(255,120,0,.85)'); g.addColorStop(0.6, 'rgba(255,200,40,.45)'); g.addColorStop(1, 'rgba(255,230,120,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(fx - ww, -px * 0.55); ctx.quadraticCurveTo(fx - ww * 0.4 + sway, -px * 0.62 - hh * 0.6, fx + sway, -px * 0.62 - hh); ctx.quadraticCurveTo(fx + ww * 0.4 + sway, -px * 0.62 - hh * 0.6, fx + ww, -px * 0.55); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        const gr = ctx.createLinearGradient(0, -px * 0.75, 0, px * 0.1); gr.addColorStop(0, '#FFF3B0'); gr.addColorStop(0.5, '#FFB020'); gr.addColorStop(1, '#FF3D00'); col = gr;
+        ctx.shadowColor = 'rgba(255,90,0,.95)'; ctx.shadowBlur = px * 0.45;
+      }
       if (rs.mode === 'glow' && act) { ctx.shadowColor = col; ctx.shadowBlur = px * 0.5; }
-      if (rs.stroke > 0) { ctx.lineWidth = rs.stroke / 100 * px * 0.2; ctx.strokeStyle = rs.strokeColor; ctx.strokeText(o.t, off, 0); ctx.shadowColor = 'transparent'; }
+      if (rs.stroke > 0) { ctx.lineWidth = rs.stroke / 100 * px * 0.2; ctx.strokeStyle = rs.strokeColor; ctx.strokeText(o.t, off, 0); if (!(rs.mode === 'flame' && act)) ctx.shadowColor = 'transparent'; }
       ctx.fillStyle = col;
       if (rs.letter && act) {   // destaque por letra: as letras já ditas ficam no peso ativo
         const p = Math.min(1, Math.max(0, (t - o.w.s) / Math.max(0.01, o.w.e - o.w.s))), ch = [...o.t], n = Math.ceil(p * ch.length);

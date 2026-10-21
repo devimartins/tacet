@@ -17,6 +17,8 @@ export async function pickCodec(W, H, fps) {
   throw new Error('Este aparelho não codifica vídeo H.264.');
 }
 
+// 'auto': fundo desfocado quando o quadro de saída é bem mais largo que o vídeo (ex.: vertical em 16:9)
+export const useBlur = (fit, dw, dh, W, H) => fit === 'blur' || (fit !== 'cover' && W / H > (dw / dh) * 1.25);
 export async function renderClip({ file, media, clip, words, style, onProgress, W = 1080, H = 1920, fps = 30, opts = {} }) {
   const V = media.video; if (!V) throw new Error('O arquivo não tem vídeo.');
   const start = clip.start, end = Math.min(clip.end, media.duration);
@@ -27,7 +29,9 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const cw = words.filter(w => w.s >= start - 0.05 && w.e <= end + 0.05 && !inRange(rem, w.s)).map(w => ({ ...w, s: Math.max(0, shift(w.s) - base), e: shift(w.e) - base }));
   const chunks = chunksOf(opts.emoji ? addEmojis(cw) : cw, Math.max(1, rs.n | 0));
   const rot = V.rotation, swap = rot === 90 || rot === 270, dw = swap ? V.height : V.width, dh = swap ? V.width : V.height;
-  const sc = Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * rs.cropX, sy = (dh - sh) / 2;
+  const blur = useBlur(style.fit || 'auto', dw, dh, W, H), sc = blur ? Math.min(W / dw, H / dh) : Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * (blur ? 0.5 : rs.cropX), sy = (dh - sh) / 2;
+  const scB = Math.max(W / dw, H / dh), bgc = blur ? document.createElement('canvas') : null; if (bgc) { bgc.width = Math.ceil(W / 14); bgc.height = Math.ceil(H / 14); }
+  const rotate = (c, k) => { if (rot === 90) { c.translate(V.height, 0); c.rotate(Math.PI / 2); } else if (rot === 180) { c.translate(V.width, V.height); c.rotate(Math.PI); } else if (rot === 270) { c.translate(0, V.width); c.rotate(-Math.PI / 2); } };
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
 
   const gP = opts.grade || null, grader = gP ? createGrader(W, H) : null;   // correção de cor em GPU (só se houver ajuste)
@@ -35,7 +39,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const { mux, cfg } = await pickCodec(W, H, fps);
   const M = window.Mp4Muxer, target = new M.ArrayBufferTarget(), A = media.audio;
   const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: mux, width: W, height: H, frameRate: fps },
-    ...(opts.music || opts.sfx || opts.denoise || (opts.tracks && opts.tracks.length) ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: A ? A.sampleRate : 48000 } } : A ? { audio: { codec: 'aac', numberOfChannels: A.channels, sampleRate: A.sampleRate } } : {}) });
+    ...(opts.music || opts.sfx || opts.denoise || opts.fadeIn > 0 || opts.fadeOut > 0 || (opts.tracks && opts.tracks.length) ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: A ? A.sampleRate : 48000 } } : A ? { audio: { codec: 'aac', numberOfChannels: A.channels, sampleRate: A.sampleRate } } : {}) });
   let eerr = null, derr = null;
   const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { eerr = e; } });
   enc.configure(cfg);
@@ -54,8 +58,12 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     nextT = Math.max(nextT + 1 / fps, t + 0.5 / fps); lastT = t;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     const z = opts.zoom ? zoomAt(chunks, t) : 1;
+    if (bgc) {   // fundo: o próprio vídeo ampliado e desfocado (reduz a 1/14 e amplia, barato)
+      const b = bgc.getContext('2d'), k = bgc.width / W; b.setTransform(1, 0, 0, 1, 0, 0); b.transform(k * scB, 0, 0, k * scB, -k * scB * (dw - W / scB) * 0.5, -k * scB * (dh - H / scB) / 2); rotate(b); b.drawImage(f, 0, 0);
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(bgc, 0, 0, W, H); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, 0, W, H);
+    }
     ctx.setTransform(z, 0, 0, z, W * (1 - z) / 2, H * (1 - z) / 2); ctx.transform(sc, 0, 0, sc, -sx * sc, -sy * sc);
-    if (rot === 90) { ctx.translate(V.height, 0); ctx.rotate(Math.PI / 2); } else if (rot === 180) { ctx.translate(V.width, V.height); ctx.rotate(Math.PI); } else if (rot === 270) { ctx.translate(0, V.width); ctx.rotate(-Math.PI / 2); }
+    rotate(ctx);
     if (cssF && 'filter' in ctx) ctx.filter = cssF;
     ctx.drawImage(f, 0, 0); f.close();
     ctx.setTransform(1, 0, 0, 1, 0, 0); if (cssF && 'filter' in ctx) ctx.filter = 'none';
@@ -63,6 +71,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (opts.overlays && opts.overlays.length) drawBroll(ctx, W, H, opts.overlays, ta);
     drawCaption(ctx, W, H, chunks, t, rs);
     if (opts.overlays && opts.overlays.length) drawOverlays(ctx, W, H, opts.overlays, ta, rs.font);
+    if (opts.fadeIn > 0 || opts.fadeOut > 0) { const a = Math.max(opts.fadeIn > 0 ? 1 - t / opts.fadeIn : 0, opts.fadeOut > 0 ? (t - (len - opts.fadeOut)) / opts.fadeOut : 0); if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a).toFixed(3)})`; ctx.fillRect(0, 0, W, H); } }
     const vf = new VideoFrame(cv, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: n++ % (fps * 2) === 0 }); vf.close();
     while (enc.encodeQueueSize > 6) await new Promise(r => enc.addEventListener('dequeue', r, { once: true }));
@@ -83,7 +92,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   await enc.flush(); enc.close(); if (grader) grader.dispose();
   if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
 
-  if (opts.music || opts.sfx || opts.denoise || (opts.tracks && opts.tracks.length)) await mixAudio({ file, A, muxer, read, start, end, rem, shift, base, len, tracks: opts.tracks, denoise: opts.denoise, music: opts.music, sfx: opts.sfx ? sfxEvents(chunks, opts.overlays, shift, base) : null });
+  if (opts.music || opts.sfx || opts.denoise || opts.fadeIn > 0 || opts.fadeOut > 0 || (opts.tracks && opts.tracks.length)) await mixAudio({ file, A, muxer, read, start, end, rem, shift, base, len, tracks: opts.tracks, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, denoise: opts.denoise, music: opts.music, sfx: opts.sfx ? sfxEvents(chunks, opts.overlays, shift, base) : null });
   else if (A) {   // copia os blocos de áudio do trecho, sem recodificar
     let first = true;
     for (const s of A.samples) {
@@ -99,7 +108,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
 
 // Mistura o áudio original (decodificado) com a música e recodifica em AAC estéreo.
 // music = { buffer: AudioBuffer (já na taxa do vídeo), volume: 0..1 }
-async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, music, sfx, tracks, denoise: dn }) {
+async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, music, sfx, tracks, fadeIn, fadeOut, denoise: dn }) {
   if (typeof AudioEncoder === 'undefined') throw new Error('Este navegador não codifica áudio. Use Chrome ou Edge atualizado, ou remova a música.');
   const sr = A ? A.sampleRate : 48000, N = Math.ceil(len * sr), L = new Float32Array(N), R = new Float32Array(N);
   if (A) {
@@ -132,6 +141,8 @@ async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, mus
     for (let i = 0; i < c0.length; i++) { const k = t0 + i; if (k >= N) break; if (k >= 0) { L[k] += c0[i] * g; R[k] += c1[i] * g; } }
   }
   if (sfx) addSfx(L, R, sr, sfx);
+  const fi = Math.round((fadeIn || 0) * sr), fo = Math.round((fadeOut || 0) * sr);
+  if (fi > 0 || fo > 0) for (let i = 0; i < N; i++) { const g = Math.min(fi > 0 && i < fi ? i / fi : 1, fo > 0 && i > N - fo ? (N - i) / fo : 1); L[i] *= g; R[i] *= g; }
   for (let i = 0; i < N; i++) { L[i] = Math.max(-1, Math.min(1, L[i])); R[i] = Math.max(-1, Math.min(1, R[i])); }
   let first = true, err = null;
   const enc = new AudioEncoder({ output: (c, m) => { muxer.addAudioChunk(c, first ? m : undefined); first = false; }, error: e => { err = e; } });

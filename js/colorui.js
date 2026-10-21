@@ -43,7 +43,7 @@ export function initColor({ S, $, el, canPro, saveSoon, flash }) {
   }
   // prévia: o vídeo é desenhado por um canvas WebGL por cima do <video>, com o mesmo recorte (cover) e zoom
   function preview() {
-    const g = G(), on = !isNeutral(g, lut()) && vid.videoWidth > 0 && !$('#edit').hidden;
+    const g = G(), on = !isNeutral(g, lut()) && vid.videoWidth > 0 && !$('#edit').hidden && !S.blurOn;
     if (!on) { if (gc && gc.style.display !== 'none') { gc.style.display = 'none'; vid.style.visibility = ''; } return; }
     if (!gc) {
       const c = el('canvas', { id: 'gcv' }); c.style.pointerEvents = 'none';

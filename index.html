@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=41"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=42"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -81,8 +81,11 @@ li.item{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid
 @media(min-width:900px){.edit{grid-template-columns:minmax(0,1fr) 400px;height:100dvh}
  .edit .left{justify-content:center;padding:28px}
  .edit .right{overflow-y:auto;border-top:0;border-left:1px solid var(--bd);padding:20px 22px 40px}}
+ @media(min-width:1280px){.edit{grid-template-columns:minmax(0,1fr) 780px}
+ #pStyle:not([hidden]){display:grid;grid-template-columns:290px minmax(0,1fr);gap:18px;align-items:start}
+ #pStyle #ctl{order:-1}#pStyle #warn{grid-column:1/-1}}
 .stage{position:relative;aspect-ratio:9/16;width:min(100%,calc(74dvh*9/16));background:#000;border-radius:18px;overflow:hidden;touch-action:none;cursor:grab;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 30px 80px -20px rgba(0,0,0,.7)}
-.stage.drag{cursor:grabbing}.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.stage.drag{cursor:grabbing}.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}.stage #bgv{position:absolute;inset:-6%;width:112%;height:112%;filter:blur(14px) brightness(.72);display:none;pointer-events:none}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%}
 .stage .ph{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;color:#b9bbc0;text-align:center;padding:28px;font-size:14px}
 .stage .ph .btn{background:#fff;color:#0f0a08;border-color:#fff}
@@ -303,7 +306,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 </div></section>
 <section id="edit" hidden><div class="wrap edit">
  <div class="left">
-  <div class="stage" id="stage"><video id="vid" playsinline loop></video><canvas id="cv"></canvas>
+  <div class="stage" id="stage"><canvas id="bgv" width="48" height="85"></canvas><video id="vid" playsinline loop></video><canvas id="cv"></canvas>
    <div class="ph" id="ph"><span id="phTxt">Selecione o vídeo para pré-visualizar.</span><label class="btn" style="position:relative">Selecionar vídeo<input id="attach" type="file" accept="video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
   <label class="ratio"><span class="mut">Formato</span><select id="ratio" aria-label="Formato do vídeo"><option value="9:16">9:16 vertical</option><option value="4:5">4:5 feed</option><option value="1:1">1:1 quadrado</option><option value="16:9">16:9 horizontal</option></select></label>
   <div class="vrow"><button class="btn" id="vidCfg" type="button">Configurações do vídeo</button><label class="btn" style="cursor:pointer">Trocar vídeo<input id="swapIn" type="file" accept="video/*" hidden></label></div>
@@ -318,6 +321,10 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
   <div id="pClips" hidden>
    <div class="grp first" id="vidSet"><b>Vídeo</b>
     <div class="row"><label for="ratio2">Formato</label><select id="ratio2"><option value="9:16">9:16 vertical</option><option value="4:5">4:5 feed</option><option value="1:1">1:1 quadrado</option><option value="16:9">16:9 horizontal</option></select></div>
+    <div class="row"><label for="fitSel">Enquadramento</label><select id="fitSel"><option value="auto">Automático</option><option value="cover">Preencher o quadro</option><option value="blur">Inteiro, fundo desfocado</option></select></div>
+    <div class="row"><label for="fiR">Fade-in (s)</label><div class="rng"><input id="fiR" type="range" min="0" max="3" step="0.1" value="0"><output id="fiO">0 s</output></div></div>
+    <div class="row"><label for="foR">Fade-out (s)</label><div class="rng"><input id="foR" type="range" min="0" max="3" step="0.1" value="0"><output id="foO">0 s</output></div></div>
+    <div class="row"><label for="beepC">Aviso sonoro ao concluir</label><input id="beepC" type="checkbox" checked style="width:auto;justify-self:start"></div>
     <div class="row"><label for="resSel">Resolução</label><select id="resSel"><option value="1">Alta (1080p)</option><option value="0.667">Média (720p)</option></select></div>
     <div class="row"><label for="fpsSel">Quadros por segundo</label><select id="fpsSel"><option value="30">30 fps</option><option value="24">24 fps</option><option value="60">60 fps</option></select></div>
     <div class="row btns" style="margin-top:8px"><label class="btn" style="cursor:pointer">Trocar vídeo<input id="swapIn2" type="file" accept="video/*" hidden></label><button class="btn" id="vidDel" type="button">Remover vídeo e descartar projeto</button></div>
@@ -343,5 +350,5 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=41"></script>
+<script type="module" src="js/app.js?v=42"></script>
 </body></html>
