@@ -32,6 +32,7 @@ const ITEMS = [
 const TOUR = [
   ['#drop', 'Comece aqui', 'Envie um vídeo longo para a IA achar os melhores cortes.'],
   ['#drop2', 'Só legendas', 'Prefere só legendar? Use este cartão.'],
+  ['#tpOpen', 'Teleprompter (Pro)', 'Grave lendo o roteiro olhando para a câmera e siga direto para a edição.'],
   ['#ytUrl', 'Link do YouTube', 'Cole um link para usar um trecho de um vídeo.'],
   ['#plan', 'Plano Pro', 'Estilos completos, sem anúncios, pagamento por PIX ou cartão.'],
   ['#gal', 'Estilos de legenda', 'Escolha um visual antes de enviar o vídeo.'],
