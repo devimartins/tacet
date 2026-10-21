@@ -16,6 +16,7 @@ const ITEMS = [
   { k: 'ruido reduzir ruido chiado audio limpar som', t: 'Reduzir ruído', ed: ['#fxCut', 'Ative "Reduzir ruído" para cortar chiado e graves do áudio ao exportar.', '#tabC'] },
   { k: 'efeito sonoro sfx whoosh pop barulho', t: 'Efeitos sonoros', ed: ['#fxCut', 'Ative "Efeitos sonoros" para whoosh nas trocas de zoom e pop nos títulos.', '#tabC'] },
   { k: 'broll b-roll cena imagem fundo cobrir ilustrar', t: 'B-roll automático', ed: ['#ovBroll', 'A IA escolhe cenas e busca imagens livres (domínio público) para cobrir trechos do vídeo.', '#tabC'] },
+  { k: 'logo marca dagua watermark kit marca', t: 'Kit de marca (logo)', ed: ['#logoIn', 'Envie seu logo uma vez. Ele fica salvo e aparece em todos os cortes.', '#tabC'] },
   { k: 'titulo gancho hook imagem logo', t: 'Título de gancho e imagens', ed: ['#ovTitle', 'Crie um título de abertura ou coloque uma imagem sobre o vídeo.', '#tabC'] },
   { k: 'editar texto corrigir palavra transcricao', t: 'Corrigir o texto das legendas', ed: ['#tabT', 'Abra "Legendas" e edite as frases. O olho esconde uma frase.', '#tabT'] },
   { k: 'exportar baixar gerar salvar video mp4', t: 'Exportar o vídeo', ed: ['#clips', 'Clique em "Gerar vídeo" no corte desejado e depois em baixar.', '#tabC'] },

@@ -364,7 +364,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: S.ov }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll() }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = 'error'; c.err = e.message; }
   finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -388,7 +388,7 @@ function frame(now) {
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur).toFixed(3) + ')' : '';
     $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
-    const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length) drawOverlays(ctx, W, H, S.ov, S.cur, r.font);
+    const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length || S.logo) drawOverlays(ctx, W, H, ovAll(), S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
     if (S.safeOn && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
     const boxOut = S.bbox ? outsideSafe(S.bbox, S.safeP, W, H) : (r.y * H < safeRect(S.safeP, W, H).y || r.y * H > safeRect(S.safeP, W, H).y + safeRect(S.safeP, W, H).h);
@@ -488,6 +488,18 @@ $('#descCopy').onclick = async () => { try { await navigator.clipboard.writeText
 
 // ---------- títulos e imagens ----------
 S.ov = S.ov || [];
+// Kit de marca: logo salvo no navegador e aplicado como marca d'água em todos os cortes
+const ovAll = () => S.logo ? [...S.ov, { kind: 'logo', img: S.logo, from: 0, to: 1e9 }] : S.ov;
+async function setLogo(src) { try { S.logo = src ? await createImageBitmap(await (await fetch(src)).blob()) : null; } catch { S.logo = null; } $('#logoOff').hidden = !S.logo; $('#logoSt').textContent = S.logo ? 'Logo ativo em todos os cortes.' : 'Nenhum logo definido.'; }
+try { setLogo(localStorage.getItem('tacet.logo')); } catch { setLogo(null); }
+$('#logoIn').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  try {
+    const bm = await createImageBitmap(f), k = Math.min(1, 320 / Math.max(bm.width, bm.height)), c = document.createElement('canvas'); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k); c.getContext('2d').drawImage(bm, 0, 0, c.width, c.height);
+    const url = c.toDataURL('image/png'); try { localStorage.setItem('tacet.logo', url); } catch { flash('O logo vale só nesta sessão (armazenamento do navegador indisponível).'); } await setLogo(url);
+  } catch { flash('Não consegui abrir esta imagem.'); }
+};
+$('#logoOff').onclick = () => { try { localStorage.removeItem('tacet.logo'); } catch { /* ok */ } setLogo(null); };
 function ovUI() {
   const ul = $('#ovList'); ul.replaceChildren();
   S.ov.forEach((o, i) => {

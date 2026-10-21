@@ -8,8 +8,11 @@ const rr = (c, x, y, w, h, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x 
 export function drawOverlays(ctx, W, H, list, t, font = 'sans-serif') {
   for (const o of list) {
     if (o.kind === 'broll' || t < o.from || t >= o.to) continue;
-    const a = Math.min(1, (t - o.from) / 0.25, (o.to - t) / 0.25);   // entrada e saída suaves
+    const a = o.kind === 'logo' ? 0.9 : Math.min(1, (t - o.from) / 0.25, (o.to - t) / 0.25);   // entrada e saída suaves
     ctx.save(); ctx.globalAlpha = Math.max(0, a);
+    if (o.kind === 'logo' && o.img) {   // marca d'água do kit de marca: canto superior esquerdo
+      const s = Math.min(W * 0.2 / o.img.width, H * 0.1 / o.img.height); ctx.drawImage(o.img, W * 0.04, H * 0.035, o.img.width * s, o.img.height * s);
+    } else
     if (o.kind === 'image' && o.img) {
       const mw = W * 0.7, mh = H * 0.28, s = Math.min(mw / o.img.width, mh / o.img.height), w = o.img.width * s, h = o.img.height * s, x = (W - w) / 2, y = H * 0.12;
       rr(ctx, x, y, w, h, W * 0.02); ctx.clip(); ctx.drawImage(o.img, x, y, w, h);
