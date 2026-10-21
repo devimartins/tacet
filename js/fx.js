@@ -1,6 +1,22 @@
 // Efeitos de marca: brasas subindo no hero e headline que se revela palavra por palavra.
 // JS próprio, sem bibliotecas. Respeita prefers-reduced-motion e pausa fora da tela.
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+export const fx = { vel: 0 };
+
+// rolagem: expõe progresso (--sp 0..1), deslocamento (--sy) e velocidade para o fundo e as brasas
+function scrollFx() {
+  if (reduce) return;
+  const root = document.documentElement; let last = scrollY, ticking = false;
+  const upd = () => {
+    ticking = false;
+    const max = Math.max(1, root.scrollHeight - innerHeight), y = scrollY;
+    root.style.setProperty('--sp', Math.min(1, y / max).toFixed(3));
+    root.style.setProperty('--sy', Math.min(y, 2000));
+    fx.vel = Math.min(8, fx.vel + Math.abs(y - last) * .08); last = y;
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(upd); } }, { passive: true });
+  upd();
+}
 
 function reveal(h1) {
   if (!h1 || h1.dataset.fx) return; h1.dataset.fx = 1;
@@ -30,10 +46,10 @@ function embers(host) {
   const N = () => Math.max(14, Math.min(46, Math.round(W / 28)));
   const tick = () => {
     if (!run) return;
-    ctx.clearRect(0, 0, W, H);
+    fx.vel *= .94; ctx.clearRect(0, 0, W, H);
     while (ps.length < N()) ps.push(mk(ps.length < 1));
     ps.forEach((p, i) => {
-      p.y -= p.v; p.d += .02; p.x += Math.sin(p.d) * .4; p.a -= .0016;
+      p.y -= p.v * (1 + fx.vel); p.d += .02; p.x += Math.sin(p.d) * .4; p.a -= .0016;
       if (p.y < -10 || p.a <= 0) { ps[i] = mk(false); return; }
       const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 5);
       g.addColorStop(0, `rgba(255,190,90,${p.a})`); g.addColorStop(.4, `rgba(255,106,31,${p.a * .5})`); g.addColorStop(1, 'rgba(255,106,31,0)');
@@ -49,6 +65,7 @@ function embers(host) {
 }
 
 export function initFx() {
+  scrollFx();
   const hero = document.querySelector('#home .hero');
   if (!hero) return;
   if (reduce) return;
