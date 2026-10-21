@@ -229,7 +229,7 @@ function enterEdit() { view('edit'); tab('style'); setRatio(S.ratio); S.cur = 0;
 function setVideo(f) {
   const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { if (v.currentTime === 0) v.currentTime = 0.05; $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); applyFit(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
 }
-function tab(t) { for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'], ['pClips', 'clips']]) $('#' + id).hidden = k !== t; document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t)); }
+function tab(t) { $('#vidSet').classList.remove('sheet'); document.documentElement.style.removeProperty('--sh'); for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'], ['pClips', 'clips']]) $('#' + id).hidden = k !== t; document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t)); }
 document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => tab(b.dataset.t); });
 const rs = () => resolve(S.tmp ? { ...S.style, preset: S.tmp, o: {} } : S.style);
 const hkey = w => +w.s.toFixed(2), visible = () => S.words.filter(w => !S.hid.has(hkey(w)));
@@ -416,7 +416,7 @@ function acutPanel() {
   }
   wrap.addEventListener('toggle', () => wrap.open && list()); return wrap;
 }
-function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxCut').append(mkFx('acut', 'Auto-corte inteligente', 'Tira contagem regressiva (3, 2, 1), hesitações e vícios isolados. Dá para ver e desmarcar cada corte.')); $('#fxCut').append(acutPanel()); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima de leve em início de frase, pergunta ou ênfase, no máximo a cada ~2,5 s.')); { const z = el('select', { id: 'zoomL', onchange: () => { S.fx.zoomL = +z.value; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } }, ...[[1, 'Suave'], [2, 'Média'], [3, 'Forte']].map(([v, t]) => el('option', { value: v, textContent: t }))); z.value = S.fx.zoomL || 2; $('#fxZoom').append(el('div', { className: 'row' }, el('label', { htmlFor: 'zoomL', textContent: 'Intensidade do zoom' }), z)); } $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Limpa o ruído de fundo com IA que roda no seu aparelho (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
+function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxCut').append(mkFx('acut', 'Auto-corte inteligente', 'Tira contagem regressiva (3, 2, 1), hesitações e vícios isolados. Dá para ver e desmarcar cada corte.')); $('#fxCut').append(acutPanel()); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Só aproxima quando a fala justifica (emoção, revelação, detalhe), no máximo a cada poucos segundos. Lê a transcrição para decidir.')); { const z = el('select', { id: 'zoomL', onchange: () => { S.fx.zoomL = +z.value; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } }, ...[[1, 'Suave'], [2, 'Média'], [3, 'Forte']].map(([v, t]) => el('option', { value: v, textContent: t }))); z.value = S.fx.zoomL || 2; $('#fxZoom').append(el('div', { className: 'row' }, el('label', { htmlFor: 'zoomL', textContent: 'Intensidade do zoom' }), z)); } $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Limpa o ruído de fundo com IA que roda no seu aparelho (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
 function clipsUI() {
   drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
@@ -530,7 +530,9 @@ function beep() {   // dois tons curtos; usa o áudio do navegador (liberado pel
 }
 $('#resSel').onchange = e => { S.res = +e.target.value; };
 $('#fpsSel').onchange = e => { S.fps = +e.target.value; };
-$('#vidCfg').onclick = () => { tab('clips'); $('#vidSet').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+const vidSheet = on => { const mob = matchMedia('(max-width:899px)').matches; if (!on || !mob) { $('#vidSet').classList.remove('sheet'); document.documentElement.style.removeProperty('--sh'); if (on) $('#vidSet').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; } $('#vidSet').classList.add('sheet'); document.documentElement.style.setProperty('--sh', '36'); $('#stage').scrollIntoView({ block: 'start' }); window.scrollBy(0, -8); };
+$('#vidCfg').onclick = () => { tab('clips'); vidSheet(!$('#vidSet').classList.contains('sheet')); };
+$('#vidClose').onclick = () => vidSheet(false);
 async function dropProject() { if (LIVE && S.pid) { const r = await S.sb.from('projects').delete().eq('id', S.pid); if (r.error) { flash('Não foi possível apagar: ' + r.error.message); return false; } } return true; }
 async function swapVideo(e) {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
