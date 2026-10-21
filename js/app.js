@@ -45,9 +45,26 @@ for (const [id, name, ic] of PROVIDERS.filter(p => !CFG.PROVIDERS || CFG.PROVIDE
   const b = el('button', { type: 'button', className: 'btn', onclick: async () => {
     $('#lmsg').textContent = '';
     const { error } = await S.sb.auth.signInWithOAuth({ provider: id, options: { redirectTo: location.origin + location.pathname } });
-    if (error) $('#lmsg').textContent = 'Não foi possível entrar com ' + name + ': ' + error.message;
+    if (error) $('#lmsg').textContent = /provider|not enabled|unsupported/i.test(error.message) ? 'O login com ' + name + ' ainda está sendo ativado. Use outra opção por enquanto.' : 'Não foi possível entrar com ' + name + ': ' + error.message;
   } });
   b.innerHTML = ICONS[ic]; b.append(el('span', { textContent: 'Continuar com ' + name })); $('#prov').append(b);
+}
+
+// login por e-mail (link mágico, sem senha)
+{
+  const f = el('form', { className: 'em', noValidate: true });
+  f.innerHTML = '<div class="or"><span>ou</span></div><label class="sr" for="lemail">E-mail</label><input id="lemail" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com" required><button type="submit" class="btn pri">Entrar com e-mail</button>';
+  f.onsubmit = async e => {
+    e.preventDefault(); const em = f.querySelector('input').value.trim(), msg = $('#lmsg'); msg.className = 'warn';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { msg.textContent = 'Digite um e-mail válido.'; return; }
+    if (!S.sb) { msg.textContent = 'Login indisponível no modo demonstração.'; return; }
+    const btn = f.querySelector('button'); btn.disabled = true; msg.textContent = 'Enviando…';
+    const { error } = await S.sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } });
+    btn.disabled = false;
+    if (error) { msg.textContent = /rate|limit/i.test(error.message) ? 'Muitos pedidos agora. Tente de novo em alguns minutos.' : 'Não foi possível enviar o link: ' + error.message; return; }
+    msg.className = 'ok'; msg.textContent = 'Enviamos um link de acesso para ' + em + '. Abra o e-mail neste aparelho (veja também o spam).';
+  };
+  $('#prov').after(f);
 }
 
 // ---------- projetos ----------
