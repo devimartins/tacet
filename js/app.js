@@ -450,10 +450,10 @@ function planUI() {   // pontos de entrada visíveis para o plano Pro: menu late
   const until = S.proUntil ? new Date(S.proUntil).toLocaleDateString('pt-BR') : '';
   $('#planT').textContent = pro ? 'Tacet Pro ativo' : 'Tacet Pro'; $('#nProL').textContent = pro ? 'Pro ativo' : 'Plano Pro';
   $('#planS').textContent = pro ? (until ? 'Seu acesso vai até ' + until + '. Renove quando quiser: cada pagamento soma 31 dias (ou 1 ano no plano anual).' : 'Obrigado por apoiar o Tacet.') : 'Estilos exclusivos, cortes por IA sem limite e sem anúncios.';
-  $('#planPrice').hidden = pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro'; $('#planBtnY').textContent = pro ? 'Renovar por 1 ano · R$ 199' : 'Plano anual · R$ 199/ano'; $('#yrS').innerHTML = pro ? 'Equivale a R$ 16,58/mês. <b>Você economiza R$ 159,80</b> por ano frente ao mensal.' : 'Equivale a R$ 16,58/mês. <b>Você economiza R$ 129,80</b> no primeiro ano.';
+  $('#planPrice').hidden = pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro'; $('#planBtnY').textContent = pro ? 'Renovar por 1 ano · R$ 199' : 'Plano anual · R$ 199/ano'; $('#yrS').innerHTML = 'Só <b>R$ 16,58 por mês</b>. Economize mais de R$ 100 por ano.';
 }
 if (CFG.PAY && LIVE) {
-  const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90, ou R$ 199 por ano (economize até R$ 159,80). Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
+  const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90, ou R$ 199 por ano (economize mais de R$ 100). Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
   const m = el('p', { className: 'mut pm', role: 'status' }), b = el('button', { type: 'button', className: 'btn pri', textContent: 'Assinar o Pro', onclick: () => checkout(b, m) });
   d.querySelector('form').before(b, m);
   const pm = $('#planMsg'); $('#planBtn').onclick = () => checkout($('#planBtn'), pm); $('#planBtnY').onclick = () => checkout($('#planBtnY'), pm, 'year'); $('#nPro').onclick = async () => { await home(); $('#plan').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
