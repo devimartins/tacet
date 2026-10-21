@@ -338,7 +338,7 @@ function fillerBtn() {
   } });
   return b;
 }
-function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
+function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima o vídeo a cada frase.')); $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Corta graves e chiado entre as falas (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
 function clipsUI() {
   drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
@@ -363,7 +363,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: S.ov }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: DIMS[S.ratio][0], H: DIMS[S.ratio][1], opts: { cutSilence: !!S.fx.cut, zoom: !!S.fx.zoom, emoji: !!S.fx.emoji, sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: S.ov }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); }
   catch (e) { c.state = 'error'; c.err = e.message; }
   finally { S.busy = false; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }

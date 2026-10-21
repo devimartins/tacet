@@ -13,6 +13,7 @@ const ITEMS = [
   { k: 'zoom enfase destaque', t: 'Zoom automático', ed: ['#fxZoom', 'Ative o zoom para dar ênfase nos momentos da fala.', '#tabC'] },
   { k: 'musica audio trilha som fundo', t: 'Música de fundo', ed: ['#musFile', 'Escolha um áudio e ajuste o volume. Ele é misturado ao exportar.', '#tabC'] },
   { k: 'emoji emojis carinha figurinha', t: 'Emojis nas legendas', ed: ['#fxZoom', 'Ative "Emojis nas legendas" para colocar emojis nas palavras-chave.', '#tabC'] },
+  { k: 'ruido reduzir ruido chiado audio limpar som', t: 'Reduzir ruído', ed: ['#fxCut', 'Ative "Reduzir ruído" para cortar chiado e graves do áudio ao exportar.', '#tabC'] },
   { k: 'efeito sonoro sfx whoosh pop barulho', t: 'Efeitos sonoros', ed: ['#fxCut', 'Ative "Efeitos sonoros" para whoosh nas trocas de zoom e pop nos títulos.', '#tabC'] },
   { k: 'titulo gancho hook imagem logo', t: 'Título de gancho e imagens', ed: ['#ovTitle', 'Crie um título de abertura ou coloque uma imagem sobre o vídeo.', '#tabC'] },
   { k: 'editar texto corrigir palavra transcricao', t: 'Corrigir o texto das legendas', ed: ['#tabT', 'Abra "Legendas" e edite as frases. O olho esconde uma frase.', '#tabT'] },

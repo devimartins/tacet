@@ -37,3 +37,20 @@ export function addSfx(L, R, sr, events, gain = 0.28) {
     else { const n = Math.round(sr * 0.14); let ph = 0; for (let i = 0; i < n && o + i < N; i++) { const x = i / n, f = 1100 - 700 * x; ph += 2 * Math.PI * f / sr; const v = Math.sin(ph) * Math.exp(-6 * x) * gain; L[o + i] += v; R[o + i] += v; } }
   }
 }
+
+// Redução de ruído simples e leve: passa-altas (corta rumble) + gate adaptativo que abaixa o chiado entre as falas.
+// O piso de ruído é estimado pelo percentil 15 do volume em janelas de 20 ms; abaixo de ~2,5x esse piso o áudio é atenuado.
+export function denoise(L, R, sr) {
+  const N = L.length, a = Math.exp(-2 * Math.PI * 80 / sr);
+  for (const X of [L, R]) { let px = 0, py = 0; for (let i = 0; i < N; i++) { const x = X[i]; py = a * (py + x - px); px = x; X[i] = py; } }
+  const W = Math.max(1, Math.round(sr * 0.02)), M = Math.floor(N / W); if (M < 10) return;
+  const e = new Float32Array(M); for (let m = 0; m < M; m++) { let s = 0; for (let i = m * W; i < (m + 1) * W; i++) s += L[i] * L[i] + R[i] * R[i]; e[m] = Math.sqrt(s / (2 * W)); }
+  const sorted = Array.from(e).sort((x, y) => x - y), floor = Math.max(sorted[Math.floor(M * 0.15)], 1e-4), thr = floor * 2.5;
+  let g = 1, hold = 0;
+  const atk = Math.exp(-1 / (sr * 0.004)), rel = Math.exp(-1 / (sr * 0.15));
+  for (let m = 0; m < M; m++) {
+    if (e[m] > thr) hold = 8; else if (hold > 0) hold--;
+    const target = hold > 0 ? 1 : 0.18;
+    for (let i = m * W; i < (m + 1) * W; i++) { const c = target > g ? atk : rel; g = target + (g - target) * c; L[i] *= g; R[i] *= g; }
+  }
+}
