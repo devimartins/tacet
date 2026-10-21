@@ -763,4 +763,4 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
   }, { passive: true });
 }
 
-import('./fx.js?v=2').then(m => m.initFx()).catch(() => {});
+import('./fx.js?v=3').then(m => m.initFx()).catch(() => {});

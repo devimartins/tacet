@@ -66,9 +66,11 @@ function embers(host) {
 
 export function initFx() {
   scrollFx();
+  if (reduce) return;
+  const land = document.querySelector('#landing');
+  if (land) embers(land);
   const hero = document.querySelector('#home .hero');
   if (!hero) return;
-  if (reduce) return;
   reveal(hero.querySelector('h1'));
   embers(hero);
 }
