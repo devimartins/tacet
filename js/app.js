@@ -9,6 +9,7 @@ import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
 import { findBroll } from './broll.js';
 import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
 import { initGuide } from './guide.js';
+import { trackFaces, trackAt } from './facetrack.js';
 import { avatarSvg, parseAv, AV_COUNT, BG_COUNT } from './avatar.js';
 import { assist, translateWords, toLines } from './ai.js';
 import { addEmojis } from './extras.js';
@@ -109,7 +110,7 @@ async function newVideo(f, mode = 'clips') {
   if (f.size > max) { flash(pro ? `Este vídeo tem ${mb} MB e o limite do Pro é 1 GB. Tente comprimir o vídeo antes de enviar.` : `Este vídeo tem ${mb} MB. O plano gratuito aceita até 350 MB. Com o Pro você envia até 1 GB, ou pode comprimir o vídeo antes.`, { label: 'Ver Pro', fn: () => $('#nPro').onclick && $('#nPro').onclick() }); return; }
   if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
-  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
+  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.track = null; S.faceOn = false; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
@@ -122,7 +123,7 @@ async function openProject(id) {
   const { data: p, error } = await S.sb.from('projects').select('*').eq('id', id).single();
   if (error) { flash('Não foi possível abrir: ' + error.message); return; }
   S.pid = id; S.file = null; S.media = null; S.title = p.title || ''; S.dur = p.duration || 8; S.words = p.transcript?.words || []; S.clips = (p.clips || []).map(c => ({ ...c }));
-  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) }; S.tone = p.style?.tone || 'auto'; $('#toneSel').value = S.tone; S.ratio = p.style?.ratio || '9:16'; S.hid = new Set(p.style?.hid || []);
+  S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) }; S.track = null; S.faceOn = false; S.tone = p.style?.tone || 'auto'; $('#toneSel').value = S.tone; S.ratio = p.style?.ratio || '9:16'; S.hid = new Set(p.style?.hid || []);
   enterEdit(); rebuild(); sync(); clipsUI(); $('#txt').value = S.words.map(w => w.w).join(' ');
   $('#phTxt').textContent = 'Para pré-visualizar e gerar cortes, selecione de novo o vídeo "' + S.title + '".';
   status(S.words.length ? 'Projeto carregado. A transcrição e os cortes estão salvos.' : 'Este projeto ainda não tem transcrição. Selecione o vídeo para continuar.');
@@ -440,7 +441,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -462,6 +463,7 @@ function frame(now) {
     if (hasVid()) S.cur = vid.currentTime; else if (S.playing) S.cur += dt;
     if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (S.prev && S.prevRem && S.prevRem.length && S.prevRem.some(([a, b]) => S.cur >= a && S.cur < b)) seek(S.prevRem.find(([a, b]) => S.cur >= a && S.cur < b)[1]); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur, ZL[S.fx.zoomL || 2]).toFixed(3) + ')' : '';
+    if (S.faceOn && S.track && hasVid() && !S.blurOn) { const fx = trackAt(S.track, S.cur), vw = vid.videoWidth, vh = vid.videoHeight, st = $('#stage').getBoundingClientRect(); if (fx != null && vw && st.height) { const sw = vh * st.width / st.height; vid.style.objectPosition = (vw > sw ? Math.min(1, Math.max(0, (fx * vw - sw / 2) / (vw - sw))) * 100 : 50) + '% 50%'; } }
     if (colorUI) colorUI.preview(); drawBg();
     $('#scrub').value = S.cur; $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; if (S.tlz > 1 && S.playing) { const sc = $('#twS'), x = S.cur / Math.max(S.dur, 1) * sc.scrollWidth; if (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth * 0.9) sc.scrollLeft = x - sc.clientWidth * 0.2; } $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
@@ -611,6 +613,21 @@ if (CFG.PAY && LIVE) {
   d.querySelector('form').before(b, m);
   const pm = $('#planMsg'); $('#planBtn').onclick = () => checkout($('#planBtn'), pm); $('#planBtnY').onclick = () => checkout($('#planBtnY'), pm, 'year'); $('#nPro').onclick = async () => { await home(); $('#plan').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 }
+
+// ---------- seguir o rosto ----------
+$('#faceBtn').onclick = async () => {
+  const b = $('#faceBtn'), m = $('#faceMsg');
+  if (S.faceOn) { S.faceOn = false; b.textContent = 'Analisar e seguir'; applyCrop(); m.textContent = 'Seguir o rosto desligado.'; return; }
+  if (!canPro()) { $('#pay').showModal(); return; }
+  if (!S.file) { flash('Abra um vídeo primeiro.'); return; }
+  b.disabled = true; S.faceAbort = new AbortController();
+  try {
+    if (!S.track) { const step = Math.max(0.5, S.dur / 600); S.track = await trackFaces(S.file, 0, S.dur, { step, signal: S.faceAbort.signal, onProgress: p => { m.textContent = 'Analisando rostos… ' + Math.round(p * 100) + '%'; } }); }
+    if (!S.track.length) { m.textContent = 'Não encontrei rostos neste vídeo.'; S.track = null; }
+    else { S.faceOn = true; b.textContent = 'Parar de seguir'; m.textContent = 'O enquadramento agora acompanha o rosto (vale na prévia e na exportação).'; }
+  } catch (e) { m.textContent = 'Não consegui analisar: ' + (e.message || 'erro'); }
+  b.disabled = false;
+};
 
 // ---------- arquivo de legenda (.srt / .vtt), no navegador ----------
 function subFile(kind) {
