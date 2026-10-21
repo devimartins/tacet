@@ -439,9 +439,9 @@ $('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(m
 setInterval(() => { if (musEl) { if (S.playing && musEl.paused) musEl.play().catch(() => { }); if (!S.playing && !musEl.paused) musEl.pause(); } }, 300);
 
 // ---------- assinatura (Mercado Pago: PIX, débito e crédito) ----------
-async function checkout(btn, msg) {
+async function checkout(btn, msg, plan) {
   btn.disabled = true; msg.textContent = 'Abrindo o Mercado Pago…';
-  try { const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/checkout', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token } }); const j = await r.json(); if (!r.ok || !j.url) throw new Error(j.error || 'Falha ao iniciar o pagamento.'); location.href = j.url; }
+  try { const { data } = await S.sb.auth.getSession(); const r = await fetch(CFG.AI + '/checkout', { method: 'POST', headers: { authorization: 'Bearer ' + data.session.access_token, 'content-type': 'application/json' }, body: JSON.stringify({ plan: plan || 'month' }) }); const j = await r.json(); if (!r.ok || !j.url) throw new Error(j.error || 'Falha ao iniciar o pagamento.'); location.href = j.url; }
   catch (e) { msg.textContent = e.message; btn.disabled = false; }
 }
 function planUI() {   // pontos de entrada visíveis para o plano Pro: menu lateral e cartão na tela inicial
@@ -449,14 +449,14 @@ function planUI() {   // pontos de entrada visíveis para o plano Pro: menu late
   $('#nPro').hidden = false; const pro = S.plan === 'pro', card = $('#plan'); card.hidden = false; card.classList.toggle('on', pro);
   const until = S.proUntil ? new Date(S.proUntil).toLocaleDateString('pt-BR') : '';
   $('#planT').textContent = pro ? 'Tacet Pro ativo' : 'Tacet Pro'; $('#nProL').textContent = pro ? 'Pro ativo' : 'Plano Pro';
-  $('#planS').textContent = pro ? (until ? 'Seu acesso vai até ' + until + '. Renove quando quiser: cada pagamento soma 31 dias.' : 'Obrigado por apoiar o Tacet.') : 'Estilos exclusivos, cortes por IA sem limite e sem anúncios.';
-  $('#planPrice').hidden = pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro';
+  $('#planS').textContent = pro ? (until ? 'Seu acesso vai até ' + until + '. Renove quando quiser: cada pagamento soma 31 dias (ou 1 ano no plano anual).' : 'Obrigado por apoiar o Tacet.') : 'Estilos exclusivos, cortes por IA sem limite e sem anúncios.';
+  $('#planPrice').hidden = pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro'; $('#planBtnY').textContent = pro ? 'Renovar por 1 ano · R$ 299' : 'Plano anual · R$ 299 (2 meses grátis)';
 }
 if (CFG.PAY && LIVE) {
-  const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90. Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
+  const d = $('#pay'); d.querySelector('p').textContent = 'Este recurso faz parte do plano Pro. R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90, ou R$ 299 por ano. Pague por PIX, cartão de débito ou crédito (Mercado Pago).';
   const m = el('p', { className: 'mut pm', role: 'status' }), b = el('button', { type: 'button', className: 'btn pri', textContent: 'Assinar o Pro', onclick: () => checkout(b, m) });
   d.querySelector('form').before(b, m);
-  const pm = $('#planMsg'); $('#planBtn').onclick = () => checkout($('#planBtn'), pm); $('#nPro').onclick = async () => { await home(); $('#plan').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  const pm = $('#planMsg'); $('#planBtn').onclick = () => checkout($('#planBtn'), pm); $('#planBtnY').onclick = () => checkout($('#planBtnY'), pm, 'year'); $('#nPro').onclick = async () => { await home(); $('#plan').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 }
 
 // ---------- tradução das legendas (IA) ----------

@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Tacet","url":"https://devimartins.github.io/tacet/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=19"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=20"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0b0c0d;--s1:#121314;--in:#1a1b1d;--bd:#26282b;--tx:#eceae4;--mut:#8d9096;--ac:#8fd6c0;--acd:#2f6f5e;--pri:#eceae4;--pro:#0b0c0d;--er:#f2958f;--rail:#070808;--railtx:#eceae4;--glow:rgba(143,214,192,.10);--stg:#050606;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -256,7 +256,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
   <div><h3>Privado por padrão</h3><p class="mut">O vídeo é processado no seu aparelho. Só o áudio vai para transcrição e nada fica guardado além do necessário.</p></div>
  </div>
  <h2>Planos</h2>
- <p class="mut">Gratuito: vídeos de até 1 GB e projetos salvos por 3 dias, com anúncios. Pro: R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90, com pagamento por PIX, cartão de débito ou crédito.</p>
+ <p class="mut">Gratuito: vídeos de até 1 GB e projetos salvos por 3 dias, com anúncios. Pro: R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90, ou R$ 299 por ano, com pagamento por PIX, cartão de débito ou crédito.</p>
  <h2>Perguntas frequentes</h2>
  <details><summary>Preciso instalar algo?</summary><p class="mut">Não. O Tacet funciona no navegador e pode ser adicionado à tela inicial no Android, iOS e Windows.</p></details>
  <details><summary>Meu vídeo é enviado para algum servidor?</summary><p class="mut">Não. A edição e a exportação acontecem no seu aparelho. Para transcrever, apenas o áudio é enviado e descartado em seguida.</p></details>
@@ -280,7 +280,8 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
   <div><p class="eyebrow2">Plano</p><h2 id="planT">Tacet Pro</h2><p class="mut" id="planS"></p>
    <ul class="plist"><li>Todos os estilos de legenda</li><li>Cortes por IA e zoom automático</li><li>Sem anúncios</li><li>PIX, débito ou crédito</li></ul></div>
   <div class="pbuy"><p class="pprice" id="planPrice"><b>R$ 19,90</b><span>/mês nos 3 primeiros meses</span><small>depois R$ 29,90/mês</small></p>
-   <button class="btn pri" id="planBtn" type="button">Assinar o Pro</button><p class="mut" id="planMsg" role="status" style="font-size:12px;margin:8px 0 0"></p></div>
+   <button class="btn pri" id="planBtn" type="button">Assinar o Pro</button>
+   <button class="btn" id="planBtnY" type="button">Plano anual · R$ 299 <small>(2 meses grátis)</small></button><p class="mut" id="planMsg" role="status" style="font-size:12px;margin:8px 0 0"></p></div>
  </section>
  <h2>Escolha um estilo</h2><div id="gal"></div>
  <h2>Seus projetos</h2><ul class="list" id="plist"></ul><p class="mut" id="pempty" hidden>Nenhum projeto ainda.</p>
@@ -319,5 +320,5 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, que está em desenvolvimento. Os pagamentos serão por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=19"></script>
+<script type="module" src="js/app.js?v=20"></script>
 </body></html>
