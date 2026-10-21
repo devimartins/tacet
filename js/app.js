@@ -56,14 +56,21 @@ for (const [id, name, ic] of PROVIDERS.filter(p => !CFG.PROVIDERS || CFG.PROVIDE
 // login por e-mail (link mágico, sem senha)
 {
   const f = el('form', { className: 'em', noValidate: true });
-  f.innerHTML = '<div class="or"><span>ou</span></div><label class="sr" for="lemail">E-mail</label><input id="lemail" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com" required><button type="submit" class="btn pri">Entrar com e-mail</button>';
+  f.innerHTML = '<div class="or"><span>ou</span></div><label class="sr" for="lemail">E-mail</label><input id="lemail" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com" required><div id="cft" class="cft"></div><button type="submit" class="btn pri">Entrar com e-mail</button>';
+  let tk = '', wid = null;
+  if (CFG.TURNSTILE) {
+    window.__tsLoad = () => { wid = window.turnstile.render('#cft', { sitekey: CFG.TURNSTILE, callback: t => { tk = t; }, 'expired-callback': () => { tk = ''; }, 'error-callback': () => { tk = ''; }, language: 'pt-br' }); };
+    document.head.append(el('script', { src: 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__tsLoad', async: true, defer: true }));
+  }
   f.onsubmit = async e => {
     e.preventDefault(); const em = f.querySelector('input').value.trim(), msg = $('#lmsg'); msg.className = 'warn';
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { msg.textContent = 'Digite um e-mail válido.'; return; }
     if (!S.sb) { msg.textContent = 'Login indisponível no modo demonstração.'; return; }
+    if (CFG.TURNSTILE && !tk) { msg.textContent = 'Aguarde a verificação de segurança e tente de novo.'; return; }
     const btn = f.querySelector('button'); btn.disabled = true; msg.textContent = 'Enviando…';
-    const { error } = await S.sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } });
+    const { error } = await S.sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true, ...(CFG.TURNSTILE ? { captchaToken: tk } : {}) } });
     btn.disabled = false;
+    if (CFG.TURNSTILE && window.turnstile && wid !== null) { tk = ''; window.turnstile.reset(wid); }
     if (error) { msg.textContent = /rate|limit/i.test(error.message) ? 'Muitos pedidos agora. Tente de novo em alguns minutos.' : 'Não foi possível enviar o link: ' + error.message; return; }
     msg.className = 'ok'; msg.textContent = 'Enviamos um link de acesso para ' + em + '. Abra o e-mail neste aparelho (veja também o spam).';
   };
