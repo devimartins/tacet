@@ -415,7 +415,7 @@ function acutPanel() {
   }
   wrap.addEventListener('toggle', () => wrap.open && list()); return wrap;
 }
-function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxCut').append(mkFx('acut', 'Auto-corte inteligente', 'Tira contagem regressiva (3, 2, 1), hesitações e vícios isolados. Dá para ver e desmarcar cada corte.')); $('#fxCut').append(acutPanel()); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima de leve em início de frase, pergunta ou ênfase, no máximo a cada ~2,5 s.')); { const z = el('select', { id: 'zoomL', onchange: () => { S.fx.zoomL = +z.value; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } }, ...[[1, 'Suave'], [2, 'Média'], [3, 'Forte']].map(([v, t]) => el('option', { value: v, textContent: t }))); z.value = S.fx.zoomL || 2; $('#fxZoom').append(el('div', { className: 'row' }, el('label', { htmlFor: 'zoomL', textContent: 'Intensidade do zoom' }), z)); } $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Corta graves e chiado entre as falas (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
+function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxCut').append(mkFx('acut', 'Auto-corte inteligente', 'Tira contagem regressiva (3, 2, 1), hesitações e vícios isolados. Dá para ver e desmarcar cada corte.')); $('#fxCut').append(acutPanel()); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Aproxima de leve em início de frase, pergunta ou ênfase, no máximo a cada ~2,5 s.')); { const z = el('select', { id: 'zoomL', onchange: () => { S.fx.zoomL = +z.value; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } }, ...[[1, 'Suave'], [2, 'Média'], [3, 'Forte']].map(([v, t]) => el('option', { value: v, textContent: t }))); z.value = S.fx.zoomL || 2; $('#fxZoom').append(el('div', { className: 'row' }, el('label', { htmlFor: 'zoomL', textContent: 'Intensidade do zoom' }), z)); } $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Limpa o ruído de fundo com IA que roda no seu aparelho (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
 function clipsUI() {
   drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
@@ -611,6 +611,18 @@ if (CFG.PAY && LIVE) {
   d.querySelector('form').before(b, m);
   const pm = $('#planMsg'); $('#planBtn').onclick = () => checkout($('#planBtn'), pm); $('#planBtnY').onclick = () => checkout($('#planBtnY'), pm, 'year'); $('#nPro').onclick = async () => { await home(); $('#plan').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 }
+
+// ---------- arquivo de legenda (.srt / .vtt), no navegador ----------
+function subFile(kind) {
+  const w = visible(); if (!w.length) { flash('Ainda não há transcrição.'); return; }
+  const ts = t => { const ms = Math.round(t * 1000), h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60, r = ms % 1000, p2 = (n, k = 2) => String(n).padStart(k, '0'); return p2(h) + ':' + p2(m) + ':' + p2(s) + (kind === 'vtt' ? '.' : ',') + p2(r, 3); };
+  const lines = toLines(w, 9, 0.7).map(l => ({ s: l[0].s, e: l[l.length - 1].e, t: l.map(x => x.w).join(' ') }));
+  lines.forEach((l, i) => { const n = lines[i + 1]; if (n && l.e > n.s) l.e = n.s - 0.01; if (l.e - l.s < 0.4) l.e = l.s + 0.4; });
+  const body = lines.map((l, i) => (kind === 'vtt' ? '' : (i + 1) + '\n') + ts(l.s) + ' --> ' + ts(l.e) + '\n' + l.t + '\n').join('\n');
+  const url = URL.createObjectURL(new Blob([(kind === 'vtt' ? 'WEBVTT\n\n' : '') + body], { type: kind === 'vtt' ? 'text/vtt' : 'application/x-subrip' }));
+  const a = el('a', { href: url, download: (S.title || 'legenda').replace(/\.[^.]+$/, '') + '.' + kind }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+$('#srtBtn').onclick = () => subFile('srt'); $('#vttBtn').onclick = () => subFile('vtt');
 
 // ---------- tradução das legendas (IA) ----------
 $('#trGo').onclick = async () => {

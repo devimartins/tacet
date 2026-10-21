@@ -5,7 +5,7 @@ import { makeReader } from './media.js';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
 import { createGrader } from './color.js';
-import { addEmojis, sfxEvents, addSfx, denoise } from './extras.js';
+import { addEmojis, sfxEvents, addSfx, denoise, denoiseAI } from './extras.js';
 
 export async function pickCodec(W, H, fps) {
   if (typeof VideoEncoder === 'undefined') throw new Error('Este navegador não consegue gerar vídeo (VideoEncoder). Use Chrome, Edge ou Safari atualizado.');
@@ -129,7 +129,7 @@ async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, mus
     }
     await dec.flush(); dec.close();
   }
-  if (dn && A) denoise(L, R, sr);
+  if (dn && A) await denoiseAI(L, R, sr);
   if (music) {
     const mb = music.buffer, mc = mb.numberOfChannels, ml = mb.length, g = Math.max(0, Math.min(1, music.volume ?? 0.25)), fade = Math.min(N, Math.round(sr * 1.2));
     const m0 = mb.getChannelData(0), m1 = mc > 1 ? mb.getChannelData(1) : m0;

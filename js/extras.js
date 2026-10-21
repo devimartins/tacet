@@ -65,3 +65,20 @@ export function denoise(L, R, sr) {
     for (let i = m * W; i < (m + 1) * W; i++) { const c = target > g ? atk : rel; g = target + (g - target) * c; L[i] *= g; R[i] *= g; }
   }
 }
+
+// Redução de ruído por IA (RNNoise, BSD/Apache, roda local em WebAssembly): voz limpa mesmo com ruído constante.
+// Trabalha em 48 kHz mono; cai para o filtro simples se o módulo não carregar.
+let rnP = null;
+export async function denoiseAI(L, R, sr) {
+  try {
+    rnP = rnP || import('../vendor/rnnoise.js').then(m => m.Rnnoise.load());
+    const rn = await rnP, F = rn.frameSize, N = L.length, k = 48000 / sr;
+    const n48 = Math.round(N * k), x = new Float32Array(Math.ceil(n48 / F) * F);
+    for (let i = 0; i < n48; i++) { const p = i / k, j = Math.floor(p), f = p - j, a = (L[j] + R[j]) * 0.5, b = j + 1 < N ? (L[j + 1] + R[j + 1]) * 0.5 : a; x[i] = (a + (b - a) * f) * 32768; }
+    const st = rn.createDenoiseState(), fr = new Float32Array(F);
+    for (let o = 0; o < x.length; o += F) { fr.set(x.subarray(o, o + F)); st.processFrame(fr); x.set(fr, o); }
+    st.destroy();
+    for (let i = 0; i < N; i++) { const p = i * k, j = Math.min(n48 - 1, Math.floor(p)), f = p - j, v = (x[j] + ((x[j + 1] ?? x[j]) - x[j]) * f) / 32768; L[i] = v; R[i] = v; }
+    return true;
+  } catch { denoise(L, R, sr); return false; }
+}
