@@ -26,7 +26,7 @@ export async function record(player, box, { start = 0, end, onStatus = () => {} 
   const target = await CropTarget.fromElement(box);
   const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true, preferCurrentTab: true, selfBrowserSurface: 'include', systemAudio: 'include' });
   const [vt] = stream.getVideoTracks();
-  try { await vt.cropTo(target); } catch (e) { stream.getTracks().forEach(t => t.stop()); throw new Error('Escolha a aba atual do Tacet ao compartilhar.'); }
+  try { await vt.cropTo(target); } catch (e) { stream.getTracks().forEach(t => t.stop()); throw new Error('Escolha a aba atual do ForjaClip ao compartilhar.'); }
   if (!stream.getAudioTracks().length) { stream.getTracks().forEach(t => t.stop()); throw new Error('Marque "Compartilhar áudio da aba" na janela do navegador.'); }
   const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 6e6 }), parts = [];
   rec.ondataavailable = e => e.data.size && parts.push(e.data);
@@ -46,7 +46,7 @@ export async function record(player, box, { start = 0, end, onStatus = () => {} 
 }
 
 // O MediaRecorder gera MP4 fragmentado (sem índice completo). Reempacota em MP4 comum
-// para o restante do Tacet, que lê o índice 'moov'.
+// para o restante do ForjaClip, que lê o índice 'moov'.
 export async function flatten(file) {
   const buf = await file.arrayBuffer(); buf.fileStart = 0;
   const mp4 = MP4Box.createFile(), got = {}; let info;

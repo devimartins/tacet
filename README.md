@@ -1,4 +1,4 @@
-# Tacet — cortes virais direto no navegador (custo zero)
+# ForjaClip — cortes virais direto no navegador (custo zero)
 
 PWA (Android, iOS, Windows). O vídeo **nunca sobe para um servidor**: áudio, legendas e exportação rodam no aparelho (WebCodecs).
 

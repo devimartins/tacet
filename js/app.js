@@ -27,7 +27,7 @@ const canPro = () => !CFG.GATE || S.plan === 'pro';
 const flash = m => { const f = $('#flash'); f.textContent = m; f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
 
 // ---------- tema ----------
-function theme(t) { if (t) { document.documentElement.dataset.theme = t; ls.set('theme', t); } const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches; $('#themeLbl').textContent = dark ? 'Tema claro' : 'Tema escuro'; if (t) { document.querySelectorAll('meta[name=theme-color]').forEach(m => m.remove()); const m = document.createElement('meta'); m.name = 'theme-color'; m.content = dark ? '#0b0c0d' : '#f3f2ed'; document.head.append(m); } return dark; }
+function theme(t) { if (t) { document.documentElement.dataset.theme = t; ls.set('theme', t); } const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches; $('#themeLbl').textContent = dark ? 'Tema claro' : 'Tema escuro'; if (t) { document.querySelectorAll('meta[name=theme-color]').forEach(m => m.remove()); const m = document.createElement('meta'); m.name = 'theme-color'; m.content = dark ? '#0f0a08' : '#fbf6f1'; document.head.append(m); } return dark; }
 $('#nTheme').onclick = () => theme(theme() ? 'light' : 'dark');
 if (ls.get('theme')) document.documentElement.dataset.theme = ls.get('theme');
 theme();
@@ -66,11 +66,11 @@ async function home() {
   }
   ads();
 }
-const adConsent = () => { try { return localStorage.getItem('tacet-ads'); } catch { return null; } };
+const adConsent = () => { try { return (localStorage.getItem('forjaclip-ads') || localStorage.getItem('tacet-ads')); } catch { return null; } };
 function adBanner() {   // LGPD: pergunta antes de carregar qualquer anúncio (só o plano gratuito vê)
   if (document.getElementById('adc')) return;
-  const set = v => { try { localStorage.setItem('tacet-ads', v); } catch { /* sem armazenamento */ } b.remove(); if (v === 'ok') ads(); };
-  const b = el('div', { id: 'adc' }, el('span', { textContent: 'O plano gratuito é mantido por anúncios, que podem usar cookies para exibir propagandas. Aceitar? Recusando, você usa o Tacet sem anúncios personalizados.' }),
+  const set = v => { try { localStorage.setItem('forjaclip-ads', v); } catch { /* sem armazenamento */ } b.remove(); if (v === 'ok') ads(); };
+  const b = el('div', { id: 'adc' }, el('span', { textContent: 'O plano gratuito é mantido por anúncios, que podem usar cookies para exibir propagandas. Aceitar? Recusando, você usa o ForjaClip sem anúncios personalizados.' }),
     el('button', { className: 'btn', textContent: 'Recusar', onclick: () => set('no') }), el('button', { className: 'btn pri', textContent: 'Aceitar', onclick: () => set('ok') }));
   b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:50;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px;border-radius:12px;background:#1b1b22;color:#fff;font-size:13px;box-shadow:0 4px 20px #0008';
   document.body.append(b);
@@ -347,7 +347,7 @@ function clipsUI() {
     const acts = el('div', { className: 'acts' }, el('button', { className: 'btn', textContent: 'Pré-visualizar', onclick: () => previewClip(c) }));
     if (c.state === 'rendering') { const p = el('progress', { max: 1, value: c.p || 0 }); p.style.maxWidth = '160px'; acts.append(p, el('span', { className: 'mut', textContent: 'Gerando… mantenha a tela aberta' })); }
     else acts.append(el('button', { className: 'btn pri', textContent: c.url ? 'Gerar de novo' : 'Gerar vídeo', disabled: S.busy, onclick: () => renderOne(c) }));
-    if (c.url) acts.append(el('a', { className: 'btn', textContent: 'Baixar', href: c.url, download: `tacet-corte-${i + 1}.mp4` }));
+    if (c.url) acts.append(el('a', { className: 'btn', textContent: 'Baixar', href: c.url, download: `forjaclip-corte-${i + 1}.mp4` }));
     { const d = el('button', { className: 'btn', textContent: 'Descrição e hashtags', onclick: () => describeClip(c, d) }); acts.append(d); }
     if (c.state === 'error') acts.append(el('span', { className: 'warn', textContent: c.err }));
     ul.append(el('li', { className: 'clip' }, el('div', {}, el('b', { textContent: c.title || 'Corte ' + (i + 1) }), ' ', el('span', { className: 'score', textContent: c.score != null ? 'nota ' + c.score : 'manual' })), el('div', { className: 'mut', textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }), acts));
@@ -419,7 +419,7 @@ async function boot() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 boot();
-window.__tacet = { S };
+window.__forjaclip = { S };
 initGuide({ home: () => home() });   // útil para testes
 
 // ---------- música de fundo ----------
@@ -463,8 +463,8 @@ function planUI() {   // pontos de entrada visíveis para o plano Pro: menu late
   if (!(CFG.PAY && LIVE)) return;
   $('#nPro').hidden = false; const pro = S.plan === 'pro', card = $('#plan'); card.hidden = false; card.classList.toggle('on', pro);
   const until = S.proUntil ? new Date(S.proUntil).toLocaleDateString('pt-BR') : '';
-  $('#planT').textContent = pro ? 'Tacet Pro ativo' : 'Tacet Pro'; $('#nProL').textContent = pro ? 'Pro ativo' : 'Plano Pro';
-  $('#planS').textContent = pro ? (until ? 'Seu acesso vai até ' + until + '. Renove quando quiser: cada pagamento soma 31 dias (ou 1 ano no plano anual).' : 'Obrigado por apoiar o Tacet.') : 'Estilos exclusivos, cortes por IA sem limite e sem anúncios.';
+  $('#planT').textContent = pro ? 'ForjaClip Pro ativo' : 'ForjaClip Pro'; $('#nProL').textContent = pro ? 'Pro ativo' : 'Plano Pro';
+  $('#planS').textContent = pro ? (until ? 'Seu acesso vai até ' + until + '. Renove quando quiser: cada pagamento soma 31 dias (ou 1 ano no plano anual).' : 'Obrigado por apoiar o ForjaClip.') : 'Estilos exclusivos, cortes por IA sem limite e sem anúncios.';
   $('#planPrice').hidden = pro; $('#planBtn').textContent = pro ? 'Renovar por mais 31 dias' : 'Assinar o Pro'; $('#planBtnY').textContent = pro ? 'Renovar por 1 ano · R$ 199' : 'Plano anual · R$ 199/ano'; $('#yrS').innerHTML = 'Só <b>R$ 16,58 por mês</b>. Economize mais de R$ 100 por ano.';
 }
 if (CFG.PAY && LIVE) {
@@ -505,15 +505,15 @@ S.ov = S.ov || [];
 // Kit de marca: logo salvo no navegador e aplicado como marca d'água em todos os cortes
 const ovAll = () => S.logo ? [...S.ov, { kind: 'logo', img: S.logo, from: 0, to: 1e9 }] : S.ov;
 async function setLogo(src) { try { S.logo = src ? await createImageBitmap(await (await fetch(src)).blob()) : null; } catch { S.logo = null; } $('#logoOff').hidden = !S.logo; $('#logoSt').textContent = S.logo ? 'Logo ativo em todos os cortes.' : 'Nenhum logo definido.'; }
-try { setLogo(localStorage.getItem('tacet.logo')); } catch { setLogo(null); }
+try { setLogo((localStorage.getItem('forjaclip.logo') || localStorage.getItem('tacet.logo'))); } catch { setLogo(null); }
 $('#logoIn').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
   try {
     const bm = await createImageBitmap(f), k = Math.min(1, 320 / Math.max(bm.width, bm.height)), c = document.createElement('canvas'); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k); c.getContext('2d').drawImage(bm, 0, 0, c.width, c.height);
-    const url = c.toDataURL('image/png'); try { localStorage.setItem('tacet.logo', url); } catch { flash('O logo vale só nesta sessão (armazenamento do navegador indisponível).'); } await setLogo(url);
+    const url = c.toDataURL('image/png'); try { localStorage.setItem('forjaclip.logo', url); } catch { flash('O logo vale só nesta sessão (armazenamento do navegador indisponível).'); } await setLogo(url);
   } catch { flash('Não consegui abrir esta imagem.'); }
 };
-$('#logoOff').onclick = () => { try { localStorage.removeItem('tacet.logo'); } catch { /* ok */ } setLogo(null); };
+$('#logoOff').onclick = () => { try { localStorage.removeItem('forjaclip.logo'); localStorage.removeItem('tacet.logo'); } catch { /* ok */ } setLogo(null); };
 function ovUI() {
   const ul = $('#ovList'); ul.replaceChildren();
   S.ov.forEach((o, i) => {

@@ -65,7 +65,7 @@ function spot(sel, title, text, nav) {   // destaca um elemento e mostra uma dic
 export function initGuide({ home }) {
   const btn = document.createElement('button'); btn.id = 'bot'; btn.type = 'button'; btn.setAttribute('aria-label', 'Abrir ajuda'); btn.setAttribute('aria-expanded', 'false');
   btn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span>Ajuda</span>';
-  const panel = document.createElement('div'); panel.id = 'botp'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Assistente do Tacet');
+  const panel = document.createElement('div'); panel.id = 'botp'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Assistente do ForjaClip');
   panel.innerHTML = '<div class="bh"><b>Assistente</b><button type="button" class="bx" aria-label="Fechar">✕</button></div><p class="bm"></p><input id="botq" type="search" placeholder="O que você quer fazer? Ex.: legenda, música, zoom" autocomplete="off" aria-label="Buscar funcionalidade"><ul id="botl"></ul><button type="button" class="btn" id="botTour">Fazer um tour rápido</button>';
   document.body.append(btn, panel);
   const list = $('#botl'), input = $('#botq'), msg = panel.querySelector('.bm');
@@ -88,11 +88,11 @@ export function initGuide({ home }) {
     close(); if (inEditor()) { home().then(() => setTimeout(() => tour(n), 300)); return; }
     while (n < TOUR.length && !spot(...[TOUR[n][0], TOUR[n][1], TOUR[n][2], [['Pular', clear], ...(n ? [['Voltar', () => tour(n - 1)]] : []), [n < TOUR.length - 1 ? 'Próximo' : 'Concluir', () => (n < TOUR.length - 1 ? tour(n + 1) : (clear(), tourDone())), true]]])) n++;
   }
-  const tourDone = () => { try { localStorage.setItem('tacet-tour', '1'); } catch { /* sem armazenamento */ } };
+  const tourDone = () => { try { localStorage.setItem('forjaclip-tour', '1'); } catch { /* sem armazenamento */ } };
   btn.onclick = () => (panel.hidden ? open() : close()); panel.querySelector('.bx').onclick = close; $('#botTour').onclick = () => tour(0);
   input.oninput = render; input.onkeydown = e => { if (e.key === 'Enter') list.querySelector('button')?.click(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { close(); clear(); } });
   addEventListener('resize', clear);
-  let seen = null; try { seen = localStorage.getItem('tacet-tour'); } catch { /* sem armazenamento */ }
+  let seen = null; try { seen = localStorage.getItem('forjaclip-tour') || localStorage.getItem('tacet-tour'); } catch { /* sem armazenamento */ }
   if (!seen) setTimeout(() => { if (!$('#rail').hidden && panel.hidden && !$('#bot').dataset.nudged) { btn.dataset.nudged = 1; btn.classList.add('nudge'); } }, 4000);
 }
