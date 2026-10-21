@@ -78,8 +78,8 @@ def icon_html(size, bg, scale, radius=0):
             f'<g transform="translate({pad},{pad + size*0.01}) scale({size*scale/64})">{mark_inner("g","m")}</g></svg></body></html>')
 OG = lambda body_logo, lw: f'''<html><body style="margin:0;width:1200px;height:630px;background:radial-gradient(900px 520px at 85% 0%,rgba(255,106,31,.34),transparent 60%),radial-gradient(700px 420px at 0% 100%,rgba(229,50,45,.22),transparent 60%),#100A08;font-family:Inter,Poppins,sans-serif;color:#F4EDE6;position:relative;overflow:hidden">
 <div style="position:absolute;left:84px;top:110px">{body_logo}</div>
-<div style="position:absolute;left:84px;top:330px;width:760px;font-size:54px;line-height:1.12;font-weight:700;letter-spacing:-.02em">Cortes virais e legendas animadas, direto do seu navegador.</div>
-<div style="position:absolute;left:84px;top:500px;font-size:28px;color:#C9B8AA">Para Reels, TikTok e Shorts. Seu vídeo não sai do seu aparelho.</div></body></html>'''
+<div style="position:absolute;left:84px;top:330px;width:1010px;font-size:54px;line-height:1.12;font-weight:700;letter-spacing:-.02em">Cortes virais e legendas animadas, direto do seu navegador.</div>
+<div style="position:absolute;left:84px;top:490px;font-size:28px;color:#C9B8AA">Para Reels, TikTok e Shorts. Seu vídeo não sai do seu aparelho.</div></body></html>'''
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/opt/pw-browsers/chromium'); pg = b.new_page()
     def shot(html, path, w, h, omit=False):
