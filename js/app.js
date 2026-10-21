@@ -210,7 +210,7 @@ function setVideo(f) {
 }
 function tab(t) { for (const [id, k] of [['pStyle', 'style'], ['pText', 'text'], ['pClips', 'clips']]) $('#' + id).hidden = k !== t; document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t)); }
 document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => tab(b.dataset.t); });
-const rs = () => resolve(S.style);
+const rs = () => resolve(S.tmp ? { ...S.style, preset: S.tmp, o: {} } : S.style);
 const hkey = w => +w.s.toFixed(2), visible = () => S.words.filter(w => !S.hid.has(hkey(w)));
 function rebuild() { S.chunks = chunksOf(S.fx.emoji ? addEmojis(visible()) : visible(), Math.max(1, rs().n | 0)); drawTimeline(); phrasesUI(); }
 function setO(k, v) { if (['x', 'y', 'cropX'].includes(k)) S.style[k] = v; else S.style.o = { ...S.style.o, [k]: v }; rebuild(); applyCrop(); saveSoon('style', { style: S.style }); }
@@ -253,7 +253,7 @@ function buildControls() {
 }
 // galeria de estilos: prévia animada de cada estilo, filtro por categoria e busca
 const PREV = [{ w: 'Palavras', s: 0, e: .6 }, { w: 'que', s: .6, e: 1.1 }, { w: 'prendem', s: 1.1, e: 1.8 }, { w: 'a', s: 1.8, e: 2.1 }, { w: 'tela', s: 2.1, e: 2.9 }], PCH = chunksOf(PREV, 3);
-function mountGallery(box, getCur, onPick) {
+function mountGallery(box, getCur, onPick, hover) {
   box.replaceChildren(); let cat = 'Todos', q = '';
   const chips = el('div', { className: 'chips', role: 'group', ariaLabel: 'Categorias' }), search = el('input', { type: 'search', placeholder: 'Buscar estilo', ariaLabel: 'Buscar estilo', id: 'gs_' + (box.id || 'x') }), grid = el('div', { className: 'gal' });
   const mark = () => grid.querySelectorAll('.gcard').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === getCur())));
@@ -263,7 +263,7 @@ function mountGallery(box, getCur, onPick) {
       if ((cat !== 'Todos' && p.cat !== cat) || (q && !p.name.toLowerCase().includes(q))) continue;
       const locked = !canPro() && !p.free, cv = el('canvas', { width: 300, height: 170 }); cv.dataset.p = id;
       const b = el('button', { type: 'button', className: 'gcard', onclick: async () => { if (locked) { $('#pay').showModal(); return; } await onPick(id); mark(); } }, cv, el('span', { className: 'gn', textContent: p.name }), ...(locked ? [el('span', { className: 'lk', textContent: 'PRO' })] : []));
-      b.dataset.id = id; grid.append(b);
+      b.dataset.id = id; if (hover && !locked) { const on = async () => { await loadFont(p.font, p.wLight, p.wActive); S.tmp = id; rebuild(); }, off = () => { if (S.tmp) { S.tmp = null; rebuild(); } }; b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse' && S.file) on(); }); b.addEventListener('pointerleave', off); b.addEventListener('focus', () => { if (S.file) on(); }); b.addEventListener('blur', off); b.addEventListener('click', () => { S.tmp = null; }); } grid.append(b);
     }
     if (!grid.children.length) grid.append(el('p', { className: 'mut', textContent: 'Nenhum estilo encontrado.' }));
     mark();
@@ -273,20 +273,29 @@ function mountGallery(box, getCur, onPick) {
   box.append(el('div', { className: 'gbar' }, chips, search), grid); paint(); return { mark };
 }
 let lastG = 0;
+const snap = document.createElement('canvas'); snap.width = 300; snap.height = 170; let snapOk = false, pvKey = '', pvCh = PCH;
+function previewChunks() {   // usa as palavras reais do vídeo perto do ponto atual; senão, a frase de exemplo
+  if (!S.words || S.words.length < 3) return PCH;
+  let i = S.words.findIndex(w => w.s >= S.cur); if (i < 0 || i > S.words.length - 5) i = Math.max(0, S.words.length - 5);
+  const key = i + '|' + S.words.length; if (key === pvKey) return pvCh;
+  pvKey = key; pvCh = chunksOf(S.words.slice(i, i + 5).map((w, j) => ({ w: w.w, s: j * 0.6, e: j * 0.6 + 0.55 })), 3); return pvCh;
+}
 function animGal(now) {
   if (now - lastG > 45) {
-    lastG = now; const t = (now / 1000) % 3.2;
+    lastG = now; const t = (now / 1000) % 3.2, pc = previewChunks();
+    snapOk = false; if (S.file && vid.readyState >= 2 && vid.videoWidth) { try { const c = snap.getContext('2d'), r = Math.max(300 / vid.videoWidth, 170 / vid.videoHeight); c.drawImage(vid, (300 - vid.videoWidth * r) / 2, (170 - vid.videoHeight * r) / 2, vid.videoWidth * r, vid.videoHeight * r); snapOk = true; } catch { /* sem quadro */ } }
     document.querySelectorAll('.gcard canvas').forEach(cv => {
-      if (!cv.offsetParent) return; const c = cv.getContext('2d'), r = resolve({ preset: cv.dataset.p }), g = c.createLinearGradient(0, 0, 0, cv.height);
-      g.addColorStop(0, '#1b1d21'); g.addColorStop(1, '#0d0e10'); c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height);
-      drawCaption(c, cv.width, cv.height, PCH, t, { ...r, x: .5, y: .5, n: 3, fs: Math.min(100, r.fs * 2.2) });
+      if (!cv.offsetParent) return; const c = cv.getContext('2d'), r = resolve({ preset: cv.dataset.p });
+      if (snapOk) { c.drawImage(snap, 0, 0, cv.width, cv.height); c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(0, 0, cv.width, cv.height); }
+      else { const g = c.createLinearGradient(0, 0, 0, cv.height); g.addColorStop(0, '#1b1d21'); g.addColorStop(1, '#0d0e10'); c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height); }
+      drawCaption(c, cv.width, cv.height, pc, t, { ...r, x: .5, y: .5, n: 3, fs: Math.min(100, r.fs * 2.2) });
     });
   }
   requestAnimationFrame(animGal);
 }
 function buildPresets() {
   const pick = async id => { const p = PRESETS[id]; await loadFont(p.font, p.wLight, p.wActive); S.style = { ...S.style, preset: id, o: {} }; rebuild(); sync(); saveSoon('style', { style: S.style }); };
-  EG = mountGallery($('#presets'), () => S.style.preset, pick);
+  EG = mountGallery($('#presets'), () => S.style.preset, pick, true);
   HG = mountGallery($('#gal'), () => S.homePreset || 'iman', async id => { await loadFont(PRESETS[id].font, PRESETS[id].wLight, PRESETS[id].wActive); S.homePreset = id; });
 }
 

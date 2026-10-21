@@ -32,16 +32,25 @@ export const PRESETS = {
   minimal: { ...B, name: 'Minimal', free: true, font: 'Inter', wLight: 500, wActive: 700, n: 4, fs: 38 },
   tabloide: { ...B, name: 'Tabloide', free: false, font: 'Anton', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FFD500', stroke: 45, n: 3, pop: 1, fs: 56 },
   karaoke: { ...B, name: 'Karaokê', free: false, font: 'Poppins', wLight: 700, wActive: 800, color: '#ffffff', activeColor: '#3DDC84', stroke: 40, n: 4, fs: 46 },
-  pilula: { ...B, name: 'Pílula', free: false, font: 'Inter', wLight: 600, wActive: 700, color: '#ffffff', activeColor: '#111111', bgOpacity: 85, bg: '#000000', n: 3, pop: 1, fs: 44, shadow: 0, mode: 'pill' },
+  pilula: { ...B, name: 'Pílula', free: false, font: 'Inter', wLight: 600, wActive: 700, color: '#ffffff', activeColor: '#111111', bgOpacity: 92, bg: '#ffffff', n: 3, pop: 1, fs: 44, shadow: 0, mode: 'pill' },
   editorial: { ...B, name: 'Editorial', free: false, font: 'Playfair Display', wLight: 500, wActive: 800, color: '#FDFBF7', activeColor: '#FDFBF7', case: 'none', n: 4, fs: 44 },
   neon: { ...B, name: 'Neon', free: false, font: 'Poppins', wLight: 600, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', stroke: 0, n: 3, fs: 48, mode: 'glow' },
   manuscrito: { ...B, name: 'Manuscrito', free: false, font: 'Pacifico', wLight: 400, wActive: 400, color: '#ffffff', activeColor: '#FF9EC7', stroke: 30, n: 3, fs: 50 },
   moderno: { ...B, name: 'Moderno', free: false, font: 'Space Grotesk', wLight: 400, wActive: 700, case: 'lower', color: '#ffffff', activeColor: '#B8FF3D', n: 4, fs: 42 },
+  chama: { ...B, name: 'Chama', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#FFD500', cycle: ['#FFD500', '#3DDC84', '#FF4D4D', '#4DC3FF'], stroke: 60, n: 3, anim: 'bounce', emph: 1, fs: 54 },
+  marca_texto: { ...B, name: 'Marca-texto', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#1a0a02', hl: '#FFB020', mode: 'marker', stroke: 0, n: 3, anim: 'bounce', fs: 48 },
+  onda: { ...B, name: 'Onda', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#ffffff', reveal: 1, anim: 'slide', n: 3, stroke: 40, fs: 50 },
+  preenchido: { ...B, name: 'Preenchido', free: false, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: 'rgba(255,255,255,.55)', activeColor: '#FF7A3D', fill: 1, stroke: 45, n: 3, fs: 52 },
+  tremor: { ...B, name: 'Tremor', free: false, font: 'Anton', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FF4D4D', anim: 'shake', stroke: 50, n: 2, fs: 62 },
+  cinema: { ...B, name: 'Cinema', free: false, font: 'Playfair Display', wLight: 500, wActive: 700, color: '#FDFBF7', activeColor: '#FFD9A0', reveal: 1, anim: 'fade', n: 5, fs: 40, shadow: 1 },
+  digitacao: { ...B, name: 'Digitação', free: false, font: 'Space Grotesk', wLight: 500, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', type: 1, reveal: 1, anim: 'fade', n: 4, fs: 42, mode: 'glow' },
+  pulso: { ...B, name: 'Pulso', free: false, font: 'Sora', wLight: 700, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#B8FF3D', anim: 'pulse', emph: 1, stroke: 40, n: 3, fs: 48 },
+  inclinado: { ...B, name: 'Inclinado', free: false, font: 'Bangers', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FF9EC7', anim: 'tilt', stroke: 65, n: 3, fs: 58 },
   quadrinhos: { ...B, name: 'Quadrinhos', free: false, font: 'Bangers', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FF4D4D', stroke: 70, n: 3, pop: 1, fs: 56 },
 };
-const CAT = { iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', tabloide: 'Viral', minimal: 'Elegante', pilula: 'Elegante', editorial: 'Elegante', moderno: 'Elegante', karaoke: 'Divertido', neon: 'Divertido', manuscrito: 'Divertido', quadrinhos: 'Divertido' };
+const CAT = { chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', digitacao: 'Cinético', pulso: 'Cinético', inclinado: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', tabloide: 'Viral', minimal: 'Elegante', pilula: 'Elegante', editorial: 'Elegante', moderno: 'Elegante', karaoke: 'Divertido', neon: 'Divertido', manuscrito: 'Divertido', quadrinhos: 'Divertido' };
 Object.entries(CAT).forEach(([k, v]) => { PRESETS[k].cat = v; });
-export const CATS = ['Todos', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
+export const CATS = ['Todos', 'Cinético', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
 export function resolve(style) {   // preset + ajustes do usuário
   const s = style || DEFAULT_STYLE;
@@ -63,12 +72,13 @@ const fnt = (s, wt, px) => `${nearest(s.font, wt)} ${px}px "${s.font}", sans-ser
 export const sizePx = (s, W) => (0.03 + s.fs * 0.0006) * W;   // slider 0–100 → 3% a 9% da largura
 
 // Desenha a legenda do instante t. Retorna a caixa (em px) ocupada, para o alerta de safe zone.
+const eo = p => 1 - (1 - p) * (1 - p) * (1 - p), spring = p => 1 - Math.exp(-7 * p) * Math.cos(11 * p), cl = v => Math.min(1, Math.max(0, v));
 export function drawCaption(ctx, W, H, chunks, t, rs) {
   let k = -1; for (let i = 0; i < chunks.length; i++) if (t >= chunks[i][0].s) k = i; else break;
   const c = chunks[k]; if (!c || t > c[c.length - 1].e + 0.4) return null;
   let a = -1; for (let i = 0; i < c.length; i++) if (t >= c[i].s) a = i;
   const px = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6), gap = px * 0.28, lh = px * 1.28;
-  const words = c.map((w, i) => ({ w, t: txt(w.w, rs.case), on: i === a }));
+  const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case), on: i === a, past: i < a }));
   words.forEach(o => { ctx.font = fnt(rs, Math.max(rs.wLight, rs.wActive), px); o.rw = ctx.measureText(o.t).width; });   // largura reservada no peso maior: a linha não "treme"
   const lines = []; let cur = [], cw = 0;
   words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
@@ -80,11 +90,24 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   lines.forEach((l, li) => {
     let x = cx - lw(l) / 2; const base = top + li * lh + lh * 0.5 + px * 0.34;
     l.forEach(o => {
-      const act = o.on, wt = act ? rs.wActive : rs.wLight, col = act ? rs.activeColor : rs.color;
-      let sc = 1; if (act && rs.pop) { const p = Math.min(1, (t - o.w.s) / 0.12); sc = 1 + 0.14 * (1 - (1 - p) * (1 - p)) * (1 - p * 0.35); }
-      ctx.save(); ctx.translate(x + o.rw / 2, base - px * 0.3); ctx.scale(sc, sc); ctx.translate(-o.rw / 2, px * 0.3);
+      const act = o.on, wt = act ? rs.wActive : rs.wLight, age = Math.max(0, t - o.w.s), an = rs.anim || (rs.pop ? 'pop' : 'none');
+      let col = act ? rs.activeColor : rs.color; if (act && rs.cycle) col = rs.cycle[(k * 7 + o.i) % rs.cycle.length]; if (rs.fill && o.past) col = rs.activeColor;
+      let sc = 1, dy = 0, rot = 0, al = 1, shown = !(rs.reveal && o.i > a);
+      if (rs.reveal && !shown) al = 0;
+      if (rs.reveal && shown) { const p0 = cl(age / 0.22); al = eo(p0); if (an === 'slide') dy = (1 - eo(p0)) * px * 0.55; }
+      if (act) {
+        const p1 = cl(age / 0.3);
+        if (an === 'pop') sc = 1 + 0.14 * (1 - (1 - cl(age / 0.12)) * (1 - cl(age / 0.12))) * (1 - cl(age / 0.12) * 0.35);
+        else if (an === 'bounce') sc = 0.62 + 0.5 * spring(p1);
+        else if (an === 'shake') { sc = 1.08; rot = Math.sin(age * 70) * 0.05 * (1 - p1); }
+        else if (an === 'tilt') { sc = 1.06 + 0.06 * eo(p1); rot = -0.055 * eo(p1); }
+        else if (an === 'pulse') sc = 1 + 0.16 * Math.sin(Math.PI * cl(age / 0.35));
+        if (rs.emph && o.t.length >= 7) sc *= 1.1;
+      }
+      ctx.save(); ctx.globalAlpha = al; ctx.translate(x + o.rw / 2, base - px * 0.3 + dy); if (rot) ctx.rotate(rot); ctx.scale(sc, sc); ctx.translate(-o.rw / 2, px * 0.3);
       ctx.font = fnt(rs, wt, px);
       const w = ctx.measureText(o.t).width, off = (o.rw - w) / 2;
+      if (rs.mode === 'marker' && act) { const pw = eo(cl(age / 0.16)); ctx.fillStyle = rs.hl || '#FFB020'; rr(ctx, off - px * 0.2, -px * 0.9, (w + px * 0.4) * pw, px * 1.2, px * 0.22); ctx.fill(); }
       if (rs.mode === 'pill' && act && rs.bgOpacity) { ctx.fillStyle = hexA(rs.bg, rs.bgOpacity / 100); rr(ctx, off - px * 0.25, -px * 0.92, w + px * 0.5, px * 1.3, px * 0.3); ctx.fill(); }
       if (rs.shadow && rs.mode !== 'glow') { ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = px * 0.22; ctx.shadowOffsetY = px * 0.04; }
       if (rs.mode === 'glow' && act) { ctx.shadowColor = col; ctx.shadowBlur = px * 0.5; }
@@ -94,7 +117,9 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
         const p = Math.min(1, Math.max(0, (t - o.w.s) / Math.max(0.01, o.w.e - o.w.s))), ch = [...o.t], n = Math.ceil(p * ch.length);
         const ws = ch.map((q, i) => { ctx.font = fnt(rs, i < n ? rs.wActive : rs.wLight, px); return ctx.measureText(q).width; });
         let lx = (o.rw - ws.reduce((s, v) => s + v, 0)) / 2; ch.forEach((q, i) => { ctx.font = fnt(rs, i < n ? rs.wActive : rs.wLight, px); ctx.fillText(q, lx, 0); lx += ws[i]; });
-      } else ctx.fillText(o.t, off, 0);
+      } else if (rs.type && act) { const n = Math.max(1, Math.ceil(cl(age / Math.max(0.12, (o.w.e - o.w.s) * 0.8)) * o.t.length)); ctx.fillText(o.t.slice(0, n), off, 0); }
+      else if (rs.fill && act) { const pr = cl(age / Math.max(0.1, o.w.e - o.w.s)); ctx.fillStyle = rs.color; ctx.fillText(o.t, off, 0); ctx.save(); ctx.beginPath(); ctx.rect(off - 4, -px * 1.3, w * pr + 4, px * 1.8); ctx.clip(); ctx.fillStyle = rs.activeColor; ctx.fillText(o.t, off, 0); ctx.restore(); }
+      else ctx.fillText(o.t, off, 0);
       ctx.restore(); x += o.rw + gap;
     });
   });
