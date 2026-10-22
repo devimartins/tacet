@@ -793,6 +793,27 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
   }, { passive: true });
 }
 
+// ---------- reportar erro ----------
+const errLog = []; const pushErr = m => { errLog.push(String(m).slice(0, 200)); if (errLog.length > 5) errLog.shift(); };
+addEventListener('error', e => pushErr((e.message || 'erro') + ' @' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0)));
+addEventListener('unhandledrejection', e => pushErr('promise: ' + (e.reason?.message || e.reason)));
+$('#nBug').onclick = () => { $('#bugM').textContent = ''; $('#bugS').disabled = false; $('#bugD').showModal(); $('#bugT').focus(); };
+$('#bugX').onclick = () => $('#bugD').close();
+$('#bugF').onsubmit = async e => {
+  e.preventDefault(); const text = $('#bugT').value.trim(), m = $('#bugM'); if (text.length < 10) { m.textContent = 'Descreva um pouco mais (mínimo de 10 letras).'; return; }
+  const info = $('#bugC').checked ? { ua: navigator.userAgent, tela: innerWidth + 'x' + innerHeight, dpr: devicePixelRatio, tema: document.documentElement.dataset.theme || 'auto', plano: S.plan, tela_atual: ['home', 'login', 'editor'].find(v => $('#' + v) && !$('#' + v).hidden) || '', estilo: S.style?.preset || '', erros: errLog } : {};
+  $('#bugS').disabled = true; m.textContent = 'Enviando…';
+  try {
+    if (!(LIVE && S.user)) throw new Error('offline');
+    const r = await fetch(CFG.AI + '/report', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify({ text, info, email: S.user.email || '' }) });
+    if (!r.ok) throw new Error('http ' + r.status);
+    m.textContent = 'Recebemos o seu relato. Obrigado!'; $('#bugT').value = ''; setTimeout(() => $('#bugD').open && $('#bugD').close(), 1600);
+  } catch {   // sem login ou Worker sem a rota: abre o e-mail já preenchido
+    const body = text + (info.ua ? '\n\n--\n' + JSON.stringify(info) : '');
+    location.href = 'mailto:' + (CFG.CONTACT || '') + '?subject=' + encodeURIComponent('Erro no ForjaClip') + '&body=' + encodeURIComponent(body.slice(0, 1500));
+    m.textContent = 'Abrimos o seu app de e-mail com o relato pronto para enviar.'; $('#bugS').disabled = false;
+  }
+};
 import('./fx.js?v=12').then(m => m.initFx()).catch(() => {});
 
 // editor em tela estreita: reduzir/ampliar o vídeo flutuante e mostrar opções do vídeo
