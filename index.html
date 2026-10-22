@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=89"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=90"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -653,6 +653,8 @@ body:has(#edit:not([hidden])) footer.lf{display:none}
  <button id="nTl" type="button" disabled title="Em desenvolvimento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 7h10M3 12h18M3 17h7"/></svg><span class="lbl">Linha do tempo</span><small>em breve</small></button>
  <button id="nPro" type="button" title="Plano Pro" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/></svg><span class="lbl" id="nProL">Plano Pro</span></button>
  <span class="sp"></span>
+ <button id="nFs" type="button" title="Tela cheia" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl" id="fsL">Tela cheia</span></button>
+ <button id="nInst" type="button" title="Instalar o app" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span class="lbl">Instalar app</span></button>
  <button id="nBug" type="button" title="Reportar um erro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><span class="lbl">Reportar erro</span></button>
  <button id="nTheme" type="button" title="Alternar tema claro/escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span class="lbl" id="themeLbl">Tema</span></button>
  <button id="nAv" type="button" title="Escolher avatar" aria-label="Escolher avatar" hidden><span class="avb" id="avBadge"></span><span class="lbl">Avatar</span></button>
@@ -826,5 +828,5 @@ body:has(#edit:not([hidden])) footer.lf{display:none}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=89"></script>
+<script type="module" src="js/app.js?v=90"></script>
 </body></html>

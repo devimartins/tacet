@@ -793,6 +793,17 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
   }, { passive: true });
 }
 
+// ---------- tela cheia e instalação ----------
+{ const fsB = $('#nFs'), root = document.documentElement, standalone = matchMedia('(display-mode:standalone),(display-mode:fullscreen)').matches || navigator.standalone;
+  if (!standalone && root.requestFullscreen && document.fullscreenEnabled) {   // iPhone não oferece esta API: lá o caminho é instalar na tela de início
+    fsB.hidden = false;
+    fsB.onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen({ navigationUI: 'hide' }).catch(() => flash('Seu navegador não liberou a tela cheia.')); };
+    document.addEventListener('fullscreenchange', () => { $('#fsL').textContent = document.fullscreenElement ? 'Sair da tela cheia' : 'Tela cheia'; });
+  }
+  let ev = null; addEventListener('beforeinstallprompt', e => { e.preventDefault(); ev = e; if (!standalone) $('#nInst').hidden = false; });
+  $('#nInst').onclick = async () => { if (!ev) return; ev.prompt(); await ev.userChoice.catch(() => 0); ev = null; $('#nInst').hidden = true; };
+  addEventListener('appinstalled', () => { $('#nInst').hidden = true; });
+}
 // ---------- reportar erro ----------
 const errLog = []; const pushErr = m => { errLog.push(String(m).slice(0, 200)); if (errLog.length > 5) errLog.shift(); };
 addEventListener('error', e => pushErr((e.message || 'erro') + ' @' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0)));
