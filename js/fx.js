@@ -82,10 +82,10 @@ vec2 r=vec2(fbm(uv*1.6+q*2.2+vec2(1.7,9.2)+t*1.5),fbm(uv*1.6+q*2.2+vec2(8.3,2.8)
 float f=fbm(uv*1.4+r*2.4);
 vec3 c=vec3(.016,.007,.005);
 c=mix(c,vec3(.26,.025,.035),smoothstep(.35,.8,f)*.85);
-c=mix(c,vec3(.95,.28,.06),smoothstep(.62,1.,r.x*f*2.4)*.32);
+c=mix(c,vec3(.95,.28,.06),smoothstep(.66,1.,r.x*f*2.4)*.24);
 c+=vec3(1.,.7,.25)*pow(smoothstep(.75,1.,f*r.y*2.6),3.)*.14;
 float v=smoothstep(1.25,.25,length(gl_FragCoord.xy/R-.5)*1.5);
-c*=.22+.78*v*smoothstep(.1,.9,length(gl_FragCoord.xy/R-vec2(.5,.52))*1.6+.25);gl_FragColor=vec4(c,1.);}`;
+c*=.2+.64*v*smoothstep(.1,.9,length(gl_FragCoord.xy/R-vec2(.5,.52))*1.6+.25);gl_FragColor=vec4(c,1.);}`;
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return gl.getShaderParameter(o, gl.COMPILE_STATUS) ? o : null; };
   const v = sh(gl.VERTEX_SHADER, vs), f = sh(gl.FRAGMENT_SHADER, fs); if (!v || !f) return;
   const pr = gl.createProgram(); gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
@@ -110,7 +110,22 @@ c*=.22+.78*v*smoothstep(.1,.9,length(gl_FragCoord.xy/R-vec2(.5,.52))*1.6+.25);gl
   requestAnimationFrame(draw);
 }
 
+// Texto que acende com a rolagem (cinza desfocado → branco nítido), palavra por palavra.
+function scrollLit(el) {
+  if (!el || el.dataset.fx) return; el.dataset.fx = 1;
+  const t = el.textContent.trim().split(/\s+/);
+  el.textContent = ''; const ws = t.map(w => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w + ' '; el.append(s); return s; });
+  if (reduce) { ws.forEach(s => s.classList.add('on')); return; }
+  let tick = false;
+  const upd = () => {
+    tick = false; const r = el.getBoundingClientRect(); if (!r.height || r.bottom < 0 || r.top > innerHeight) return;
+    const p = Math.min(1, Math.max(0, (innerHeight * .88 - r.top) / (innerHeight * .55 + r.height * .5)));
+    const n = p * ws.length; ws.forEach((s, i) => { s.classList.toggle('on', i < n); s.style.setProperty('--b', Math.max(0, Math.min(3, (i - n + 1) * 1.5)).toFixed(1) + 'px'); });
+  };
+  addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(upd); } }, { passive: true }); addEventListener('resize', upd, { passive: true }); upd();
+}
 export function initFx() {
+  scrollLit(document.querySelector('#lit'));
   nebula();
   scrollFx();
   if (reduce) return;
