@@ -602,6 +602,25 @@ async function boot() {
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
+
+// Antes e depois: dois vídeos sincronizados (baixa qualidade sem legenda × qualidade melhor com legenda); arrastar com dedo/mouse ou teclado.
+(() => {
+  const box = $('#cmp'); if (!box) return;
+  const A = $('#cmpA'), B = $('#cmpB'), cap = $('#cmpCap'), rng = box.querySelector('input');
+  const set = v => { v = Math.max(0, Math.min(100, v)); box.style.setProperty('--c', v + '%'); rng.value = v; };
+  let drag = false; const at = e => { const r = box.getBoundingClientRect(); set((e.clientX - r.left) / r.width * 100); };
+  box.addEventListener('pointerdown', e => { if (e.button) return; drag = true; box.setPointerCapture?.(e.pointerId); at(e); });
+  box.addEventListener('pointermove', e => { if (drag) at(e); });
+  const end = () => { drag = false; }; box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+  rng.addEventListener('input', () => set(+rng.value));
+  const W = [['FORJACLIP', 'TRANSFORMA'], ['SEU', 'VÍDEO', 'EM'], ['CORTES', 'VIRAIS'], ['COM', 'LEGENDAS', 'ANIMADAS']], N = W.flat().length; let last = '';
+  const draw = t => { const d = B.duration || 7.7, k = Math.min(N - 1, Math.floor(((t % d) / d) * (N + 1))); let i = 0, row = 0; for (; row < W.length; row++) { if (k < i + W[row].length) break; i += W[row].length; } const key = row + ':' + k; if (key === last) return; last = key; cap.replaceChildren(...(W[row] || []).map((w, j) => { const sp = document.createElement('span'); sp.textContent = w; if (i + j === k) sp.className = 'on'; return sp; })); };
+  const rm = matchMedia('(prefers-reduced-motion:reduce)').matches; let raf = 0;
+  const tick = () => { if (Math.abs(A.currentTime - B.currentTime) > 0.2) A.currentTime = B.currentTime; draw(B.currentTime); raf = requestAnimationFrame(tick); };
+  const play = () => { if (rm) { draw(1.2); return; } A.play().catch(() => { }); B.play().catch(() => { }); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); };
+  const stop = () => { A.pause(); B.pause(); cancelAnimationFrame(raf); };
+  draw(1.2); new IntersectionObserver(es => es[0].isIntersecting ? play() : stop(), { threshold: .25 }).observe(box);
+})();
 if ('serviceWorker' in navigator) {   // atualiza sozinho: busca versão nova ao abrir/voltar ao app e recarrega uma vez quando ela assume
   const had = !!navigator.serviceWorker.controller; let rl = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !rl) { rl = true; location.reload(); } });
