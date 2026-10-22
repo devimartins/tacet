@@ -28,9 +28,9 @@ export function addEmojis(words, gap = 2.5, tone = '') {
   const T = TONE[tone]; if (T) gap = Math.max(gap, T.gap);
   let last = -1e9, prev = '';
   return words.map(w => {
-    const k = key(w.w); let e = T && T.extra[k] || MAP.get(k); if (e && T && T.ban.includes(e) && !(T.extra[k])) e = null;
+    const k = key(w.w), k2 = k.replace(/(es|s)$/, ''); let e = T && (T.extra[k] || T.extra[k2]) || MAP.get(k) || (k2.length >= 4 ? MAP.get(k2) : null); if (e && T && T.ban.includes(e) && !(T.extra[k] || T.extra[k2])) e = null;
     if (!e || e === prev || w.s - last < gap || /\p{Extended_Pictographic}/u.test(w.w)) return w;
-    last = w.s; prev = e; return { ...w, w: w.w + ' ' + e };
+    last = w.s; prev = e; return { ...w, emo: e };
   });
 }
 

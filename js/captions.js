@@ -94,12 +94,12 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   const c = chunks[k]; if (!c || t > c[c.length - 1].e + 0.4) return null;
   let a = -1; for (let i = 0; i < c.length; i++) if (t >= c[i].s) a = i;
   const px0 = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6);
-  const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case), on: i === a, past: i < a }));
+  const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case), emo: w.emo, on: i === a, past: i < a }));
   // quebra em no máximo 2 linhas: se passar, reduz a fonte até caber (mínimo 62%)
   let px = px0, gap = 0, lh = 0, lines = [];
   for (let f = 1; f >= 0.62; f -= 0.06) {
     px = px0 * f; ctx.font = fnt(rs, Math.max(rs.wLight, rs.wActive), px); gap = Math.max(px * 0.3, ctx.measureText(' ').width * 1.1); lh = px * 1.28;
-    words.forEach(o => { o.rw = ctx.measureText(o.t).width * (rs.mode === 'flame' ? 1.03 : 1); });   // largura reservada no peso maior: a linha não "treme"
+    words.forEach(o => { o.tw = ctx.measureText(o.t).width * (rs.mode === 'flame' ? 1.03 : 1); o.rw = o.tw + (o.emo ? px * 1.2 : 0); });   // largura reservada no peso maior (e do emoji): a linha não "treme"
     lines = []; let cur = [], cw = 0;
     words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
     if (cur.length) lines.push(cur);
@@ -130,7 +130,7 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
       }
       ctx.save(); ctx.globalAlpha = al; ctx.translate(o.x + o.rw / 2, base - px * 0.3 + dy); if (rot) ctx.rotate(rot); ctx.scale(sc, sc); ctx.translate(-o.rw / 2, px * 0.3);
       ctx.font = fnt(rs, wt, px);
-      const w = ctx.measureText(o.t).width, off = (o.rw - w) / 2;
+      const w = ctx.measureText(o.t).width, off = ((o.tw ?? o.rw) - w) / 2;
       if (rs.mode === 'marker' && act) { const pw = eo(cl(age / 0.16)); ctx.fillStyle = rs.hl || '#FFB020'; rr(ctx, off - px * 0.2, -px * 0.9, (w + px * 0.4) * pw, px * 1.2, px * 0.22); ctx.fill(); }
       if (rs.mode === 'pill' && act && rs.bgOpacity) { ctx.fillStyle = hexA(rs.bg, rs.bgOpacity / 100); rr(ctx, off - px * 0.25, -px * 0.92, w + px * 0.5, px * 1.3, px * 0.3); ctx.fill(); }
       if (rs.shadow && rs.mode !== 'glow' && rs.mode !== 'flame') { ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = px * 0.22; ctx.shadowOffsetY = px * 0.04; }
@@ -165,6 +165,10 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
       else if (rs.fx && act) drawFx(ctx, rs.fx, o, { px, off, w, age, t, col, rs });
       else if (rs.fill && act) { const pr = cl(age / Math.max(0.1, o.w.e - o.w.s)); ctx.fillStyle = rs.color; ctx.fillText(o.t, off, 0); ctx.save(); ctx.beginPath(); ctx.rect(off - 4, -px * 1.3, w * pr + 4, px * 1.8); ctx.clip(); ctx.fillStyle = rs.activeColor; ctx.fillText(o.t, off, 0); ctx.restore(); }
       else ctx.fillText(o.t, off, 0);
+      if (o.emo && al > 0) {   // emoji desenhado à parte: sem contorno, sombra nem degradê do estilo, com entrada em "pop"
+        const pe = cl(age / 0.28), se = 0.55 + 0.45 * spring(pe); ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.globalAlpha = al * cl(age / 0.08 + 0.2);
+        ctx.translate(o.tw + px * 0.1 + px * 0.5, -px * 0.3); ctx.scale(se, se); ctx.font = `${px * 0.95}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(o.emo, 0, px * 0.3);
+      }
       ctx.restore();
     });
   });
@@ -234,7 +238,7 @@ function drawCascade(ctx, W, H, chunks, t, rs) {
   const c = chunks[k]; if (!c) return null;
   const end = c[c.length - 1].e; if (t > end + 0.4) return null;
   const px0 = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6);
-  const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case) }));
+  const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case) + (w.emo ? ' ' + w.emo : '') }));
   let px = px0, gap = 0, lh = 0, lines = [];
   for (let f = 1; f >= 0.5; f -= 0.06) {
     px = px0 * f; ctx.font = fnt(rs, rs.wActive, px); gap = Math.max(px * 0.3, ctx.measureText(' ').width * 1.1); lh = px * 1.3;
