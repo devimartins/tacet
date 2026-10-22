@@ -796,6 +796,21 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
   }, { passive: true });
 }
 
+// ---------- pré-visualização em tela cheia ----------
+{ const st = $('#stage'), bar = $('#fsBar'), mark = document.createComment('stage'); let on = false, real = false;
+  const setPP = () => { $('#fsPlay').textContent = $('#pp').textContent; };
+  new MutationObserver(setPP).observe($('#pp'), { childList: true, characterData: true, subtree: true });
+  const toggle = v => {
+    if (v === on) return; on = v;
+    if (on) { st.replaceWith(mark); document.body.append(st); } else { mark.replaceWith(st); }
+    st.classList.toggle('fs', on); document.body.classList.toggle('fsprev', on); bar.hidden = !on; setPP(); S.prev = null;
+    if (on) { real = false; try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.then(() => { real = true; }).catch(() => 0); } catch { /* iPhone: fica o modo sobreposto */ } }
+    else if (document.fullscreenElement) document.exitFullscreen().catch(() => 0);
+  };
+  $('#fsPrev').onclick = () => toggle(true); $('#fsX').onclick = () => toggle(false); $('#fsPlay').onclick = () => $('#pp').click();
+  document.addEventListener('fullscreenchange', () => { if (on && real && !document.fullscreenElement) toggle(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && on) toggle(false); });
+}
 // ---------- tela cheia e instalação ----------
 { const fsB = $('#nFs'), root = document.documentElement, standalone = matchMedia('(display-mode:standalone),(display-mode:fullscreen)').matches || navigator.standalone;
   if (!standalone && root.requestFullscreen && document.fullscreenEnabled) {   // iPhone não oferece esta API: lá o caminho é instalar na tela de início
