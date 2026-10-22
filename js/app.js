@@ -325,10 +325,11 @@ function mountGallery(box, getCur, onPick, hover) {
     grid.replaceChildren();
     for (const [id, p] of Object.entries(PRESETS)) {
       if ((cat !== 'Todos' && p.cat !== cat) || (q && !p.name.toLowerCase().includes(q))) continue;
-      const locked = !canPro() && !p.free, cv = el('canvas', { width: mq ? 440 : 300, height: mq ? 250 : 170 }); cv.dataset.p = id;
+      const locked = !canPro() && !p.free, cv = el('canvas', { width: mq ? 270 : 300, height: mq ? 480 : 170 }); cv.dataset.p = id; if (mq) cv.dataset.img = String(grid.children.length);
       const b = el('button', { type: 'button', className: 'gcard', onclick: async () => { if (locked) { $('#pay').showModal(); return; } await onPick(id); mark(); } }, cv, el('span', { className: 'gn', textContent: p.name }), el('span', { className: 'lk' + (p.free ? ' fr' : ''), textContent: p.free ? 'GRÁTIS' : 'PRO' }));
       b.dataset.id = id; if (hover && !locked) { const on = async () => { await loadFont(p.font, p.wLight, p.wActive); S.tmp = id; rebuild(); }, off = () => { if (S.tmp) { S.tmp = null; rebuild(); } }; b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse' && S.file) on(); }); b.addEventListener('pointerleave', off); b.addEventListener('focus', () => { if (S.file) on(); }); b.addEventListener('blur', off); b.addEventListener('click', () => { S.tmp = null; }); } grid.append(b);
     }
+    if (mq) for (let i = 0; i < PEX.length; i++) photo(i);
     if (mq) {   // carrossel infinito em 2 linhas: cada linha repete os cartões (cópias só decorativas)
       const cards = [...grid.children]; grid.replaceChildren();
       [0, 1].forEach(r => {
@@ -353,12 +354,24 @@ function previewChunks() {   // usa as palavras reais do vídeo perto do ponto a
   const key = i + '|' + S.words.length; if (key === pvKey) return pvCh;
   pvKey = key; pvCh = chunksOf(S.words.slice(i, i + 5).map((w, j) => ({ w: w.w, s: j * 0.6, e: j * 0.6 + 0.55 })), 3); return pvCh;
 }
+// Fotos de pessoas (banco gratuito Pexels, licença livre) como fundo das prévias do carrossel da página inicial
+const PEX = [31868676, 23224670, 20636759, 7562179, 35555305, 37679581, 36729739, 33715994, 7514831, 37148308, 3965246, 36712860, 7793634, 17910791, 3775526];
+const PH = {}; const pexUrl = id => `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=360`;
+const photo = n => { const id = PEX[n % PEX.length]; let m = PH[id]; if (!m) { m = PH[id] = new Image(); m.decoding = 'async'; m.referrerPolicy = 'no-referrer'; m.src = pexUrl(id); } return m.complete && m.naturalWidth ? m : null; };
 function animGal(now) {
   if (now - lastG > 45) {
     lastG = now; const t = (now / 1000) % 3.2, pc = previewChunks();
     snapOk = false; if (S.file && vid.readyState >= 2 && vid.videoWidth) { try { const c = snap.getContext('2d'), r = Math.max(300 / vid.videoWidth, 170 / vid.videoHeight); c.drawImage(vid, (300 - vid.videoWidth * r) / 2, (170 - vid.videoHeight * r) / 2, vid.videoWidth * r, vid.videoHeight * r); snapOk = true; } catch { /* sem quadro */ } }
     document.querySelectorAll('.gcard canvas').forEach(cv => {
       if (!cv.offsetParent) return; const c = cv.getContext('2d'), r = resolve({ preset: cv.dataset.p });
+      if (cv.dataset.img) {   // cartão 9:16 do carrossel: foto + legenda animada do estilo
+        const bb = cv.getBoundingClientRect(); if (bb.right < 0 || bb.left > innerWidth) return;
+        const im = photo(+cv.dataset.img);
+        if (im) { const k = Math.max(cv.width / im.naturalWidth, cv.height / im.naturalHeight); c.drawImage(im, (cv.width - im.naturalWidth * k) / 2, (cv.height - im.naturalHeight * k) * 0.12, im.naturalWidth * k, im.naturalHeight * k); }
+        else { const g = c.createLinearGradient(0, 0, 0, cv.height); g.addColorStop(0, '#3a2a22'); g.addColorStop(1, '#0d0e10'); c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height); }
+        const sh = c.createLinearGradient(0, cv.height * .45, 0, cv.height); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.62)'); c.fillStyle = sh; c.fillRect(0, 0, cv.width, cv.height);
+        drawCaption(c, cv.width, cv.height, pc, t, { ...r, x: .5, y: .68, n: 3, fs: Math.min(100, r.fs * 1.7) }); return;
+      }
       if (snapOk) { c.drawImage(snap, 0, 0, cv.width, cv.height); c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(0, 0, cv.width, cv.height); }
       else { const g = c.createLinearGradient(0, 0, 0, cv.height); g.addColorStop(0, '#1b1d21'); g.addColorStop(1, '#0d0e10'); c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height); }
       drawCaption(c, cv.width, cv.height, pc, t, { ...r, x: .5, y: .5, n: 3, fs: Math.min(100, r.fs * 2.2) });
