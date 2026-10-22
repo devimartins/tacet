@@ -92,7 +92,7 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   let px = px0, gap = 0, lh = 0, lines = [];
   for (let f = 1; f >= 0.62; f -= 0.06) {
     px = px0 * f; ctx.font = fnt(rs, Math.max(rs.wLight, rs.wActive), px); gap = Math.max(px * 0.3, ctx.measureText(' ').width * 1.1); lh = px * 1.28;
-    words.forEach(o => { o.rw = ctx.measureText(o.t).width * (rs.mode === 'flame' ? 1.16 : 1); });   // largura reservada no peso maior: a linha não "treme"
+    words.forEach(o => { o.rw = ctx.measureText(o.t).width * (rs.mode === 'flame' ? 1.03 : 1); });   // largura reservada no peso maior: a linha não "treme"
     lines = []; let cur = [], cw = 0;
     words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
     if (cur.length) lines.push(cur);
@@ -115,7 +115,7 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
       if (act) {
         const p1 = cl(age / 0.3);
         if (an === 'pop') sc = 1 + 0.14 * (1 - (1 - cl(age / 0.12)) * (1 - cl(age / 0.12))) * (1 - cl(age / 0.12) * 0.35);
-        else if (an === 'bounce') sc = rs.mode === 'flame' ? Math.min(1.14, 0.84 + 0.3 * spring(p1)) : 0.62 + 0.5 * spring(p1);
+        else if (an === 'bounce') sc = rs.mode === 'flame' ? Math.min(1.08, 0.88 + 0.22 * spring(p1)) : 0.62 + 0.5 * spring(p1);
         else if (an === 'shake') { sc = 1.08; rot = Math.sin(age * 70) * 0.05 * (1 - p1); }
         else if (an === 'tilt') { sc = 1.06 + 0.06 * eo(p1); rot = -0.055 * eo(p1); }
         else if (an === 'pulse') sc = 1 + 0.16 * Math.sin(Math.PI * cl(age / 0.35));
