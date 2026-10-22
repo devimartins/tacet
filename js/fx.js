@@ -248,7 +248,7 @@ async function heroDemo() {
   const cv = document.querySelector('#hdc'); if (!cv) return;
   const cap = await import('./captions.js'); const ctx = cv.getContext('2d');
   const dpr = Math.min(devicePixelRatio || 1, 2), W = 270, H = 480; cv.width = W * dpr; cv.height = H * dpr;
-  const txt = 'Sua próxima grande ideia merece uma nova experiência de edição'.split(' ');
+  const txt = 'Da primeira gravação ao próximo grande conteúdo'.split(' ');
   const words = txt.map((w, i) => ({ w: i === txt.length - 1 ? w + '.' : w, s: 0.2 + i * 0.42, e: 0.2 + i * 0.42 + 0.4 }));
   const LOOP = words[words.length - 1].e + 1.3, ids = ['chama', 'iman', 'impacto', 'cascata'];
   const items = [...document.querySelectorAll('#hdst li')], ph = document.querySelector('#hdph');
