@@ -37,9 +37,12 @@ export const PRESETS = {
   aurora: { ...B, name: 'Aurora', free: false, font: 'Poppins', wLight: 700, wActive: 800, color: '#d9e4ff', activeColor: '#7bffe0', n: 3, fs: 50, shadow: 0, fx: 'aurora' },
   ouro: { ...B, name: 'Ouro', free: false, font: 'Montserrat', wLight: 800, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#ffd24a', n: 3, fs: 50, shadow: 1, fx: 'gold' },
   eco: { ...B, name: 'Eco', free: false, font: 'Montserrat', wLight: 800, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#ffffff', n: 3, fs: 50, shadow: 0, fx: 'echo' },
-  decodificar: { ...B, name: 'Decodificar', free: false, font: 'Space Grotesk', wLight: 700, wActive: 700, case: 'upper', color: '#ffffff', activeColor: '#7CFFB2', n: 3, fs: 48, shadow: 0, fx: 'cipher' },
+  decodificar: { ...B, name: 'Cipher', free: false, font: 'Space Grotesk', wLight: 700, wActive: 700, case: 'upper', color: '#ffffff', activeColor: '#4FF8FF', n: 3, fs: 48, shadow: 0, fx: 'cipher' },
   sombra: { ...B, name: 'Sombra longa', free: false, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#ffffff', n: 3, fs: 50, shadow: 0, fx: 'long' },
   elastico: { ...B, name: 'Elástico', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#FFD500', stroke: 45, n: 3, fs: 50, shadow: 1, fx: 'elastic' },
+  ember: { ...B, name: 'Ember', free: false, font: 'Space Grotesk', wLight: 600, wActive: 700, case: 'upper', color: '#ffe9cf', activeColor: '#ffd9a0', n: 3, fs: 50, shadow: 0, fx: 'ember' },
+  spotlight: { ...B, name: 'Spotlight', free: false, font: 'Space Grotesk', wLight: 600, wActive: 700, case: 'upper', color: '#ffffff', activeColor: '#ffffff', dim: 0.55, n: 3, fs: 50, shadow: 0, fx: 'spot' },
+  lava: { ...B, name: 'Lava', free: false, font: 'Poppins', wLight: 800, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#ff7a1a', n: 3, fs: 50, shadow: 0, fx: 'lava' },
   neon: { ...B, name: 'Neon', free: false, font: 'Poppins', wLight: 600, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', stroke: 0, n: 3, fs: 48, mode: 'glow' },
   manuscrito: { ...B, name: 'Manuscrito', free: false, font: 'Pacifico', wLight: 400, wActive: 400, color: '#ffffff', activeColor: '#FF9EC7', stroke: 30, n: 3, fs: 50 },
   chama: { ...B, name: 'Chama', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#FFD500', cycle: ['#FFD500', '#3DDC84', '#FF4D4D', '#4DC3FF'], stroke: 60, n: 3, anim: 'bounce', emph: 1, fs: 54, mode: 'flame', strokeColor: '#3a0a00' },
@@ -51,7 +54,7 @@ export const PRESETS = {
   pulso: { ...B, name: 'Pulso', free: false, font: 'Sora', wLight: 700, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#B8FF3D', anim: 'pulse', emph: 1, stroke: 40, n: 3, fs: 48 },
   cascata: { ...B, name: 'Cascata', free: false, font: 'Montserrat', wLight: 700, wActive: 700, color: '#ffffff', activeColor: '#ffffff', n: 12, fs: 58, shadow: 1, mode: 'cascade' },
 };
-const CAT = { glitch: 'Efeitos', aurora: 'Efeitos', ouro: 'Efeitos', eco: 'Efeitos', decodificar: 'Efeitos', sombra: 'Efeitos', elastico: 'Efeitos', classico: 'Elegante', cascata: 'Cinético', digitacao: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
+const CAT = { ember: 'Efeitos', spotlight: 'Efeitos', lava: 'Efeitos', glitch: 'Efeitos', aurora: 'Efeitos', ouro: 'Efeitos', eco: 'Efeitos', decodificar: 'Efeitos', sombra: 'Efeitos', elastico: 'Efeitos', classico: 'Elegante', cascata: 'Cinético', digitacao: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
 Object.entries(CAT).forEach(([k, v]) => { PRESETS[k].cat = v; });
 export const CATS = ['Todos', 'Cinético', 'Efeitos', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
@@ -170,7 +173,9 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
 }
 
 // Efeitos de texto (inspirados em catálogos CSS de efeitos, redesenhados em canvas para valerem também na exportação)
-const SCR = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&@';
+const SCR = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&@*£€§';
+let _oc; const offc = () => _oc || (_oc = document.createElement('canvas'));
+const cl01 = v => Math.min(1, Math.max(0, v));
 const rnd = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
 function drawFx(ctx, fx, o, { px, off, w, age, t, col, rs }) {
   const s = o.t, dur = Math.max(0.2, o.w.e - o.w.s), put = (x, y, c, str = s) => { ctx.fillStyle = c; ctx.fillText(str, off + x, y); };
@@ -200,6 +205,21 @@ function drawFx(ctx, fx, o, { px, off, w, age, t, col, rs }) {
   } else if (fx === 'elastic') {   // estica e volta como elástico
     const p = Math.min(1, age / 0.5), sx = 1 + 0.38 * Math.exp(-6 * p) * Math.cos(18 * p);
     ctx.save(); ctx.translate(off + w / 2, 0); ctx.scale(sx, 1 / Math.sqrt(sx)); ctx.translate(-w / 2, 0); ctx.fillStyle = col; ctx.fillText(s, 0, 0); ctx.restore();
+  } else if (fx === 'ember') {   // brasa: 4 camadas de brilho que sobem e pulsam (alterna a cada 1,7 s)
+    const u = 0.5 - 0.5 * Math.cos(t * Math.PI * 2 / 3.4), k = px / 32, L = (a, b) => a + (b - a) * u;
+    const lay = [[-2, -3, 6, 8, [255, 171, 64], [255, 196, 107], 1, 1], [-6, -9, 14, 20, [255, 109, 0], [255, 143, 31], 1, 1], [-12, -18, 28, 38, [221, 44, 0], [255, 61, 0], 1, 1], [-20, -30, 44, 60, [213, 0, 0], [213, 0, 0], 0.55, 0.8]];
+    lay.forEach(([y0, y1, b0, b1, c0, c1, a0, a1]) => { ctx.shadowColor = `rgba(${[0, 1, 2].map(i => Math.round(L(c0[i], c1[i]))).join(',')},${L(a0, a1).toFixed(2)})`; ctx.shadowOffsetY = L(y0, y1) * k; ctx.shadowBlur = L(b0, b1) * k; ctx.fillStyle = '#ffd9a0'; ctx.fillText(s, off, 0); });
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; put(0, 0, '#ffd9a0');
+  } else if (fx === 'spot') {   // holofote que varre a palavra enquanto ela é falada
+    const p = cl01(age / dur), e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2, cx = off - px * 0.4 + e * (w + px * 0.8), R = px * 1.15;
+    const g = ctx.createRadialGradient(cx, -px * 0.3, 0, cx, -px * 0.3, R); g.addColorStop(0, '#ffffff'); g.addColorStop(0.2, '#ffffff'); g.addColorStop(0.75, 'rgba(255,255,255,.14)'); g.addColorStop(1, 'rgba(255,255,255,.14)');
+    ctx.shadowColor = 'rgba(255,255,255,.55)'; ctx.shadowBlur = px * 0.18; put(0, 0, g);
+  } else if (fx === 'lava') {   // bolhas de lava em movimento dentro das letras
+    const m = ctx.getTransform(), kk = Math.max(1, Math.hypot(m.a, m.b)), pad = px * 0.5, cw = Math.ceil((w + pad * 2) * kk), ch = Math.ceil(px * 1.7 * kk), c = offc(); c.width = cw; c.height = ch;
+    const g = c.getContext('2d'); g.scale(kk, kk); g.font = ctx.font; g.fillStyle = '#fff'; g.textBaseline = 'alphabetic'; g.fillText(s, pad, px * 1.2); g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = '#ff3d00'; g.fillRect(0, 0, cw, ch); const W2 = w + pad * 2, cols = ['#ffb300', '#ff1f6a', '#ff6d00', '#ffe14d'];
+    cols.forEach((cc, i) => { const bx = W2 * (0.5 + 0.42 * Math.sin(t * (0.9 + i * 0.37) + i * 2.1)), by = px * (0.8 + 0.4 * Math.cos(t * (0.7 + i * 0.29) + i * 1.3)), r = px * (0.75 + 0.25 * Math.sin(t * 1.3 + i)); const rg = g.createRadialGradient(bx, by, 0, bx, by, r); rg.addColorStop(0, cc); rg.addColorStop(1, 'rgba(255,60,0,0)'); g.fillStyle = rg; g.fillRect(0, 0, cw / kk, ch / kk); });
+    ctx.shadowColor = 'rgba(255,90,0,.7)'; ctx.shadowBlur = px * 0.3; ctx.drawImage(c, off - pad, -px * 1.2, cw / kk, ch / kk);
   } else { ctx.fillStyle = col; ctx.fillText(s, off, 0); }
 }
 const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
