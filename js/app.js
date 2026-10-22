@@ -150,24 +150,28 @@ async function openProject(id) {
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
 $('#ytForm').onsubmit = async e => {
-  e.preventDefault(); const id = ytId($('#ytUrl').value.trim()), m = $('#ytMsg');
-  if (!id) { m.textContent = 'Cole um link do YouTube válido (youtube.com ou youtu.be).'; return; }
-  if (!ytSupported()) { m.textContent = 'Gravar do YouTube funciona no Chrome ou Edge no computador. No celular, envie o arquivo do vídeo.'; return; }
-  m.textContent = 'Carregando player…';
+  e.preventDefault(); const id = ytId($('#ytUrl').value.trim()), m = $('#ytMsg'), say = (t, bad) => { m.textContent = t; m.style.color = bad ? '#ff6a6a' : ''; m.style.fontWeight = bad ? '600' : ''; };
+  if (!id) { say('Cole um link do YouTube válido (youtube.com ou youtu.be).', 1); return; }
+  if (!ytSupported()) { say('Gravar do YouTube funciona no Chrome ou Edge no computador. No celular ou no Safari, envie o arquivo do vídeo.', 1); return; }
+  const btn = e.submitter || $('#ytForm button'); btn.disabled = true; say('Abrindo o vídeo no player oficial do YouTube…');
   try {
-    const box = $('#ytbox'), player = await mountPlayer(box, id); m.textContent = ''; $('#ytd').showModal(); $('#ytSt').textContent = '';
+    const box = $('#ytbox'), player = await mountPlayer(box, id); say('');
+    const st = $('#ytSt'), bar = $('#ytBar'), step = (t, v) => { st.textContent = t; if (v == null) bar.hidden = true; else { bar.hidden = false; bar.value = v; } };
+    $('#ytd').showModal(); $('#ytOk').checked = false; $('#ytS').value = 0; $('#ytE').value = Math.floor(player.getDuration() || 0) || ''; $('#ytRec').disabled = false; $('#ytStop').hidden = true;
+    step('Passo 1: escolha o trecho. Passo 2: marque que tem os direitos. Passo 3: clique em “Gravar e transcrever” e, na janela do navegador, escolha ESTA ABA e marque “Compartilhar áudio”.', null);
     $('#ytX').onclick = () => { try { player.destroy(); } catch {} $('#ytd').close(); };
     $('#ytStop').onclick = () => box._stop?.();
     $('#ytRec').onclick = async () => {
-      if (!$('#ytOk').checked) { $('#ytSt').textContent = 'Confirme os direitos sobre o vídeo para continuar.'; return; }
-      $('#ytRec').disabled = true; $('#ytStop').hidden = false;
+      if (!$('#ytOk').checked) { step('Marque a caixa de direitos sobre o vídeo para continuar.', null); return; }
+      $('#ytRec').disabled = true; $('#ytStop').hidden = false; step('Aguardando você escolher “Esta aba” e ativar o áudio na janela do navegador…', 0);
       try {
-        const f = await record(player, box, { start: +$('#ytS').value || 0, end: +$('#ytE').value || 0, onStatus: (a, b) => $('#ytSt').textContent = `Gravando… ${mmss(a)} / ${mmss(b)}` });
-        $('#ytd').close(); try { player.destroy(); } catch {} await newVideo(await flatten(f), 'clips');
-      } catch (err) { $('#ytSt').textContent = err.message || 'Falha na gravação.'; }
-      $('#ytRec').disabled = false; $('#ytStop').hidden = true;
+        const f = await record(player, box, { start: +$('#ytS').value || 0, end: +$('#ytE').value || 0, onStatus: (a, b2) => step(`Gravando o trecho… ${mmss(a)} / ${mmss(b2)} — não feche nem troque de aba.`, b2 ? a / b2 : 0) });
+        step('Gravação concluída. Preparando o vídeo…', null); $('#ytStop').hidden = true;
+        const flat = await flatten(f); $('#ytd').close(); try { player.destroy(); } catch {} flash('Trecho do YouTube gravado. Abrindo no editor…'); await newVideo(flat, 'clips');
+      } catch (err) { step((err && err.message) || 'Falha na gravação. Tente de novo.', null); $('#ytRec').disabled = false; $('#ytStop').hidden = true; return; }
     };
-  } catch (err) { m.textContent = err.message || 'Não foi possível abrir o vídeo.'; }
+  } catch (err) { say((err && err.message) || 'Não foi possível abrir o vídeo.', 1); }
+  btn.disabled = false;
 };
 
 $('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=3');

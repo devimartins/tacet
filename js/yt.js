@@ -14,9 +14,16 @@ const api = () => apiP ||= new Promise((ok, no) => {
   window.onYouTubeIframeAPIReady = () => ok(window.YT); document.head.append(s);
 });
 
+const ERR = { 2: 'O link do vídeo parece inválido.', 5: 'O YouTube não conseguiu reproduzir este vídeo aqui.', 100: 'Vídeo não encontrado (removido ou privado).', 101: 'O dono do vídeo não permite que ele seja incorporado em outros sites.', 150: 'O dono do vídeo não permite que ele seja incorporado em outros sites.' };
 export async function mountPlayer(box, id) {
-  const YT = await api(); box.innerHTML = '<div id="ytp"></div>';
-  return new Promise(res => { const p = new YT.Player('ytp', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, modestbranding: 1 }, events: { onReady: () => res(p) } }); });
+  const YT = await Promise.race([api(), new Promise((_, no) => setTimeout(() => no(new Error('O player do YouTube não carregou. Desative bloqueadores de anúncio/privacidade para este site e confira a conexão.')), 15000))]);
+  box.innerHTML = '<div id="ytp"></div>';
+  return new Promise((res, no) => {
+    const t = setTimeout(() => no(new Error('O vídeo demorou demais para abrir. Confira o link, a conexão e se há bloqueador de anúncios ativo.')), 20000);
+    const p = new YT.Player('ytp', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, modestbranding: 1 }, events: {
+      onReady: () => { clearTimeout(t); res(p); },
+      onError: e => { clearTimeout(t); no(new Error(ERR[e.data] || 'Não foi possível abrir este vídeo.')); } } });
+  });
 }
 
 // Grava de start até end (s). Retorna File mp4.
