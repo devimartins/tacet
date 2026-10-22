@@ -83,7 +83,7 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   let px = px0, gap = 0, lh = 0, lines = [];
   for (let f = 1; f >= 0.62; f -= 0.06) {
     px = px0 * f; ctx.font = fnt(rs, Math.max(rs.wLight, rs.wActive), px); gap = Math.max(px * 0.3, ctx.measureText(' ').width * 1.1); lh = px * 1.28;
-    words.forEach(o => { o.rw = ctx.measureText(o.t).width; });   // largura reservada no peso maior: a linha não "treme"
+    words.forEach(o => { o.rw = ctx.measureText(o.t).width * (rs.mode === 'flame' ? 1.16 : 1); });   // largura reservada no peso maior: a linha não "treme"
     lines = []; let cur = [], cw = 0;
     words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
     if (cur.length) lines.push(cur);
@@ -95,7 +95,8 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round'; ctx.textAlign = 'left';
   lines.forEach((l, li) => {
     let x = rs.align === 'left' ? left : rs.align === 'right' ? left + bw - lw(l) : cx - lw(l) / 2; const base = top + li * lh + lh * 0.5 + px * 0.34;
-    l.forEach(o => {
+    l.forEach(o => { o.x = x; x += o.rw + gap; });
+    [...l].sort((p, q) => (p.on ? 1 : 0) - (q.on ? 1 : 0)).forEach(o => {
       const act = o.on, wt = act ? rs.wActive : rs.wLight, age = Math.max(0, t - o.w.s), an = rs.anim || (rs.pop ? 'pop' : 'none');
       let col = act ? rs.activeColor : rs.color; if (act && rs.cycle) col = rs.cycle[(k * 7 + o.i) % rs.cycle.length]; if (rs.fill && o.past) col = rs.activeColor;
       let sc = 1, dy = 0, rot = 0, al = 1, shown = !(rs.reveal && o.i > a);
@@ -105,26 +106,33 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
       if (act) {
         const p1 = cl(age / 0.3);
         if (an === 'pop') sc = 1 + 0.14 * (1 - (1 - cl(age / 0.12)) * (1 - cl(age / 0.12))) * (1 - cl(age / 0.12) * 0.35);
-        else if (an === 'bounce') sc = 0.62 + 0.5 * spring(p1);
+        else if (an === 'bounce') sc = rs.mode === 'flame' ? Math.min(1.14, 0.84 + 0.3 * spring(p1)) : 0.62 + 0.5 * spring(p1);
         else if (an === 'shake') { sc = 1.08; rot = Math.sin(age * 70) * 0.05 * (1 - p1); }
         else if (an === 'tilt') { sc = 1.06 + 0.06 * eo(p1); rot = -0.055 * eo(p1); }
         else if (an === 'pulse') sc = 1 + 0.16 * Math.sin(Math.PI * cl(age / 0.35));
-        if (rs.emph && o.t.length >= 7) sc *= 1.1;
+        if (rs.emph && o.t.length >= 7 && rs.mode !== 'flame') sc *= 1.1;
       }
-      ctx.save(); ctx.globalAlpha = al; ctx.translate(x + o.rw / 2, base - px * 0.3 + dy); if (rot) ctx.rotate(rot); ctx.scale(sc, sc); ctx.translate(-o.rw / 2, px * 0.3);
+      ctx.save(); ctx.globalAlpha = al; ctx.translate(o.x + o.rw / 2, base - px * 0.3 + dy); if (rot) ctx.rotate(rot); ctx.scale(sc, sc); ctx.translate(-o.rw / 2, px * 0.3);
       ctx.font = fnt(rs, wt, px);
       const w = ctx.measureText(o.t).width, off = (o.rw - w) / 2;
       if (rs.mode === 'marker' && act) { const pw = eo(cl(age / 0.16)); ctx.fillStyle = rs.hl || '#FFB020'; rr(ctx, off - px * 0.2, -px * 0.9, (w + px * 0.4) * pw, px * 1.2, px * 0.22); ctx.fill(); }
       if (rs.mode === 'pill' && act && rs.bgOpacity) { ctx.fillStyle = hexA(rs.bg, rs.bgOpacity / 100); rr(ctx, off - px * 0.25, -px * 0.92, w + px * 0.5, px * 1.3, px * 0.3); ctx.fill(); }
       if (rs.shadow && rs.mode !== 'glow' && rs.mode !== 'flame') { ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = px * 0.22; ctx.shadowOffsetY = px * 0.04; }
       if (rs.mode === 'flame' && act) {   // palavra em chamas: línguas de fogo animadas + gradiente quente + brilho laranja
-        const fl = Math.max(0.1, o.w.e - o.w.s) + 0.5, ph = t * 11;
+        const ph = t * 9, top0 = -px * 0.5;
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = 'transparent';
-        const nT = Math.max(4, Math.round(w / (px * 0.28)));
+        const nT = Math.max(4, Math.round(w / (px * 0.3)));
+        const tongue = (fx, hh, ww, sway, c0, c1, c2) => {
+          const g = ctx.createLinearGradient(0, top0, 0, top0 - hh); g.addColorStop(0, c0); g.addColorStop(0.55, c1); g.addColorStop(1, c2);
+          ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(fx - ww, top0 + px * 0.18);
+          ctx.bezierCurveTo(fx - ww * 1.1, top0 - hh * 0.35, fx - ww * 0.3 + sway * 0.6, top0 - hh * 0.7, fx + sway, top0 - hh);
+          ctx.bezierCurveTo(fx + ww * 0.3 + sway * 0.6, top0 - hh * 0.7, fx + ww * 1.1, top0 - hh * 0.35, fx + ww, top0 + px * 0.18); ctx.closePath(); ctx.fill();
+        };
         for (let q = 0; q < nT; q++) {
-          const fx = off + (q + 0.5) / nT * w, hh = px * 1.5 * (0.38 + 0.3 * Math.abs(Math.sin(ph + q * 1.7))) * (0.7 + 0.3 * Math.sin(q * 2.3 + 1)), ww = px * 0.22, sway = Math.sin(ph * 0.8 + q) * px * 0.06;
-          const g = ctx.createLinearGradient(0, -px * 0.62, 0, -px * 0.62 - hh); g.addColorStop(0, 'rgba(255,120,0,.85)'); g.addColorStop(0.6, 'rgba(255,200,40,.45)'); g.addColorStop(1, 'rgba(255,230,120,0)');
-          ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(fx - ww, -px * 0.55); ctx.quadraticCurveTo(fx - ww * 0.4 + sway, -px * 0.62 - hh * 0.6, fx + sway, -px * 0.62 - hh); ctx.quadraticCurveTo(fx + ww * 0.4 + sway, -px * 0.62 - hh * 0.6, fx + ww, -px * 0.55); ctx.closePath(); ctx.fill();
+          const u = (q + 0.5) / nT, fx = off + u * w, env = 0.55 + 0.45 * Math.sin(u * Math.PI);   // mais alta no meio da palavra
+          const n1 = 0.5 + 0.5 * Math.sin(ph + q * 1.9), n2 = 0.5 + 0.5 * Math.sin(ph * 1.7 + q * 2.7 + 1), hh = px * (0.85 + 1.0 * n1) * env, ww = px * (0.2 + 0.07 * n2), sway = Math.sin(ph * 0.9 + q * 1.3) * px * 0.07;
+          tongue(fx, hh, ww, sway, 'rgba(255,70,0,.75)', 'rgba(255,150,20,.45)', 'rgba(255,200,60,0)');
+          tongue(fx, hh * 0.62, ww * 0.55, sway * 0.6, 'rgba(255,200,60,.8)', 'rgba(255,240,150,.4)', 'rgba(255,255,220,0)');
         }
         ctx.restore();
         const gr = ctx.createLinearGradient(0, -px * 0.75, 0, px * 0.1); gr.addColorStop(0, '#FFF3B0'); gr.addColorStop(0.5, '#FFB020'); gr.addColorStop(1, '#FF3D00'); col = gr;
@@ -140,7 +148,7 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
       } else if (rs.type && act) { const n = Math.max(1, Math.ceil(cl(age / Math.max(0.12, (o.w.e - o.w.s) * 0.8)) * o.t.length)); ctx.fillText(o.t.slice(0, n), off, 0); }
       else if (rs.fill && act) { const pr = cl(age / Math.max(0.1, o.w.e - o.w.s)); ctx.fillStyle = rs.color; ctx.fillText(o.t, off, 0); ctx.save(); ctx.beginPath(); ctx.rect(off - 4, -px * 1.3, w * pr + 4, px * 1.8); ctx.clip(); ctx.fillStyle = rs.activeColor; ctx.fillText(o.t, off, 0); ctx.restore(); }
       else ctx.fillText(o.t, off, 0);
-      ctx.restore(); x += o.rw + gap;
+      ctx.restore();
     });
   });
   ctx.restore();
