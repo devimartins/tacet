@@ -924,7 +924,7 @@ $('#bugF').onsubmit = async e => {
     m.textContent = 'Abrimos o seu app de e-mail com o relato pronto para enviar.'; $('#bugS').disabled = false;
   }
 };
-import('./fx.js?v=13').then(m => m.initFx()).catch(() => {});
+import('./fx.js?v=14').then(m => m.initFx()).catch(() => {});
 
 // editor em tela estreita: reduzir/ampliar o vídeo flutuante e mostrar opções do vídeo
 {

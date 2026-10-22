@@ -229,7 +229,7 @@ void main(){
 }
 export function initFx() {
   wave();
-  document.querySelectorAll('#about h2').forEach(h => h.classList.add('fillt')); fillText(document.querySelectorAll('.fillt'));
+  document.querySelectorAll('#about h2:not(.endcta h2)').forEach(h => h.classList.add('fillt')); fillText(document.querySelectorAll('.fillt'));
   countUp(document.querySelectorAll('.pcp b, .pprice b'));
   scrollLit(document.querySelector('#lit'));
   nebula();
