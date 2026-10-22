@@ -147,7 +147,88 @@ function fillText(nodes) {
   const upd = () => { const h = innerHeight; list.forEach(n => { const r = n.getBoundingClientRect(), p = Math.min(1, Math.max(0, (h * .92 - r.top) / (h * .42))); n.style.setProperty('--f', (p * 100).toFixed(1) + '%'); }); };
   addEventListener('scroll', upd, { passive: true }); addEventListener('resize', upd); upd();
 }
+
+// Onda incandescente: fita de metal aquecido (shader procedural leve), só na apresentação.
+// Pequena no topo, cresce no meio, some perto do CTA final; reage de leve ao ponteiro. Decorativa: sem eventos.
+function wave() {
+  const bg = document.querySelector('#bg'), login = document.querySelector('#login'); if (!bg || !login || bg.querySelector('canvas.wave')) return;
+  if (document.documentElement.classList.contains('still')) return;
+  const cv = document.createElement('canvas'); cv.className = 'wave'; cv.setAttribute('aria-hidden', 'true');
+  const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, powerPreference: 'low-power' }); if (!gl) return;
+  const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+  const fs = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2 R,M;uniform float T,S,L,A;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+void main(){
+ vec2 p=(gl_FragCoord.xy/R-.5)*vec2(R.x/R.y,1.);
+ float t=T*.12,ss=smoothstep(.0,.5,S);
+ float Y=mix(-.36,.02,ss)-S*.04, W=mix(.4,.95,smoothstep(.1,.5,S))*(1.-.45*smoothstep(.75,1.,S));
+ vec3 col=vec3(0.);float a=0.,gl=0.;
+ for(int k=0;k<3;k++){
+  float fk=float(k),x=p.x;
+  float ph=t*(.7+.2*fk)+fk*1.9+S*2.2+M.x*.35;
+  float y0=Y+(.11+.03*fk)*sin(x*(1.5+.35*fk)+ph)+.05*sin(x*3.3-ph*1.3+fk)+.035*(fk-1.)*cos(x*2.2+ph*.7)+(n(vec2(x*1.2,t+fk))-.5)*.08+M.y*.03;
+  float w=W*(.06+.035*sin(x*2.4+ph*.9+fk*2.));
+  float d=p.y-y0,v=d/w;
+  gl+=exp(-abs(d)/(w*2.6))*.16;
+  float m=1.-smoothstep(.78,1.,abs(v));
+  if(m>0.){
+   float hh=sqrt(max(0.,1.-v*v)),tw=sin(x*2.+ph)*.9;
+   float s=v*cos(tw)+hh*sin(tw);
+   float dif=pow(max(0.,s*.7+.3),2.);
+   float spec=pow(abs(sin(s*5.+x*2.+t*2.)),14.)*.7+pow(max(0.,s),7.)*.9;
+   float em=pow(1.-hh,1.3)*(.55+.45*sin(x*3.+ph*2.+fk));
+   vec3 c=vec3(.07,.055,.05)*(.4+dif)+vec3(.95,.84,.76)*spec*(.5+.2*hh)+vec3(1.,.36,.06)*em*1.35+vec3(1.,.55,.15)*pow(hh,6.)*dif*.18;
+   col=mix(col,c,m);a=a+m*(1.-a);
+  }
+ }
+ vec3 glc=vec3(1.,.32,.05);
+ col+=glc*gl*(1.-a);a=max(a,min(1.,gl*.7));
+ float e=pow(1.-smoothstep(0.,1.,length((p-vec2(M.x*.2,.12))*vec2(.9,1.3))/.38),2.);
+ float tm=1.-.62*e*(1.-smoothstep(.1,.28,S));
+ col=mix(col,col*vec3(1.5,1.05,.85)+vec3(.12,.04,0.),L);
+ float al=a*A*tm*mix(.62,.5,L);
+ gl_FragColor=vec4(col*min(1.,al/max(a,.001)),al);
+}`;
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return gl.getShaderParameter(o, gl.COMPILE_STATUS) ? o : null; };
+  const v = sh(gl.VERTEX_SHADER, vs), f = sh(gl.FRAGMENT_SHADER, fs); if (!v || !f) return;
+  const pr = gl.createProgram(); gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return; gl.useProgram(pr);
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const a = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+  const U = k => gl.getUniformLocation(pr, k), uR = U('R'), uM = U('M'), uT = U('T'), uS = U('S'), uL = U('L'), uA = U('A');
+  const scale = innerWidth < 760 ? .3 : .45;
+  const size = () => { cv.width = Math.max(2, Math.round(innerWidth * scale)); cv.height = Math.max(2, Math.round(innerHeight * scale)); gl.viewport(0, 0, cv.width, cv.height); };
+  size(); bg.append(cv);
+  const still = matchMedia('(prefers-reduced-motion:reduce)').matches, mq = matchMedia('(prefers-color-scheme:light)');
+  const isLight = () => { const t = document.documentElement.dataset.theme; return t ? t === 'light' : mq.matches; };
+  let sm = 0, lm = isLight() ? 1 : 0, mx = 0, my = 0, tx = 0, ty = 0, t0 = performance.now(), fr = 0;
+  addEventListener('pointermove', e => { tx = e.clientX / innerWidth * 2 - 1; ty = 1 - e.clientY / innerHeight * 2; }, { passive: true });
+  const prog = () => Math.min(1, Math.max(0, scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight)));
+  const draw = now => {
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    sm += (prog() - sm) * .07; mx += (tx - mx) * .04; my += (ty - my) * .04; lm += ((isLight() ? 1 : 0) - lm) * .12;
+    gl.uniform2f(uR, cv.width, cv.height); gl.uniform2f(uM, mx, my); gl.uniform1f(uT, still ? 6 : (now - t0) / 1000); gl.uniform1f(uS, sm); gl.uniform1f(uL, lm);
+    gl.uniform1f(uA, 1 - smoothstep(.82, .98, sm)); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+  const smoothstep = (a, b2, x) => { const q = Math.min(1, Math.max(0, (x - a) / (b2 - a))); return q * q * (3 - 2 * q); };
+  addEventListener('resize', () => { size(); if (still) draw(performance.now()); }, { passive: true });
+  if (still) { addEventListener('scroll', () => draw(performance.now()), { passive: true }); draw(performance.now()); return; }
+  const loop = now => {
+    requestAnimationFrame(loop);
+    if (document.hidden || login.hidden) return;
+    if (innerWidth < 760 && (fr++ & 1)) return;   // celular: metade dos quadros
+    draw(now);
+  };
+  requestAnimationFrame(loop);
+}
 export function initFx() {
+  wave();
   document.querySelectorAll('#about h2').forEach(h => h.classList.add('fillt')); fillText(document.querySelectorAll('.fillt'));
   countUp(document.querySelectorAll('.pcp b, .pprice b'));
   scrollLit(document.querySelector('#lit'));
