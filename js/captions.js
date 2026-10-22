@@ -31,6 +31,7 @@ export const PRESETS = {
   uma_palavra: { ...B, name: 'Uma palavra', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', stroke: 55, n: 1, pop: 1, fs: 72 },
   minimal: { ...B, name: 'Minimal', free: true, font: 'Inter', wLight: 500, wActive: 700, n: 4, fs: 38 },
   pilula: { ...B, name: 'Pílula', free: false, font: 'Inter', wLight: 600, wActive: 700, color: '#ffffff', activeColor: '#111111', bgOpacity: 92, bg: '#ffffff', n: 3, pop: 1, fs: 44, shadow: 0, mode: 'pill' },
+  digitacao: { ...B, name: 'Digitação', free: false, font: 'Space Grotesk', wLight: 500, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', type: 1, reveal: 1, anim: 'fade', n: 4, fs: 42, mode: 'glow' },
   neon: { ...B, name: 'Neon', free: false, font: 'Poppins', wLight: 600, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', stroke: 0, n: 3, fs: 48, mode: 'glow' },
   manuscrito: { ...B, name: 'Manuscrito', free: false, font: 'Pacifico', wLight: 400, wActive: 400, color: '#ffffff', activeColor: '#FF9EC7', stroke: 30, n: 3, fs: 50 },
   chama: { ...B, name: 'Chama', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#FFD500', cycle: ['#FFD500', '#3DDC84', '#FF4D4D', '#4DC3FF'], stroke: 60, n: 3, anim: 'bounce', emph: 1, fs: 54, mode: 'flame', strokeColor: '#3a0a00' },
@@ -42,7 +43,7 @@ export const PRESETS = {
   pulso: { ...B, name: 'Pulso', free: false, font: 'Sora', wLight: 700, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#B8FF3D', anim: 'pulse', emph: 1, stroke: 40, n: 3, fs: 48 },
   cascata: { ...B, name: 'Cascata', free: false, font: 'Montserrat', wLight: 700, wActive: 700, color: '#ffffff', activeColor: '#ffffff', n: 12, fs: 58, shadow: 1, mode: 'cascade' },
 };
-const CAT = { cascata: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
+const CAT = { cascata: 'Cinético', digitacao: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
 Object.entries(CAT).forEach(([k, v]) => { PRESETS[k].cat = v; });
 export const CATS = ['Todos', 'Cinético', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
