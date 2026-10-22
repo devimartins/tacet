@@ -30,25 +30,19 @@ export const PRESETS = {
   impacto: { ...B, name: 'Impacto', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', activeColor: '#FFD500', stroke: 55, n: 3, pop: 1, fs: 50 },
   uma_palavra: { ...B, name: 'Uma palavra', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', stroke: 55, n: 1, pop: 1, fs: 72 },
   minimal: { ...B, name: 'Minimal', free: true, font: 'Inter', wLight: 500, wActive: 700, n: 4, fs: 38 },
-  tabloide: { ...B, name: 'Tabloide', free: false, font: 'Anton', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FFD500', stroke: 45, n: 3, pop: 1, fs: 56 },
-  karaoke: { ...B, name: 'Karaokê', free: false, font: 'Poppins', wLight: 700, wActive: 800, color: '#ffffff', activeColor: '#3DDC84', stroke: 40, n: 4, fs: 46 },
   pilula: { ...B, name: 'Pílula', free: false, font: 'Inter', wLight: 600, wActive: 700, color: '#ffffff', activeColor: '#111111', bgOpacity: 92, bg: '#ffffff', n: 3, pop: 1, fs: 44, shadow: 0, mode: 'pill' },
-  editorial: { ...B, name: 'Editorial', free: false, font: 'Playfair Display', wLight: 500, wActive: 800, color: '#FDFBF7', activeColor: '#FDFBF7', case: 'none', n: 4, fs: 44 },
   neon: { ...B, name: 'Neon', free: false, font: 'Poppins', wLight: 600, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', stroke: 0, n: 3, fs: 48, mode: 'glow' },
   manuscrito: { ...B, name: 'Manuscrito', free: false, font: 'Pacifico', wLight: 400, wActive: 400, color: '#ffffff', activeColor: '#FF9EC7', stroke: 30, n: 3, fs: 50 },
-  moderno: { ...B, name: 'Moderno', free: false, font: 'Space Grotesk', wLight: 400, wActive: 700, case: 'lower', color: '#ffffff', activeColor: '#B8FF3D', n: 4, fs: 42 },
   chama: { ...B, name: 'Chama', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#FFD500', cycle: ['#FFD500', '#3DDC84', '#FF4D4D', '#4DC3FF'], stroke: 60, n: 3, anim: 'bounce', emph: 1, fs: 54, mode: 'flame', strokeColor: '#3a0a00' },
   marca_texto: { ...B, name: 'Marca-texto', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#1a0a02', hl: '#FFB020', mode: 'marker', stroke: 0, n: 3, anim: 'bounce', fs: 48 },
   onda: { ...B, name: 'Onda', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#ffffff', reveal: 1, anim: 'slide', n: 3, stroke: 40, fs: 50 },
   preenchido: { ...B, name: 'Preenchido', free: false, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: 'rgba(255,255,255,.55)', activeColor: '#FF7A3D', fill: 1, stroke: 45, n: 3, fs: 52 },
   tremor: { ...B, name: 'Tremor', free: false, font: 'Anton', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FF4D4D', anim: 'shake', stroke: 50, n: 2, fs: 62 },
   cinema: { ...B, name: 'Cinema', free: false, font: 'Playfair Display', wLight: 500, wActive: 700, color: '#FDFBF7', activeColor: '#FFD9A0', reveal: 1, anim: 'fade', n: 5, fs: 40, shadow: 1 },
-  digitacao: { ...B, name: 'Digitação', free: false, font: 'Space Grotesk', wLight: 500, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', type: 1, reveal: 1, anim: 'fade', n: 4, fs: 42, mode: 'glow' },
   pulso: { ...B, name: 'Pulso', free: false, font: 'Sora', wLight: 700, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#B8FF3D', anim: 'pulse', emph: 1, stroke: 40, n: 3, fs: 48 },
-  inclinado: { ...B, name: 'Inclinado', free: false, font: 'Bangers', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FF9EC7', anim: 'tilt', stroke: 65, n: 3, fs: 58 },
-  quadrinhos: { ...B, name: 'Quadrinhos', free: false, font: 'Bangers', wLight: 400, wActive: 400, case: 'upper', color: '#ffffff', activeColor: '#FF4D4D', stroke: 70, n: 3, pop: 1, fs: 56 },
+  cascata: { ...B, name: 'Cascata', free: false, font: 'Montserrat', wLight: 700, wActive: 700, color: '#ffffff', activeColor: '#ffffff', n: 12, fs: 58, shadow: 1, mode: 'cascade' },
 };
-const CAT = { chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', digitacao: 'Cinético', pulso: 'Cinético', inclinado: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', tabloide: 'Viral', minimal: 'Elegante', pilula: 'Elegante', editorial: 'Elegante', moderno: 'Elegante', karaoke: 'Divertido', neon: 'Divertido', manuscrito: 'Divertido', quadrinhos: 'Divertido' };
+const CAT = { cascata: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
 Object.entries(CAT).forEach(([k, v]) => { PRESETS[k].cat = v; });
 export const CATS = ['Todos', 'Cinético', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
@@ -83,6 +77,7 @@ export const sizePx = (s, W) => (0.03 + s.fs * 0.0006) * W;   // slider 0–100 
 // Desenha a legenda do instante t. Retorna a caixa (em px) ocupada, para o alerta de safe zone.
 const eo = p => 1 - (1 - p) * (1 - p) * (1 - p), spring = p => 1 - Math.exp(-7 * p) * Math.cos(11 * p), cl = v => Math.min(1, Math.max(0, v));
 export function drawCaption(ctx, W, H, chunks, t, rs) {
+  if (rs.mode === 'cascade') return drawCascade(ctx, W, H, chunks, t, rs);
   let k = -1; for (let i = 0; i < chunks.length; i++) if (t >= chunks[i][0].s) k = i; else break;
   const c = chunks[k]; if (!c || t > c[c.length - 1].e + 0.4) return null;
   let a = -1; for (let i = 0; i < c.length; i++) if (t >= c[i].s) a = i;
@@ -166,3 +161,53 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
 const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 export const outsideSafe = (box, p, W, H) => { if (!box) return false; const s = safeRect(p, W, H); return box.x < s.x - 1 || box.y < s.y - 1 || box.x + box.w > s.x + s.w + 1 || box.y + box.h > s.y + s.h + 1; };
+
+// Cascata: bloco de até 4 linhas empilhadas. Cada linha nasce de baixo (subida + rastro de movimento + fade), as palavras
+// entram deslizando da direita no instante em que são faladas, as linhas anteriores sobem enquanto o bloco se recentraliza,
+// a última linha (em blocos de 3+ linhas) fica em itálico e o bloco todo some em fade ao final.
+function drawCascade(ctx, W, H, chunks, t, rs) {
+  let k = -1; for (let i = 0; i < chunks.length; i++) if (t >= chunks[i][0].s) k = i; else break;
+  const c = chunks[k]; if (!c) return null;
+  const end = c[c.length - 1].e; if (t > end + 0.4) return null;
+  const px0 = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6);
+  const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case) }));
+  let px = px0, gap = 0, lh = 0, lines = [];
+  for (let f = 1; f >= 0.5; f -= 0.06) {
+    px = px0 * f; ctx.font = fnt(rs, rs.wActive, px); gap = Math.max(px * 0.3, ctx.measureText(' ').width * 1.1); lh = px * 1.3;
+    words.forEach(o => { o.rw = ctx.measureText(o.t).width; });
+    lines = []; let cur = [], cw = 0;
+    words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
+    if (cur.length) lines.push(cur);
+    if (lines.length <= 4) break;
+  }
+  const lw = l => l.reduce((s, o, i) => s + o.rw + (i ? gap : 0), 0);
+  const bw = Math.max(...lines.map(lw)), D = 0.35;
+  const ages = lines.map(l => t - l[0].w.s);
+  const vis = ages.reduce((s, a) => s + eo(cl(a / D)), 0);       // linhas visíveis (fracionário): recentraliza o bloco suavemente
+  const cx = rs.x * W, cy = rs.y * H, bh = vis * lh;
+  const fade = 1 - cl((t - end) / 0.35);
+  ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round'; ctx.textAlign = 'left'; ctx.font = fnt(rs, rs.wActive, px);
+  lines.forEach((l, li) => {
+    const age = ages[li]; if (age < 0) return;
+    const p = eo(cl(age / D)), rise = (1 - p) * px * 0.7;
+    const base = cy + (li - (vis - 1) / 2) * lh + px * 0.34 + rise;
+    const ital = lines.length >= 3 && li === lines.length - 1, x0 = cx - lw(l) / 2;
+    const passes = p < 1 ? [[-1, 0.18], [-0.5, 0.3], [0, 1]] : [[0, 1]];   // rastro: cópias desfocadas por movimento, abaixo da posição final
+    passes.forEach(([g, ga]) => {
+      let x = x0;
+      l.forEach(o => {
+        const wa = cl((t - o.w.s) / 0.28), we = eo(wa);
+        if (wa > 0) {
+          ctx.save(); ctx.globalAlpha = fade * p * we * ga;
+          const y = base - g * px * 0.28 * (1 - p), ox = (1 - we) * px * 0.7;
+          ctx.translate(x + ox, y); if (ital) ctx.transform(1, 0, -0.2, 1, 0, 0);
+          if (rs.shadow) { ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = px * 0.22; ctx.shadowOffsetY = px * 0.04; }
+          ctx.fillStyle = rs.color; ctx.fillText(o.t, 0, 0); ctx.restore();
+        }
+        x += o.rw + gap;
+      });
+    });
+  });
+  ctx.restore();
+  return { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh };
+}
