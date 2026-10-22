@@ -140,6 +140,8 @@ export function openTeleprompter({ onUse, flash, ai }) {
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
     const blob = new Blob(chunks, { type }); url = URL.createObjectURL(blob);
     const file = new File([blob], 'teleprompter-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.' + ext, { type });
+    if (!file.size) { flash('A gravação saiu vazia. Tente de novo.'); camera(); return; }
+    close(); flash('Gravação aberta no editor. Escolha o estilo e gere as legendas.'); onUse(file); return;
     h(`<div class="bar"><b>Gravação pronta</b></div>
     <div class="res"><video id="pv" src="${url}" controls playsinline></video>
     <p class="tip" id="wm" style="font-size:14px;color:#fff">Atenção: a gravação ainda não está no editor. Toque em <b>Usar no ForjaClip</b> para legendar agora, ou toque em <b>Salvar no aparelho</b> e depois envie esse arquivo ao ForjaClip em <b>Só legendas</b>.</p>
