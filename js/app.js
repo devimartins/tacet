@@ -317,6 +317,36 @@ function buildControls() {
 }
 // galeria de estilos: prévia animada de cada estilo, filtro por categoria e busca
 const PREV = [{ w: 'Palavras', s: 0, e: .6 }, { w: 'que', s: .6, e: 1.1 }, { w: 'prendem', s: 1.1, e: 1.8 }, { w: 'a', s: 1.8, e: 2.1 }, { w: 'tela', s: 2.1, e: 2.9 }], PCH = chunksOf(PREV, 3);
+// Carrossel da home: rola sozinho (linha 1 para a esquerda, linha 2 para a direita) e pode ser arrastado com o dedo ou mouse, com inércia
+function driveMarquee(grid) {
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) return;   // sem movimento: o CSS deixa a linha rolável com o dedo
+  const rows = [...grid.querySelectorAll('.mq-row')].map((r, i) => ({ r, t: r.firstElementChild, x: 0, auto: (i ? 1 : -1) * 38, v: (i ? 1 : -1) * 38, drag: false, hover: false, moved: 0, half: 0, ready: false }));
+  rows.forEach(o => {
+    o.t.style.animation = 'none'; Object.assign(o.r.style, { touchAction: 'pan-y', cursor: 'grab', userSelect: 'none', webkitUserSelect: 'none' });
+    o.r.addEventListener('pointerdown', e => { o.drag = true; o.moved = 0; o.sx = o.lx = e.clientX; o.lt = performance.now(); o.cap = false; });
+    o.r.addEventListener('pointermove', e => {
+      if (!o.drag) return; const now = performance.now(), dx = e.clientX - o.lx, dt = Math.max(1, now - o.lt);
+      if (!o.cap && Math.abs(e.clientX - o.sx) > 6) { o.cap = true; try { o.r.setPointerCapture(e.pointerId); } catch { /* sem captura */ } o.r.style.cursor = 'grabbing'; }
+      if (!o.cap) return; o.x += dx; o.moved += Math.abs(dx); o.v = Math.max(-1600, Math.min(1600, dx / dt * 1000 * 0.6 + o.v * 0.4)); o.lx = e.clientX; o.lt = now;
+    });
+    const end = () => { o.drag = false; o.r.style.cursor = 'grab'; };
+    o.r.addEventListener('pointerup', end); o.r.addEventListener('pointercancel', end);
+    o.r.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') o.hover = true; }); o.r.addEventListener('pointerleave', () => { o.hover = false; });
+    o.r.addEventListener('click', e => { if (o.moved > 6) { e.preventDefault(); e.stopPropagation(); o.moved = 0; } }, true);
+  });
+  let last = performance.now(), vis = true; new IntersectionObserver(en => { vis = en[0].isIntersecting; }).observe(grid);
+  const tick = now => {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (vis && !document.hidden) rows.forEach(o => {
+      if (!o.half) { const d = o.t.querySelector('.dup'); o.half = d ? d.offsetLeft - o.t.firstElementChild.offsetLeft : 0; if (!o.half) return; if (!o.ready) { o.ready = true; o.x = o.auto > 0 ? -o.half : 0; } }
+      if (!o.drag) { o.v += (o.auto - o.v) * Math.min(1, dt * 2.2); if (!o.hover || Math.abs(o.v - o.auto) > 5) o.x += o.v * dt; }
+      while (o.x <= -o.half) o.x += o.half; while (o.x > 0) o.x -= o.half;
+      o.t.style.transform = `translate3d(${o.x.toFixed(1)}px,0,0)`;
+    });
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
 function mountGallery(box, getCur, onPick, hover) {
   box.replaceChildren(); let cat = 'Todos', q = ''; const mq = box.id === 'gal';
   const chips = el('div', { className: 'chips', role: 'group', ariaLabel: 'Categorias' }), search = el('input', { type: 'search', placeholder: 'Buscar estilo', ariaLabel: 'Buscar estilo', id: 'gs_' + (box.id || 'x') }), grid = el('div', { className: mq ? 'mq' : 'gal' });
@@ -338,6 +368,7 @@ function mountGallery(box, getCur, onPick, hover) {
         mine.forEach(c => { const k = c.cloneNode(true); k.tabIndex = -1; k.setAttribute('aria-hidden', 'true'); k.className = 'gcard dup'; k.onclick = () => c.click(); tr.append(k); });
         grid.append(el('div', { className: 'mq-row' + (r ? ' rev' : '') }, tr));
       });
+      driveMarquee(grid);
     }
     if (!grid.children.length) grid.append(el('p', { className: 'mut', textContent: 'Nenhum estilo encontrado.' }));
     mark();
