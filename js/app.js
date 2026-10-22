@@ -22,6 +22,14 @@ const el = (t, a = {}, ...c) => { const e = document.createElement(t); Object.as
 const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } } };
+// Retoma o trabalho após recarregar: guarda o id do projeto e o arquivo de vídeo (IndexedDB) neste aparelho.
+const vstore = (() => {
+  const open = () => new Promise((ok, no) => { const r = indexedDB.open('forjaclip', 1); r.onupgradeneeded = () => r.result.createObjectStore('v'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+  const run = async (mode, fn) => { try { const db = await open(); return await new Promise(ok => { const q = fn(db.transaction('v', mode).objectStore('v')); q.onsuccess = () => ok(q.result); q.onerror = () => ok(null); }); } catch { return null; } };
+  return { put: (pid, file) => run('readwrite', st => st.put({ pid, file }, 'cur')), get: () => run('readonly', st => st.get('cur')), del: () => run('readwrite', st => st.delete('cur')) };
+})();
+const keep = pid => { if (pid) ls.set('forjaclip.cur', pid); };
+const forget = () => { try { localStorage.removeItem('forjaclip.cur'); } catch { /* ok */ } vstore.del(); };
 const S = { ov: [], sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: true, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
 let EG = null, HG = null;
 S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
@@ -79,7 +87,7 @@ for (const [id, name, ic] of PROVIDERS.filter(p => !CFG.PROVIDERS || CFG.PROVIDE
 
 // ---------- projetos ----------
 async function home() {
-  view('home'); S.pid = null; stopPlay();
+  view('home'); S.pid = null; stopPlay(); forget();
   if (!LIVE) { $('#plist').replaceChildren(); $('#pempty').hidden = false; $('#pempty').textContent = 'Modo demonstração: os projetos não são salvos.'; return; }
   const { data, error } = await S.sb.from('projects').select('id,title,duration,expires_at,created_at').order('created_at', { ascending: false });
   if (error) { flash('Não foi possível listar os projetos: ' + error.message); return; }
@@ -121,7 +129,7 @@ async function newVideo(f, mode = 'clips') {
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
-    S.pid = data.id;
+    S.pid = data.id; keep(S.pid); vstore.put(S.pid, f);
   } else S.pid = null;
   enterEdit(); setVideo(f); rebuild(); sync();
   pipeline();
@@ -129,7 +137,7 @@ async function newVideo(f, mode = 'clips') {
 async function openProject(id) {
   const { data: p, error } = await S.sb.from('projects').select('*').eq('id', id).single();
   if (error) { flash('Não foi possível abrir: ' + error.message); return; }
-  S.pid = id; S.file = null; S.media = null; S.title = p.title || ''; S.dur = p.duration || 8; S.words = p.transcript?.words || []; S.clips = (p.clips || []).map(c => ({ ...c }));
+  S.pid = id; keep(id); S.file = null; S.media = null; S.title = p.title || ''; S.dur = p.duration || 8; S.words = p.transcript?.words || []; S.clips = (p.clips || []).map(c => ({ ...c }));
   S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) }; S.track = null; S.faceOn = false; S.tone = p.style?.tone || 'auto'; $('#toneSel').value = S.tone; S.ratio = p.style?.ratio || '9:16'; S.hid = new Set(p.style?.hid || []);
   enterEdit(); rebuild(); sync(); clipsUI(); $('#txt').value = S.words.map(w => w.w).join(' ');
   $('#phTxt').textContent = 'Para pré-visualizar e gerar cortes, selecione de novo o vídeo "' + S.title + '".';
@@ -168,12 +176,19 @@ $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('on'
 $('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'clips'); };
 $('#drop2').ondragover = e => { e.preventDefault(); $('#drop2').classList.add('on'); }; $('#drop2').ondragleave = () => $('#drop2').classList.remove('on');
 $('#drop2').ondrop = e => { e.preventDefault(); $('#drop2').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'captions'); };
-$('#attach').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  let media; try { media = await openMedia(f); } catch (er) { flash(er.message); return; }
-  if (S.pid && Math.abs(media.duration - S.dur) > 1.5) { flash('Este arquivo tem duração diferente do projeto. Escolha o mesmo vídeo.'); return; }
-  S.file = f; S.media = media; if (!S.words.length) { S.dur = media.duration; pipeline(); } setVideo(f);
-};
+async function attachFile(f) {
+  let media; try { media = await openMedia(f); } catch (er) { flash(er.message); return false; }
+  if (S.pid && Math.abs(media.duration - S.dur) > 1.5) { flash('Este arquivo tem duração diferente do projeto. Escolha o mesmo vídeo.'); return false; }
+  S.file = f; S.media = media; if (!S.words.length) { S.dur = media.duration; pipeline(); } setVideo(f); if (S.pid) vstore.put(S.pid, f); return true;
+}
+$('#attach').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) attachFile(f); };
+// ao carregar: volta ao projeto aberto (e ao vídeo, se foi guardado) em vez da tela inicial
+async function resume() {
+  const pid = ls.get('forjaclip.cur'); if (!pid || !LIVE) { home(); return; }
+  await openProject(pid);
+  if (S.pid !== pid) { home(); return; }
+  const r = await vstore.get(); if (r && r.pid === pid && r.file) { await attachFile(r.file); }
+}
 
 // ---------- transcrição automática e cortes ----------
 async function token() { const { data } = await S.sb.auth.getSession(); return data.session?.access_token; }
@@ -516,9 +531,9 @@ async function boot() {
   };
   $('#nAv').onclick = avOpen;
   const apply = async s => {
-    if (!s) { S.user = null; view('login'); return; }
+    if (!s) { S.user = null; forget(); view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
-    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); home();
+    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
@@ -547,7 +562,7 @@ $('#fpsSel').onchange = e => { S.fps = +e.target.value; };
 const vidSheet = on => { const mob = matchMedia('(max-width:899px)').matches; if (!on || !mob) { $('#vidSet').classList.remove('sheet'); document.documentElement.style.removeProperty('--sh'); if (on) $('#vidSet').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; } $('#vidSet').classList.add('sheet'); document.documentElement.style.setProperty('--sh', '36'); $('#stage').scrollIntoView({ block: 'start' }); window.scrollBy(0, -8); };
 $('#vidCfg').onclick = () => { tab('clips'); vidSheet(!$('#vidSet').classList.contains('sheet')); };
 $('#vidClose').onclick = () => vidSheet(false);
-async function dropProject() { if (LIVE && S.pid) { const r = await S.sb.from('projects').delete().eq('id', S.pid); if (r.error) { flash('Não foi possível apagar: ' + r.error.message); return false; } } return true; }
+async function dropProject() { forget(); if (LIVE && S.pid) { const r = await S.sb.from('projects').delete().eq('id', S.pid); if (r.error) { flash('Não foi possível apagar: ' + r.error.message); return false; } } return true; }
 async function swapVideo(e) {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   if (!confirm('Trocar o vídeo apaga a transcrição e os cortes deste projeto. Continuar?')) return;
