@@ -800,9 +800,18 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
     fsB.onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen({ navigationUI: 'hide' }).catch(() => flash('Seu navegador não liberou a tela cheia.')); };
     document.addEventListener('fullscreenchange', () => { $('#fsL').textContent = document.fullscreenElement ? 'Sair da tela cheia' : 'Tela cheia'; });
   }
-  let ev = null; addEventListener('beforeinstallprompt', e => { e.preventDefault(); ev = e; if (!standalone) $('#nInst').hidden = false; });
-  $('#nInst').onclick = async () => { if (!ev) return; ev.prompt(); await ev.userChoice.catch(() => 0); ev = null; $('#nInst').hidden = true; };
-  addEventListener('appinstalled', () => { $('#nInst').hidden = true; });
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const mobile = ios || /android/i.test(navigator.userAgent);
+  const SH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M6 12v7h12v-7"/></svg>';
+  const steps = ios ? ['Toque em <b>Compartilhar</b> ' + SH + ' (na barra do Safari ou do Chrome).', 'Role e toque em <b>Adicionar à Tela de Início</b>.', 'Toque em <b>Adicionar</b>. O ícone do ForjaClip aparece na sua tela.'] : ['Abra o menu <b>⋮</b> do navegador.', 'Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.', 'Confirme. O ícone do ForjaClip aparece na sua tela.'];
+  let ev = null; if (!standalone && mobile) { $('#nInst').hidden = false; $('#lgInst').hidden = false; }   // no celular o botão sempre aparece: com o aviso nativo ou com o passo a passo
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); ev = e; if (!standalone) { $('#nInst').hidden = false; $('#lgInst').hidden = false; } });
+  $('#nInst').onclick = async () => {
+    if (ev) { ev.prompt(); await ev.userChoice.catch(() => 0); ev = null; return; }
+    $('#instS').innerHTML = steps.map(t => '<li>' + t + '</li>').join(''); $('#instD').showModal();
+  };
+  addEventListener('appinstalled', () => { $('#nInst').hidden = true; $('#lgInst').hidden = true; });
+  $('#lgInst').onclick = () => $('#nInst').click();
 }
 // ---------- reportar erro ----------
 const errLog = []; const pushErr = m => { errLog.push(String(m).slice(0, 200)); if (errLog.length > 5) errLog.shift(); };
