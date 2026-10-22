@@ -66,7 +66,16 @@ export const PLATFORMS = {
 };
 export const safeRect = (p, W = 1080, H = 1920) => { const m = PLATFORMS[p] || PLATFORMS.all; return { x: m.l / 1080 * W, y: m.t / 1920 * H, w: W - (m.l + m.r) / 1080 * W, h: H - (m.t + m.b) / 1920 * H }; };
 
-export const chunksOf = (words, n) => { const out = []; for (let i = 0; i < words.length; i += n) out.push(words.slice(i, i + n)); return out; };
+// Agrupa em blocos de até n palavras, mas nunca atravessa uma pausa (>= 0,5 s) nem um fim de frase:
+// assim a próxima frase só aparece quando começa a ser falada.
+export const chunksOf = (words, n) => {
+  const out = []; let cur = [];
+  words.forEach((w, i) => {
+    cur.push(w); const nx = words[i + 1];
+    if (!nx || cur.length >= n || nx.s - w.e >= 0.5 || /[.!?…]["')\]]*$/.test(w.w)) { out.push(cur); cur = []; }
+  });
+  return out;
+};
 const txt = (w, c) => c === 'upper' ? w.toLocaleUpperCase('pt-BR') : c === 'lower' ? w.toLocaleLowerCase('pt-BR') : w;
 const fnt = (s, wt, px) => `${nearest(s.font, wt)} ${px}px "${s.font}", sans-serif`;
 export const sizePx = (s, W) => (0.03 + s.fs * 0.0006) * W;   // slider 0–100 → 3% a 9% da largura
