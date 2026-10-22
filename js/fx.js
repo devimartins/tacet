@@ -127,7 +127,20 @@ function scrollLit(el) {
   };
   addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(upd); } }, { passive: true }); addEventListener('resize', upd, { passive: true }); upd();
 }
+
+// contador: o preço "sobe" até o valor quando aparece na tela (só números; o texto final é o mesmo do HTML)
+function countUp(nodes) {
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches || !('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return; io.unobserve(e.target); const n = e.target, txt = n.textContent, m = /^(R\$\s*)(\d+)(?:,(\d{2}))?(.*)$/.exec(txt); if (!m) return;
+    const to = +(m[2] + '.' + (m[3] || '00')), t0 = performance.now(), dec = m[3] ? 2 : 0;
+    const step = now => { const p = Math.min(1, (now - t0) / 900), v = to * (1 - Math.pow(1 - p, 3)); n.textContent = m[1] + v.toFixed(dec).replace('.', ',') + m[4]; if (p < 1) requestAnimationFrame(step); else n.textContent = txt; };
+    requestAnimationFrame(step);
+  }), { threshold: .6 });
+  nodes.forEach(n => io.observe(n));
+}
 export function initFx() {
+  countUp(document.querySelectorAll('.pcp b, .pprice b'));
   scrollLit(document.querySelector('#lit'));
   nebula();
   scrollFx();
