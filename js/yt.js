@@ -16,7 +16,7 @@ const api = () => apiP ||= new Promise((ok, no) => {
   window.onYouTubeIframeAPIReady = () => ok(window.YT); document.head.append(s);
 });
 
-const ERR = { 2: 'O link do vídeo parece inválido.', 5: 'O YouTube não conseguiu reproduzir este vídeo aqui.', 100: 'Vídeo não encontrado (removido ou privado).', 101: 'O dono do vídeo não permite que ele seja incorporado em outros sites.', 150: 'O dono do vídeo não permite que ele seja incorporado em outros sites.' };
+const ERR = { 2: 'O link do vídeo parece inválido.', 5: 'O YouTube não conseguiu reproduzir este vídeo aqui.', 100: 'Vídeo não encontrado (removido ou privado).', 101: 'Não foi possível confirmar a disponibilidade deste vídeo para prévia aqui (a incorporação está desativada). Envie o arquivo do vídeo para editar.', 150: 'Não foi possível confirmar a disponibilidade deste vídeo para prévia aqui (a incorporação está desativada). Envie o arquivo do vídeo para editar.' };
 export async function mountPlayer(box, id) {
   const YT = await Promise.race([api(), new Promise((_, no) => setTimeout(() => no(new Error('O player do YouTube não carregou. Desative bloqueadores de anúncio/privacidade para este site e confira a conexão.')), 15000))]);
   box.innerHTML = '<div id="ytp"></div>';

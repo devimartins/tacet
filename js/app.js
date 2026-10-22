@@ -1077,3 +1077,28 @@ $('#edlBtn').onclick = () => {
   cl.forEach((c, i) => { const d = c.end - c.start; out += String(i + 1).padStart(3, '0') + '  AX       AA/V  C        ' + tc(c.start) + ' ' + tc(c.end) + ' ' + tc(rec) + ' ' + tc(rec + d) + '\n* FROM CLIP NAME: ' + name + '\n* COMMENT: ' + String(c.title || 'Corte ' + (i + 1)).replace(/[\r\n]/g, ' ') + '\n\n'; rec += d; });
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/plain' })); a.download = 'forjaclip-cortes.edl'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 };
+
+// ---------- importar legenda pronta (SRT/VTT): pula a transcrição automática ----------
+const cueT = t => { const m = /(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})/.exec(t); return m ? (+m[1] || 0) * 3600 + +m[2] * 60 + +m[3] + +('0.' + m[4].padEnd(3, '0')) : null; };
+function parseSub(txt) {
+  const words = [];
+  for (const blk of txt.replace(/\r/g, '').replace(/^\uFEFF/, '').split(/\n\s*\n/)) {
+    const ln = blk.split('\n'), i = ln.findIndex(l => l.includes('-->')); if (i < 0) continue;
+    const [a, b] = ln[i].split('-->'), s = cueT(a), e = cueT(b); if (s == null || e == null || e <= s) continue;
+    const ws = ln.slice(i + 1).join(' ').replace(/<[^>]*>|\{[^}]*\}/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').split(/\s+/).filter(Boolean); if (!ws.length) continue;
+    const tot = ws.reduce((n, w) => n + w.length + 1, 0); let t = s;
+    for (const w of ws) { const d = (e - s) * (w.length + 1) / tot; words.push({ w, s: +t.toFixed(2), e: +(t + d).toFixed(2) }); t += d; }
+  }
+  return words;
+}
+$('#srtIn').onchange = async ev => {
+  const f = ev.target.files[0], m = $('#srtInM'); ev.target.value = ''; if (!f) return;
+  if (f.size > 3 * MB) { m.textContent = 'Arquivo grande demais para legenda (máx. 3 MB).'; return; }
+  const words = parseSub(await f.text());
+  if (words.length < 3) { m.textContent = 'Não consegui ler este arquivo. Use um .srt ou .vtt com tempos (00:00:01,000 --> 00:00:03,000).'; return; }
+  if (S.words.length && !confirm('Substituir a transcrição atual pela legenda importada?')) return;
+  S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
+  await save({ transcript: { words }, duration: S.media?.duration || S.dur });
+  clipsUI(); m.textContent = words.length + ' palavras importadas. Os tempos de cada palavra foram estimados a partir de cada trecho da legenda.'; flash('Legenda importada.');
+};
+$('#srtInL').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#srtIn').click(); } };
