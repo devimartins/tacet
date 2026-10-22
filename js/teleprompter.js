@@ -16,7 +16,7 @@ const CSS = `
 #tp .opts{display:grid;grid-template-columns:auto 1fr auto;gap:8px 10px;align-items:center;padding:12px}
 #tp input[type=range]{width:100%}
 #tp .cam{position:relative;flex:1;min-height:0;background:#000;overflow:hidden}
-#tp video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#tp video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}
 #tp .win{position:absolute;left:8%;right:8%;top:0;height:46%;overflow:hidden;background:linear-gradient(#000b,#0008 80%,#0000);-webkit-mask-image:linear-gradient(#000 70%,#0000);mask-image:linear-gradient(#000 70%,#0000)}
 #tp .txt{position:absolute;left:0;right:0;top:0;padding:0 8px;font-weight:700;text-align:center;text-shadow:0 1px 3px #000;white-space:pre-wrap;will-change:transform}
 #tp .line{position:absolute;left:4%;right:4%;top:16%;height:3px;background:#ff5a1f99;border-radius:2px;pointer-events:none}
@@ -57,7 +57,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
 
   // ---------- permissão: pede antes de gravar, mostra prévia e nível do microfone ----------
   const TRIES = [
-    { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } } },
+    { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 }, resizeMode: { ideal: 'none' } } },
     { audio: true, video: { facingMode: 'user' } },
     { audio: true, video: true }];
   const live = () => !!stream && stream.getTracks().length > 0 && stream.getTracks().every(t => t.readyState === 'live');

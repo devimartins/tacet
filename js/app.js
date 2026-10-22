@@ -218,7 +218,7 @@ $('#ytForm').onsubmit = async e => {
   btn.disabled = false;
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=7');
+$('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=8');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -1066,7 +1066,7 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
 // editor em tela estreita: reduzir/ampliar o vídeo flutuante e mostrar opções do vídeo
 {
   const ed = document.querySelector('#edit .edit'), sz = document.querySelector('#flSize'), mo = document.querySelector('#flMore');
-  sz?.addEventListener('click', () => { const m = ed.classList.toggle('mini'); sz.textContent = m ? 'Ampliar vídeo' : 'Reduzir vídeo'; });
+  sz?.addEventListener('click', () => { const m = ed.classList.toggle('shrunk'); sz.textContent = m ? 'Ampliar vídeo' : 'Reduzir vídeo'; });
   mo?.addEventListener('click', () => { const m = ed.classList.toggle('more'); mo.textContent = m ? 'Ocultar opções' : 'Opções do vídeo'; });
 }
 
