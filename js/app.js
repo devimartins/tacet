@@ -400,7 +400,7 @@ function mkFx(k, label, hint) {
 }
 const syncFx = () => { fadeUI && fadeUI(); fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v))); if (colorUI) colorUI.sync(); };
 let colorUI = null;   // painel de cor: módulo carregado sob demanda, só quando o usuário abre a seção
-const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=1'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
+const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=2'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
 $('#fxColorD').addEventListener('toggle', e => { if (e.target.open) ensureColor(); });
 const ZL = { 1: 1.05, 2: 1.1, 3: 1.16 };
 const FILLERS = new Set(['hum', 'ahn', 'ãh', 'ah', 'éh', 'hm', 'hmm', 'uh', 'um', 'né', 'tipo', 'então', 'ééé', 'eh']);
@@ -463,7 +463,7 @@ const vid = $('#vid');
 const hasVid = () => !!S.file;
 function play(on) { S.playing = on; if (hasVid()) { on ? vid.play().catch(() => { S.playing = false; $('#pp').textContent = 'Reproduzir'; $('#stPlay').hidden = false; }) : vid.pause(); } $('#pp').textContent = on ? 'Pausar' : 'Reproduzir'; $('#stPlay').hidden = on; }
 $('#stPlay').onclick = () => { S.prev = null; play(true); };
-$('#stage').addEventListener('dblclick', e => { if (e.target.closest('label,button')) return; S.prev = null; play(!S.playing); });
+$('#stage').addEventListener('click', e => { if (e.target.closest('label,button,input,a')) return; S.prev = null; play(!S.playing); });
 const stopPlay = () => { if (!$('#edit').hidden || S.playing) { S.playing = false; try { vid.pause(); } catch { /* sem vídeo */ } } };
 function seek(t) { S.cur = t; if (hasVid()) vid.currentTime = t; }
 $('#pp').onclick = () => { if (S.playing) play(false); else { if (!S.prev) S.prev = null; play(true); } };
@@ -483,7 +483,7 @@ function frame(now) {
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length || S.logo) drawOverlays(ctx, W, H, ovAll(), S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
-    if (S.safeOn && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.rect(s.x, s.y, s.w, s.h); ctx.fill('evenodd'); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
+    if (S.safeOn && !S.playing && S.ratio === '9:16') { const s = safeRect(S.safeP, W, H); ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.rect(s.x, s.y, s.w, s.h); ctx.fill('evenodd'); ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = out ? '#ff4d4d' : 'rgba(255,255,255,.7)'; ctx.strokeRect(s.x, s.y, s.w, s.h); if (out) { ctx.fillStyle = 'rgba(255,60,60,.14)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(S.bbox.x, S.bbox.y, S.bbox.w, S.bbox.h); } ctx.restore(); }
     const boxOut = S.bbox ? outsideSafe(S.bbox, S.safeP, W, H) : (r.y * H < safeRect(S.safeP, W, H).y || r.y * H > safeRect(S.safeP, W, H).y + safeRect(S.safeP, W, H).h);
     $('#warn').textContent = boxOut ? 'A legenda está fora da área segura e pode ficar coberta pelos botões do app (' + PLATFORMS[S.safeP].name + ').' : '';
   }

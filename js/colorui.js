@@ -19,7 +19,7 @@ export function initColor({ S, $, el, canPro, saveSoon, flash }) {
     return el('label', { className: 'row' }, el('span', { textContent: label }), inp);
   };
   const lookBtns = [];
-  const pick = id => { if (id && !canPro()) { $('#pay').showModal(); return; } set('look', id); sync(); };
+  const pick = id => { if (id && !canPro()) { $('#pay').showModal(); return; } S.style.grade = { ...NEUTRAL, curve: [0, 0, 0], look: id, lutAmt: 1 }; saveSoon('style', { style: S.style }); sync(); };
   const looks = el('div', { className: 'seg', role: 'group', ariaLabel: 'Look' }, ...[{ id: '', name: 'Nenhum' }, ...LOOKS].map(l => { const b = el('button', { type: 'button', textContent: l.name, onclick: () => pick(l.id) }); lookBtns.push([l.id, b]); return b; }));
   looks.style.flexWrap = 'wrap';
   const amt = slider('lutAmt', 'Intensidade do look', 0, 100, false); const amtIn = amt.querySelector('input'); amtIn.oninput = e => set('lutAmt', +e.target.value / 100); ctrls.push(() => { amtIn.value = Math.round((G().lutAmt ?? 1) * 100); });
@@ -29,10 +29,11 @@ export function initColor({ S, $, el, canPro, saveSoon, flash }) {
     try { importedLut = parseCube(await f.text()); importedName = f.name; set('look', 'import'); sync(); flash('LUT carregada: ' + f.name); } catch (err) { flash(err.message); }
   } });
   const imp = el('label', { className: 'btn', style: 'cursor:pointer', textContent: 'Importar LUT (.cube)' }, file);
-  const reset = el('button', { className: 'btn', type: 'button', textContent: 'Zerar cor', onclick: () => { S.style.grade = { ...NEUTRAL, curve: [0, 0, 0] }; importedLut = null; saveSoon('style', { style: S.style }); sync(); } });
+  const reset = el('button', { className: 'btn', type: 'button', textContent: 'Restaurar cores originais', onclick: () => { S.style.grade = { ...NEUTRAL, curve: [0, 0, 0] }; importedLut = null; saveSoon('style', { style: S.style }); sync(); } });
   const note = el('small', { className: 'mut' });
   const box = $('#fxColor');
   box.append(el('p', { className: 'mut', textContent: 'A cor aparece na prévia e vai para o vídeo gerado. Nada é enviado: o ajuste roda na placa de vídeo do seu aparelho.' }),
+    el('div', { className: 'row' }, el('button', { className: 'btn', type: 'button', textContent: 'Resetar cores', onclick: () => reset.click() })),
     slider('bright', 'Brilho', -100, 100), slider('contrast', 'Contraste', -100, 100), slider('sat', 'Saturação', -100, 100), slider('vig', 'Vinheta', 0, 100),
     el('details', {}, el('summary', { textContent: 'Curvas (plano pago)' }), curve(0, 'Sombras'), curve(1, 'Meios-tons'), curve(2, 'Realces')),
     el('div', { className: 'grp' }, el('b', { textContent: 'Looks (plano pago)' }), looks, amt, el('div', { className: 'row' }, imp, note)), el('div', { className: 'row' }, reset));
