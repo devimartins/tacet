@@ -28,6 +28,11 @@ const CSS = `
 #tp .recb{width:68px;height:68px;border-radius:50%;background:#fff;border:5px solid #888;padding:0}
 #tp .recb.on{background:#f33;border-color:#fff}
 #tp .tip{padding:0 12px 10px;color:#aab;font-size:13px}
+#tp .perm{display:flex;gap:12px;align-items:center;margin:0 12px 10px;padding:10px;border:1px solid #3a3a46;border-radius:14px;background:#14141a}#tp .perm.okc{border-color:#2f8f5b}
+#tp .perm video{position:static;transform:scaleX(-1);width:54px;height:72px;border-radius:8px;background:#000;object-fit:cover;display:none;flex:none}
+#tp .pi{flex:1;min-width:0;display:grid;gap:4px;font-size:13px}#tp .pi b{font-size:14px}#tp .pi span{color:#aab}#tp .pi .ok{color:#5be08f}#tp .pi .bad{color:#ffb454}
+#tp .lvl{height:6px;border-radius:3px;background:#2a2a33;overflow:hidden}#tp .lvl i{display:block;height:100%;width:0;background:#5be08f;transition:width .08s}
+#tp .perm button{flex:none;max-width:44%}
 #tp .res{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 12px}
 #tp .res video{position:static;transform:none;max-height:100%;width:auto;max-width:100%;flex:1;min-height:0;border-radius:10px;background:#000}
 `;
@@ -42,16 +47,55 @@ export function openTeleprompter({ onUse, flash, ai }) {
   let stream = null, rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
   const close = () => {
-    cancelAnimationFrame(raf); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
+    cancelAnimationFrame(raf); stopMeter(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
     stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* sem wake lock */ }
     if (url) URL.revokeObjectURL(url); root.remove(); st.remove();
   };
   const h = (html) => { root.innerHTML = html; return root; };
   const $ = s => root.querySelector(s);
 
+
+  // ---------- permissão: pede antes de gravar, mostra prévia e nível do microfone ----------
+  const TRIES = [
+    { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } } },
+    { audio: true, video: { facingMode: 'user' } },
+    { audio: true, video: true }];
+  const live = () => !!stream && stream.getTracks().length > 0 && stream.getTracks().every(t => t.readyState === 'live');
+  async function acquire() {
+    if (live()) return null; let err = null; stream = null;
+    for (const c of TRIES) { try { stream = await navigator.mediaDevices.getUserMedia(c); return null; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
+    return err;
+  }
+  let actx = null, mraf = 0;
+  const stopMeter = () => { cancelAnimationFrame(mraf); try { actx && actx.close(); } catch { /* ok */ } actx = null; };
+  function meter() {
+    stopMeter(); const bar = $('#pl'); if (!bar || !stream || !stream.getAudioTracks().length) return;
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.().catch(() => { });
+      const an = actx.createAnalyser(); an.fftSize = 256; actx.createMediaStreamSource(stream).connect(an); const buf = new Uint8Array(an.fftSize);
+      const loop = () => { an.getByteTimeDomainData(buf); let m = 0; for (const x of buf) m = Math.max(m, Math.abs(x - 128)); const el0 = $('#pl'); if (!el0) return; el0.style.width = Math.min(100, m * 1.6) + '%'; mraf = requestAnimationFrame(loop); };
+      loop();
+    } catch { /* sem medidor */ }
+  }
+  async function permState() {
+    try { const r = await Promise.all(['camera', 'microphone'].map(n => navigator.permissions.query({ name: n }))); return r.some(x => x.state === 'denied') ? 'denied' : r.every(x => x.state === 'granted') ? 'granted' : 'prompt'; } catch { return 'unknown'; }
+  }
+  async function lobby() {
+    const pb = $('#pb'), ps = $('#ps'), pv = $('#pv'); if (!pb) return;
+    const ready = () => { pv.srcObject = stream; pv.play().catch(() => { }); pv.style.display = 'block'; ps.textContent = 'Pronto: câmera e microfone liberados. Fale para testar o nível.'; ps.className = 'ok'; pb.hidden = true; $('#perm').classList.add('okc'); meter(); };
+    const ask = async () => { pb.disabled = true; ps.className = ''; ps.textContent = 'Aguardando você tocar em “Permitir” na janela do navegador…'; const err = await acquire(); pb.disabled = false; if (live()) ready(); else { setBlocked(); permDialog(err && err.name, ask); } };
+    const setBlocked = () => { ps.className = 'bad'; ps.textContent = 'Câmera ou microfone bloqueado neste navegador.'; pb.textContent = 'Como liberar'; pb.onclick = () => permDialog('NotAllowedError', ask); };
+    if (live()) { ready(); return; }
+    pb.onclick = ask; ps.textContent = 'Toque no botão e escolha “Permitir” quando o navegador perguntar.';
+    const st = await permState();
+    if (st === 'granted') { ps.textContent = 'Ativando…'; await acquire(); if (live()) ready(); }
+    else if (st === 'denied') setBlocked();
+  }
+
   // ---------- 1. texto e ajustes ----------
   function editor() {
     h(`<div class="bar"><b>Teleprompter</b>${ai ? '<button id="sug" type="button">✨ Sugerir roteiro</button>' : ''}<button id="x" type="button">Fechar</button></div>
+    <div class="perm" id="perm"><video id="pv" playsinline muted></video><div class="pi"><b>Câmera e microfone</b><span id="ps">Verificando…</span><div class="lvl" aria-hidden="true"><i id="pl"></i></div></div><button class="pri" id="pb" type="button">Ativar câmera e microfone</button></div>
     <textarea id="t" placeholder="Cole aqui o seu texto" aria-label="Texto do teleprompter"></textarea>
     <div class="opts">
       <label for="w">Velocidade</label><input id="w" type="range" min="60" max="220" step="5"><span id="wv"></span>
@@ -64,7 +108,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
     t.value = cfg.text; w.value = cfg.wpm; s.value = cfg.size; m.checked = cfg.mirror;
     const upd = () => { $('#wv').textContent = w.value + ' pal/min'; $('#sv').textContent = s.value + ' px'; };
     upd(); w.oninput = s.oninput = upd;
-    $('#x').onclick = close;
+    $('#x').onclick = close; lobby();
     if (ai) $('#sug').onclick = async () => {
       const m = await import('./roteiro.js?v=1');
       m.openScriptHelper({ host: root, api: ai, flash, onUse: text => { t.value = text; cfg.text = text; save(cfg); flash('Roteiro colocado no teleprompter. Revise e toque em Iniciar TP.'); } });
@@ -105,13 +149,8 @@ export function openTeleprompter({ onUse, flash, ai }) {
     </div>
     <div class="ctl"><button id="zm" type="button">A−</button><button id="zp" type="button">A+</button><button id="pz" type="button">Pausar texto</button><button id="x" type="button">Cancelar</button></div>`);
     $('#x').onclick = () => { close(); };
-    const tries = [
-      { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } } },
-      { audio: true, video: { facingMode: 'user' } },
-      { audio: true, video: true }];
-    let err = null; stream = null;
-    for (const c of tries) { try { stream = await navigator.mediaDevices.getUserMedia(c); err = null; break; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
-    if (!stream) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
+    stopMeter(); const err = await acquire();
+    if (!live()) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
     const v = $('#v'); v.srcObject = stream; v.play().catch(() => { /* autoplay */ });
     const tx = $('#tx'); tx.textContent = cfg.text; tx.style.fontSize = cfg.size + 'px'; tx.style.lineHeight = '1.35'; tx.style.transform = cfg.mirror ? 'scaleX(-1)' : '';
     const words = Math.max(1, cfg.text.trim().split(/\s+/).length);
