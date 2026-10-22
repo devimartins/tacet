@@ -795,27 +795,27 @@ $('#ovTitle').onclick = async () => {
   S.ov.push({ kind: 'title', text, from: 0, to: Math.min(4, S.dur || 4) }); ovUI();
 };
 const brUsed = new Set(), brSeen = new Set();
-async function brollFor(q, secs) {   // vídeo (plano pago) com cena ainda não usada; senão foto livre; tenta uma busca mais simples se faltar
-  const tries = [q]; const ws = q.split(/\s+/); if (ws.length > 1) tries.push(ws[ws.length - 1]);
-  for (const qq of tries) {
+async function brollFor(qs, secs) {   // qs: consulta principal + alternativas equivalentes (nunca uma palavra solta: melhor sem B-roll do que B-roll sem relação)
+  for (const qq of qs) {
     if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=2')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
     const img = await findBroll(qq).catch(() => null); if (img) return { img, q: qq };
   }
   return null;
 }
+const BR_GUIDE = 'INSTRUCTIONS (follow strictly, they override any shorter rule): First infer the single main TOPIC of the whole speech. Split the speech by ideas, not sentences. Pick only moments that name a concrete, filmable thing, place, object or action (literal match); skip filler, greetings, opinions and direct address (leave visual-free gaps, ~25-40% of the video covered at most). Every query must stay faithful to the TOPIC and to the exact words spoken at [t] (avoid homonyms and figurative readings: e.g. "running a campaign" is NOT jogging). Make each query specific: 2 to 4 English words with the exact object plus its context (e.g. "barista pouring latte", not "coffee"; "laptop typing code", not "work"). Never generic stock ideas (business meeting, handshake, success, teamwork) unless literally said. t must be the second of the first word that motivates the picture. Return JSON {"topic":"...","items":[{"t":seconds,"query":"specific 2-4 words","alt":"a different phrasing of the same visual, 2-3 words"}]}. SPEECH:\n';
 $('#ovBroll').onclick = async () => {
   const w = visible(); if (!w.length) { flash('Ainda não há transcrição para escolher os B-rolls.'); return; }
   if (!(LIVE && S.user)) { flash('Entre na sua conta para usar o B-roll automático.'); return; }
   const qty = +$('#brQty').value || 5, secs = +$('#brDur').value || 3, minGap = qty >= 7 ? 4 : qty >= 5 ? 6 : 9;
   const b = $('#ovBroll'); b.disabled = true; b.textContent = 'Lendo a fala inteira…'; S.noVid = false;
   try {
-    let all = toLines(w, 14, 0.8).map(l => '[' + l[0].s.toFixed(1) + '] ' + l.map(x => x.w).join(' ')); while (all.join('\n').length > 12000) all = all.filter((_, i) => i % 2 === 0);   // amostra a fala toda, não só o começo
-    const r = await assist(CFG, await token(), 'broll', all.join('\n')); let n = 0; const last = S.ov.filter(o => o.kind === 'broll').map(o => o.from);
+    let all = toLines(w, 14, 0.8).map(l => '[' + l[0].s.toFixed(1) + '] ' + l.map(x => x.w).join(' ')); while (all.join("\n").length > 10500) all = all.filter((_, i) => i % 2 === 0);   // amostra a fala toda, não só o começo
+    const r = await assist(CFG, await token(), 'broll', BR_GUIDE + all.join('\n')); let n = 0; const last = S.ov.filter(o => o.kind === 'broll').map(o => o.from);
     for (const it of (r.items || []).slice(0, 12)) {
       if (n >= qty) break;
       const t = +it.t, q = String(it.query || '').trim().toLowerCase(); if (!(t >= 0) || !q || brSeen.has(q) || last.some(x => Math.abs(x - t) < minGap)) continue;
       b.textContent = 'Buscando: ' + q.slice(0, 20) + '…';
-      const f = await brollFor(q, secs); if (!f) continue;
+      const alt = String(it.alt || '').trim().toLowerCase(); const f = await brollFor([q, ...(alt && alt !== q ? [alt] : [])], secs); if (!f) continue;
       brSeen.add(q); last.push(t); n++;
       if (f.vid) { const d = f.vid.frames.length / f.vid.fps; S.ov.push({ kind: 'broll', frames: f.vid.frames, fps: f.vid.fps, name: f.q, query: q, from: t, to: Math.min(t + Math.max(d, 1.5), S.dur || t + d) }); S.credit = true; }
       else S.ov.push({ kind: 'broll', img: f.img, name: f.q, query: q, from: t, to: Math.min(t + secs, S.dur || t + secs) });
