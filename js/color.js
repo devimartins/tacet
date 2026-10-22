@@ -113,7 +113,7 @@ function build(W, H, target) {
       gl.activeTexture(gl.TEXTURE0); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
       const cv = g.curve || [0, 0, 0], key = cv.join(',');
       if (key !== curveKey) { curveKey = key; gl.activeTexture(gl.TEXTURE1); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 1, 0, gl.RED, gl.UNSIGNED_BYTE, curveTable(cv)); }
-      if (lut !== lutRef) { lutRef = lut; if (lut) { gl.activeTexture(gl.TEXTURE2); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, lut.n, lut.n, lut.n, 0, gl.RGBA, gl.UNSIGNED_BYTE, lut.data); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4); } }
+      if (lut !== lutRef) { lutRef = lut; if (lut) { gl.activeTexture(gl.TEXTURE2); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, lut.n, lut.n, lut.n, 0, gl.RGBA, gl.UNSIGNED_BYTE, lut.data); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4); } }
       gl.uniform4f(U('uA'), g.bright || 0, g.contrast || 0, g.sat || 0, g.vig || 0); gl.uniform4f(U('uUV'), uv[0], uv[1], uv[2], uv[3]);
       gl.uniform1f(U('uCurveOn'), cv.some(Boolean) ? 1 : 0); gl.uniform3f(U('uL'), lut ? lut.n : 1, g.lutAmt ?? 1, lut ? 1 : 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

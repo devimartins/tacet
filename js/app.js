@@ -475,7 +475,7 @@ function mkFx(k, label, hint) {
 }
 const syncFx = () => { fadeUI && fadeUI(); fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v))); if (colorUI) colorUI.sync(); };
 let colorUI = null;   // painel de cor: módulo carregado sob demanda, só quando o usuário abre a seção
-const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=2'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
+const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=3'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
 $('#fxColorD').addEventListener('toggle', e => { if (e.target.open) ensureColor(); });
 const ZL = { 1: 1.05, 2: 1.1, 3: 1.16 };
 const FILLERS = new Set(['hum', 'ahn', 'ãh', 'ah', 'éh', 'hm', 'hmm', 'uh', 'um', 'né', 'tipo', 'então', 'ééé', 'eh']);

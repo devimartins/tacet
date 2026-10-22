@@ -1,5 +1,5 @@
 // Painel "Cor e look": controles, prévia em GPU e parâmetros para a exportação. Carregado sob demanda.
-import { NEUTRAL, LOOKS, isNeutral, lookLut, parseCube, createGrader } from './color.js';
+import { NEUTRAL, LOOKS, isNeutral, lookLut, parseCube, createGrader } from './color.js?v=2';
 
 export function initColor({ S, $, el, canPro, saveSoon, flash }) {
   const vid = $('#vid'), stage = $('#stage');

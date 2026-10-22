@@ -5,7 +5,7 @@ import { makeReader } from './media.js';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
 import { trackAt } from './facetrack.js';
-import { createGrader } from './color.js';
+import { createGrader } from './color.js?v=2';
 import { addEmojis, sfxEvents, addSfx, denoise, denoiseAI } from './extras.js';
 
 export async function pickCodec(W, H, fps) {
