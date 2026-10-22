@@ -997,3 +997,12 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
   $('#nAdm').onclick = () => { d.showModal(); overview(); users(); };
   $('#amGo').onclick = users; $('#amQ').onkeydown = e => { if (e.key === 'Enter') users(); }; $('#amX').onclick = () => d.close();
 })();
+
+// ---------- tour guiado: abre sozinho na primeira vez e pode ser refeito pelo botão "Tour" ----------
+const tourSeen = k => { try { return !!localStorage.getItem('forjaclip.tour.' + k); } catch { return true; } };
+const tourMark = k => { try { localStorage.setItem('forjaclip.tour.' + k, '1'); } catch { /* ok */ } };
+async function tourRun(k) { const m = await import('./tour.js?v=2'); tourMark(k); return m.startTour(k, k === 'edit' ? m.EDIT : m.HOME); }
+function tourAuto(k, view) { if (tourSeen(k)) return; setTimeout(() => { if ($('#' + view).hidden || document.querySelector('dialog[open]')) return; tourRun(k); }, 1600); }
+$('#nTour').onclick = () => tourRun($('#edit').hidden ? 'home' : 'edit');
+new MutationObserver(() => { if (!$('#home').hidden) tourAuto('home', 'home'); else if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] });
+new MutationObserver(() => { if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#edit'), { attributes: true, attributeFilter: ['hidden'] });
