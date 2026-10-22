@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=111"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=112"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -558,7 +558,7 @@ input[type=range]:not(#scrub)::-moz-range-thumb{width:18px;height:18px;border-ra
 .steps.st3>div:not(:last-child)::before{content:"";position:absolute;right:-13px;top:50%;width:14px;height:2px;background:var(--grad);z-index:1}
 .demo{display:grid;grid-template-columns:minmax(0,230px) minmax(0,1fr);gap:24px;align-items:center;margin:16px 0}
 .demo-phone{position:relative;aspect-ratio:9/16;border-radius:26px;border:1px solid var(--bd);overflow:hidden;background:#0a0807;box-shadow:var(--sh3)}
-.demo-vid{position:absolute;inset:0;background:radial-gradient(90% 60% at 50% 35%,#4a2a1c,#0a0807 70%)}
+.demo-phone canvas{position:absolute;inset:0;width:100%;height:100%}.hd-panel li{cursor:pointer}.demo-vid{position:absolute;inset:0;background:radial-gradient(90% 60% at 50% 35%,#4a2a1c,#0a0807 70%)}
 .demo-tag{position:absolute;top:10px;left:10px;z-index:2;font:600 10px var(--font-ui);letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:99px;background:rgba(0,0,0,.6);color:#fff}
 .demo-cap{position:absolute;left:8%;right:8%;bottom:16%;margin:0;display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:center;font:800 clamp(15px,3.4vw,21px) var(--font-ui);color:#fff;-webkit-text-stroke:1px #3a0a00;paint-order:stroke fill}
 .demo-cap b{opacity:.55;animation:dw 4s infinite both}.demo-cap b:nth-child(2){animation-delay:1s}.demo-cap b:nth-child(3){animation-delay:2s}.demo-cap b:nth-child(4){animation-delay:3s}
@@ -710,7 +710,7 @@ body.fsprev{overflow:hidden}
   </div>
   <div class="hd" role="img" aria-label="Demonstração ilustrativa do editor: vídeo vertical com legendas animadas e linha do tempo">
    <div class="hd-win">
-    <div class="hd-bar" aria-hidden="true"><i></i><i></i><i></i><span>Editor · demonstração</span></div>
+    <div class="hd-bar" aria-hidden="true"><i></i><i></i><i></i><span>Editor · demonstração (clique nos estilos)</span></div>
     <div class="hd-body" aria-hidden="true">
      <div class="hd-phone"><canvas id="hdc" width="270" height="480"></canvas></div>
      <div class="hd-panel"><b class="hd-k">Estilo da legenda</b><ul id="hdst"><li class="on">Chama</li><li>Iman</li><li>Impacto</li><li>Cascata<em>Pro</em></li></ul></div>
@@ -738,11 +738,11 @@ body.fsprev{overflow:hidden}
  </div>
  <h2 class="fillt">Veja o editor</h2>
  <div class="demo" aria-label="Demonstração ilustrativa do editor">
-  <div class="demo-phone"><span class="demo-tag">Demonstração</span><div class="demo-vid"></div><p class="demo-cap"><b>FORJE</b><b>CORTES</b><b>QUE</b><b>PRENDEM</b></p></div>
+  <div class="demo-phone"><span class="demo-tag" id="dmt">Demonstração</span><canvas id="dmc" width="270" height="480" role="img" aria-label="Demonstração dos estilos de legenda sobre um vídeo de banco de imagens"></canvas></div>
   <div class="demo-side">
    <div class="demo-tl"><span>LEGENDAS</span><i class="t1"></i><span>CORTES</span><i class="t2"><u></u></i></div>
    <ul class="demo-ft"><li>Cortes sugeridos pela IA</li><li>Legendas com destaque palavra por palavra</li><li>Remoção de pausas e vícios de fala</li><li>Enquadramento vertical com acompanhamento do rosto (Pro)</li></ul>
-   <p class="mut demo-n">Imagem ilustrativa, não é um resultado real de cliente.</p>
+   <p class="mut demo-n">Demonstração com o renderizador real de legendas do editor, sobre vídeo de banco de imagens (Pexels). A fala do vídeo não corresponde ao texto.</p>
   </div>
  </div>
  <h2 class="fillt">Antes e depois</h2>
@@ -868,5 +868,5 @@ body.fsprev{overflow:hidden}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=111"></script>
+<script type="module" src="js/app.js?v=112"></script>
 </body></html>

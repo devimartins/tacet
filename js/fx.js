@@ -243,32 +243,44 @@ export function initFx() {
   embers(hero);
 }
 
-// Demonstração do hero: usa o renderizador real de legendas (captions.js), alternando entre estilos reais. Ilustrativa, sem vídeo de cliente.
-async function heroDemo() {
-  const cv = document.querySelector('#hdc'); if (!cv) return;
-  const cap = await import('./captions.js'); const ctx = cv.getContext('2d');
+// Demonstrações (hero e "Veja o editor"): usam o renderizador REAL de legendas (captions.js) sobre um vídeo de banco de imagens (Pexels).
+// A fala do vídeo não tem relação com o texto: é só uma demonstração dos estilos.
+let DV;
+const demoVideo = () => { if (DV) return DV; DV = document.createElement('video'); DV.muted = true; DV.loop = true; DV.playsInline = true; DV.preload = 'auto'; DV.src = 'https://videos.pexels.com/video-files/8048476/8048476-sd_540_960_25fps.mp4'; return DV; };
+const demoBg = (ctx, W, H) => {
+  const V = demoVideo();
+  if (V.readyState >= 2 && V.videoWidth) { const k = Math.max(W / V.videoWidth, H / V.videoHeight), w = V.videoWidth * k, h = V.videoHeight * k; ctx.drawImage(V, (W - w) / 2, (H - h) / 2, w, h); }
+  else { const g = ctx.createRadialGradient(W / 2, H * .38, 10, W / 2, H * .38, H * .7); g.addColorStop(0, '#4a2a1c'); g.addColorStop(1, '#0a0807'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+  const sh = ctx.createLinearGradient(0, H * .45, 0, H); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.5)'); ctx.fillStyle = sh; ctx.fillRect(0, 0, W, H);
+};
+async function runDemo(cv, { items = [], ph = null, tag = null } = {}) {
+  const cap = await import('./captions.js'); const ctx = cv.getContext('2d'), V = demoVideo();
   const dpr = Math.min(devicePixelRatio || 1, 2), W = 270, H = 480; cv.width = W * dpr; cv.height = H * dpr;
-  const txt = 'Da primeira gravação ao próximo grande conteúdo'.split(' ');
+  const txt = 'Grave com confiança e publique conteúdo que prende'.split(' ');
   const words = txt.map((w, i) => ({ w: i === txt.length - 1 ? w + '.' : w, s: 0.2 + i * 0.42, e: 0.2 + i * 0.42 + 0.4 }));
-  const LOOP = words[words.length - 1].e + 1.3, ids = ['chama', 'iman', 'impacto', 'cascata'];
-  const items = [...document.querySelectorAll('#hdst li')], ph = document.querySelector('#hdph');
-  const set = ids.map(id => { const rs = cap.resolve({ preset: id, o: {} }); return { rs: { ...rs, x: .5, y: id === 'cascata' ? .6 : .66, fs: Math.min(100, rs.fs * 1.45) }, ch: cap.chunksOf(words, rs.n) }; });
+  const LOOP = words[words.length - 1].e + 1.3, ids = ['chama', 'iman', 'impacto', 'cascata'], names = { chama: 'Chama', iman: 'Imã', impacto: 'Impacto', cascata: 'Cascata (Pro)' };
+  const set = ids.map(id => { const rs = cap.resolve({ preset: id, o: {} }); return { rs: { ...rs, x: .5, y: id === 'cascata' ? .6 : .7, fs: Math.min(100, rs.fs * 1.45) }, ch: cap.chunksOf(words, rs.n) }; });
   await Promise.all(set.map(o => cap.loadFont(o.rs.font, o.rs.wLight, o.rs.wActive)));
+  let manual = -1, hold = 0, t0 = 0; const still = reduce || document.documentElement.classList.contains('still');
+  items.forEach((li, i) => { li.tabIndex = 0; li.setAttribute('role', 'button'); const pick = () => { manual = i; hold = performance.now() + 9000; t0 = performance.now(); if (still) frame(i, 2.6); }; li.onclick = pick; li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }; });
   const frame = (si, t) => {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const g = ctx.createRadialGradient(W / 2, H * .38, 10, W / 2, H * .38, H * .7); g.addColorStop(0, '#4a2a1c'); g.addColorStop(1, '#0a0807'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = 'rgba(255,190,140,.08)'; ctx.beginPath(); ctx.arc(W / 2, H * .3, 38, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(W / 2, H * .52, 70, 62, 0, Math.PI, 0); ctx.fill();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); demoBg(ctx, W, H);
     cap.drawCaption(ctx, W, H, set[si].ch, t, set[si].rs);
-    items.forEach((li, i) => li.classList.toggle('on', i === si)); if (ph) ph.style.setProperty('--p', (.06 + .88 * t / LOOP).toFixed(3));
+    items.forEach((li, i) => li.classList.toggle('on', i === si)); if (ph) ph.style.setProperty('--p', (.06 + .88 * t / LOOP).toFixed(3)); if (tag) tag.textContent = 'Estilo: ' + names[ids[si]];
   };
-  if (reduce || document.documentElement.classList.contains('still')) { frame(0, 2.6); return; }
-  let t0 = performance.now(), n = 0, vis = true, raf = 0, last = 0;
+  if (still) { V.addEventListener('loadeddata', () => frame(0, 2.6)); frame(0, 2.6); return; }
+  t0 = performance.now(); let vis = false, raf = 0, last = 0;
   const loop = now => {
-    raf = 0; if (!vis || document.hidden) return;
-    if (now - last > (innerWidth < 760 ? 32 : 15)) { last = now; const el = (now - t0) / 1000, si = Math.floor(el / LOOP) % ids.length; frame(si, el % LOOP); }
+    raf = 0; if (!vis || document.hidden) { V.pause(); return; }
+    if (V.paused) V.play().catch(() => { });
+    if (now - last > (innerWidth < 760 ? 32 : 15)) { last = now; if (manual >= 0 && now > hold) manual = -1; const el = (now - t0) / 1000, si = manual >= 0 ? manual : Math.floor(el / LOOP) % ids.length; frame(si, el % LOOP); }
     raf = requestAnimationFrame(loop);
   };
-  const go = () => { if (!raf && vis && !document.hidden) { t0 = performance.now() - (n++ ? 0 : 0); raf = requestAnimationFrame(loop); } };
+  const go = () => { if (!raf && vis && !document.hidden) raf = requestAnimationFrame(loop); };
   new IntersectionObserver(e => { vis = e[0].isIntersecting; go(); }).observe(cv);
-  document.addEventListener('visibilitychange', go); go();
+  document.addEventListener('visibilitychange', go); frame(0, 2.6);
+}
+async function heroDemo() {
+  const a = document.querySelector('#hdc'); if (a) runDemo(a, { items: [...document.querySelectorAll('#hdst li')], ph: document.querySelector('#hdph') });
+  const b = document.querySelector('#dmc'); if (b) runDemo(b, { tag: document.querySelector('#dmt') });
 }
