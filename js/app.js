@@ -256,7 +256,10 @@ function save(patch) { if (!LIVE || !S.pid) return Promise.resolve(); return S.s
 function saveSoon(key, patch, ms = 900) { clearTimeout(pend[key]); pend[key] = setTimeout(() => save(patch), ms); }
 
 // ---------- editor ----------
-function enterEdit() { view('edit'); tab('style'); setRatio(S.ratio); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
+// Formato inicial = proporção nativa do vídeo (projetos salvos mantêm o formato escolhido)
+const nativeRatio = () => { const v = $('#vid'), w = v.videoWidth || S.media?.videoWidth || S.media?.width, h = v.videoHeight || S.media?.videoHeight || S.media?.height; if (!w || !h) return '9:16'; const a = w / h; return a >= 1.1 ? '16:9' : a >= 0.9 ? '1:1' : a >= 0.65 ? '4:5' : '9:16'; };
+function enterEdit() { view('edit'); tab('style'); S.ratioAuto = !DIMS[S.style.ratio]; setRatio(S.ratioAuto ? nativeRatio() : S.style.ratio); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
+$('#vid').addEventListener('loadedmetadata', () => { if (S.ratioAuto && !$('#edit').hidden) { const r = nativeRatio(); if (r !== S.ratio) setRatio(r); } });
 function setVideo(f) {
   const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { if (v.currentTime === 0) v.currentTime = 0.05; $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); applyFit(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
 }
@@ -414,7 +417,7 @@ function setRatio(r) {
   $('#stage').style.aspectRatio = w + '/' + h; const sw = `min(100%,calc(var(--sh,74) * ${ar.toFixed(4)} * 1dvh))`; document.documentElement.style.setProperty('--ar', ar.toFixed(4)); applyFit(); $('#stage').style.width = sw; document.querySelector('.transport').style.width = sw;
   saveSoon('style', { style: S.style });
 }
-$('#ratio').onchange = e => setRatio(e.target.value);
+$('#ratio').onchange = e => { S.ratioAuto = false; setRatio(e.target.value); };
 
 // transcrição editável
 $('#txt').oninput = () => { S.words = retime(S.words, tokens($('#txt').value), S.dur); rebuild(); saveSoon('tr', { transcript: { words: S.words } }, 1200); };
@@ -560,7 +563,7 @@ S.aud = [];
 // ---------- configurações do vídeo, trocar e remover ----------
 S.res = 1; S.fps = 30;
 const dimsNow = () => { const [w, h] = DIMS[S.ratio], k = S.res; return [Math.round(w * k / 2) * 2, Math.round(h * k / 2) * 2]; };
-$('#ratio2').onchange = e => setRatio(e.target.value);
+$('#ratio2').onchange = e => { S.ratioAuto = false; setRatio(e.target.value); };
 $('#ratio').addEventListener('change', () => { $('#ratio2').value = $('#ratio').value; });
 var fadeUI = () => { $('#fiR').value = S.style.fi || 0; $('#foR').value = S.style.fo || 0; $('#fiO').textContent = (S.style.fi || 0) + ' s'; $('#foO').textContent = (S.style.fo || 0) + ' s'; };
 $('#fiR').oninput = e => { S.style.fi = +e.target.value; $('#fiO').textContent = S.style.fi + ' s'; saveSoon('style', { style: S.style }); };
