@@ -16,13 +16,17 @@ export function startTour(id, steps, { onEnd } = {}) {
   let i = 0, done = false; const opener = document.activeElement;
 
   const place = () => {
-    const s = list[i], r = s.el.getBoundingClientRect(), pad = 8, vw = innerWidth, vh = innerHeight;
-    Object.assign(hole.style, { left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
-    tip.style.cssText = '';
-    if (vw < 640) { const topHalf = r.top + r.height / 2 < vh * 0.5; Object.assign(tip.style, topHalf ? { left: '12px', right: '12px', bottom: '12px', top: 'auto' } : { left: '12px', right: '12px', top: '12px', bottom: 'auto' }); return; }   // celular: caixa na metade oposta à do elemento
-    const tw = Math.min(340, vw - 24), th = tip.offsetHeight, below = vh - r.bottom - pad, above = r.top - pad;
-    let top = below >= th + 14 ? r.bottom + pad + 12 : above >= th + 14 ? r.top - pad - th - 12 : Math.max(12, vh - th - 12);
-    const left = Math.min(Math.max(12, r.left + r.width / 2 - tw / 2), vw - tw - 12);
+    const s = list[i], r = s.el.getBoundingClientRect(), pad = 8, vw = innerWidth, vh = innerHeight, gap = 12;
+    tip.style.cssText = ''; const tw = Math.min(vw < 640 ? vw - 24 : 340, vw - 24);
+    Object.assign(tip.style, { width: tw + 'px', left: '12px', top: '12px' }); const th = tip.offsetHeight;
+    const below = vh - r.bottom - pad - gap, above = r.top - pad - gap; let top, hb = r.bottom, ht = r.top;
+    if (below >= th + 8) top = r.bottom + pad + gap;
+    else if (above >= th + 8) top = r.top - pad - gap - th;
+    else { top = vh - th - gap; hb = Math.min(r.bottom, top - gap - pad); }      // elemento grande: a caixa fica embaixo e o destaque cobre só o que cabe acima
+    ht = Math.max(ht, pad); if (hb < ht + 24) hb = ht + 24;
+    top = Math.max(gap, Math.min(top, vh - th - gap));
+    const left = Math.min(Math.max(gap, r.left + r.width / 2 - tw / 2), vw - tw - gap);
+    Object.assign(hole.style, { left: r.left - pad + 'px', top: ht - pad + 'px', width: r.width + pad * 2 + 'px', height: hb - ht + pad * 2 + 'px' });
     Object.assign(tip.style, { width: tw + 'px', left: left + 'px', top: top + 'px' });
   };
   const show = () => {
@@ -34,7 +38,7 @@ export function startTour(id, steps, { onEnd } = {}) {
     if (i > 0) row.append(mk('Voltar', 'tr-b', () => go(-1)));
     const nx = mk(i === list.length - 1 ? 'Concluir' : 'Próximo', 'tr-b tr-pri', () => (i === list.length - 1 ? end(true) : go(1))); row.append(nx);
     tip.append(n, t, p, row);
-    s.el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    s.el.scrollIntoView({ block: s.el.getBoundingClientRect().height > innerHeight * 0.45 ? 'start' : 'center', behavior: 'auto' });
     requestAnimationFrame(() => { place(); nx.focus({ preventScroll: true }); });
   };
   const go = d => { i = Math.min(list.length - 1, Math.max(0, i + d)); show(); };

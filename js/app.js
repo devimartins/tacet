@@ -683,6 +683,19 @@ $('#expFull').onclick = async () => {
 };
 $('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) + '.mp4'); };
 
+// botão X (ícone) para fechar qualquer janela (dialog), inclusive as criadas depois
+{
+  const X = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const addX = d => {
+    if (d.querySelector(':scope > .dx')) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dx'; b.innerHTML = X; b.setAttribute('aria-label', 'Fechar janela'); b.title = 'Fechar';
+    b.onclick = () => { if (d.id === 'ytd' && document.getElementById('ytX')) document.getElementById('ytX').click(); else d.close(); };
+    d.prepend(b);
+  };
+  document.querySelectorAll('dialog').forEach(addX);
+  new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeName === 'DIALOG') addX(n); }).observe(document.body, { childList: true });
+}
+
 $('#addManual').onclick = () => {
   const s = +$('#ms').value, e = +$('#me').value;
   if (!(e - s >= 3)) { flash('O corte precisa ter pelo menos 3 segundos.'); return; }
@@ -1129,7 +1142,7 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
 // ---------- tour guiado: abre sozinho na primeira vez e pode ser refeito pelo botão "Tour" ----------
 const tourSeen = k => { try { return !!localStorage.getItem('forjaclip.tour.' + k); } catch { return true; } };
 const tourMark = k => { try { localStorage.setItem('forjaclip.tour.' + k, '1'); } catch { /* ok */ } };
-async function tourRun(k) { const m = await import('./tour.js?v=2'); tourMark(k); return m.startTour(k, k === 'edit' ? m.EDIT : m.HOME); }
+async function tourRun(k) { const m = await import('./tour.js?v=3'); tourMark(k); return m.startTour(k, k === 'edit' ? m.EDIT : m.HOME); }
 function tourAuto(k, view) { if (tourSeen(k)) return; setTimeout(() => { if ($('#' + view).hidden || document.querySelector('dialog[open]')) return; tourRun(k); }, 1600); }
 $('#nTour').onclick = () => tourRun($('#edit').hidden ? 'home' : 'edit');
 new MutationObserver(() => { if (!$('#home').hidden) tourAuto('home', 'home'); else if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] });
