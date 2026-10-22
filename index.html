@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=84"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=85"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -336,6 +336,44 @@ body:has(#login:not([hidden])) main{margin-left:0}
 #landing+#login{min-height:100dvh;margin-top:0}
 @media(max-width:760px){#landing{margin:-28px -16px 0;padding:0 16px}.lg-cta{width:100%;flex-wrap:nowrap}.lg-btn{flex:1;padding:0 14px}.lg-strip{bottom:9vh;border-radius:0;border:0;background:none}.lg-orb{width:230vw;transform:translate(-50%,72%)}}
 @media(prefers-reduced-motion:reduce){#landing *{animation:none!important}}
+/* hero v3: texto à esquerda + demonstração do editor à direita */
+#landing{align-items:stretch}
+.lg-nav{align-self:center}
+.lg-hero{width:100%;max-width:1120px;margin:0 auto;flex:1;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:clamp(32px,5vw,72px);align-items:center;padding:3vh 0 4vh}
+.lg-hero .lg-copy{align-items:flex-start;text-align:left;gap:24px;padding:0;max-width:none}
+.lg-hero .lg-badge{padding:7px 14px;font-size:13px;box-shadow:none;border-color:color-mix(in srgb,var(--ac) 32%,transparent)}
+#landing h1{font-size:clamp(34px,4.1vw,58px);line-height:1.04;letter-spacing:-.04em;font-weight:650;text-wrap:balance}
+#landing h1 .hl{font-style:normal;font-weight:650;background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--amber,#FFB547);filter:none}
+.lg-hero .lg-sub{max-width:46ch;font-size:clamp(16px,1.35vw,19px)}
+.lg-hero .lg-cta{justify-content:flex-start;margin-top:8px}
+.lg-hero .lg-cta .lg-btn{min-height:56px;padding:0 30px;white-space:nowrap}
+.lg-hero .lg-line{background:transparent;border:1px solid color-mix(in srgb,var(--tx) 22%,transparent)}.lg-hero .lg-line:hover{border-color:color-mix(in srgb,var(--ac) 70%,transparent);filter:none}
+.hd{position:relative;justify-self:center;width:100%;max-width:470px}
+.hd::before{content:"";position:absolute;inset:8% -6% -4%;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,rgba(255,106,36,.28),transparent 72%);pointer-events:none}
+.hd-win{border:1px solid color-mix(in srgb,var(--tx) 14%,transparent);border-radius:20px;background:linear-gradient(180deg,color-mix(in srgb,var(--s1) 92%,transparent),color-mix(in srgb,var(--bg) 92%,transparent));box-shadow:0 40px 80px -30px rgba(0,0,0,.8),0 0 0 1px rgba(255,150,70,.06),inset 0 1px 0 rgba(255,255,255,.07);overflow:hidden;position:relative;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.hd-bar{display:flex;align-items:center;gap:6px;padding:11px 14px;border-bottom:1px solid var(--bd);font:500 11px var(--font-mono,monospace);letter-spacing:.08em;color:var(--mut);text-transform:uppercase}
+.hd-bar i{width:9px;height:9px;border-radius:50%;background:color-mix(in srgb,var(--tx) 18%,transparent)}.hd-bar span{margin-left:8px}
+.hd-body{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;padding:16px 16px 12px;align-items:start}
+.hd-phone{width:clamp(150px,17vw,215px);aspect-ratio:9/16;border-radius:20px;overflow:hidden;border:1px solid var(--bd);background:#0a0807;box-shadow:0 16px 40px -14px rgba(0,0,0,.8)}
+.hd-phone canvas{display:block;width:100%;height:100%}
+.hd-k{display:block;font:500 10px var(--font-mono,monospace);letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:4px 0 10px}
+#hdst{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+#hdst li{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:10px;border:1px solid var(--bd);font-size:13px;font-weight:600;color:var(--mut);transition:all .3s}
+#hdst li.on{color:var(--tx);border-color:color-mix(in srgb,var(--ac) 70%,transparent);background:color-mix(in srgb,var(--ac) 14%,transparent)}
+#hdst em{font:600 9px var(--font-ui,sans-serif);font-style:normal;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:99px;background:var(--amber,#FFB547);color:#1a0a02}
+.hd-tl{position:relative;display:grid;grid-template-columns:64px 1fr;gap:7px 10px;align-items:center;margin:0 16px 16px;padding:12px;border:1px solid var(--bd);border-radius:12px;font:500 9px var(--font-mono,monospace);letter-spacing:.1em;color:var(--mut)}
+.hd-tl i{display:block;height:14px;border-radius:5px}.hd-tl .t1{background:repeating-linear-gradient(90deg,var(--amber,#FFB547) 0 9px,transparent 9px 13px);opacity:.8}.hd-tl .t2{background:linear-gradient(90deg,var(--amber,#FFB547),var(--ac))}
+.hd-tl u{position:absolute;top:6px;bottom:6px;left:calc(74px + (100% - 86px) * var(--p,.1));width:2px;background:#fff;box-shadow:0 0 10px 2px rgba(255,106,36,.8)}
+.lg-hero .lg-copy>*,.hd{animation:lgin .8s cubic-bezier(.2,.7,.2,1) both}.lg-hero .hd{animation-delay:.35s}
+.lg-strip{position:relative;left:auto;bottom:auto;transform:none;margin:0 auto 5vh;flex:none;animation-name:lgin}
+.hd-card-x{display:none}
+@media(max-width:900px){.lg-hero{grid-template-columns:1fr;gap:36px;padding:2vh 0 3vh;flex:none}.hd{max-width:420px}}
+@media(max-width:760px){#landing h1{font-size:clamp(31px,9vw,40px)}.lg-hero .lg-copy{gap:18px}.lg-hero .lg-cta{width:100%}.lg-hero .lg-badge{font-size:12px}.lg-hero .lg-cta .lg-btn{padding:0 12px;font-size:15px;min-height:52px}.hd-phone{width:clamp(130px,40vw,170px)}.lg-strip{margin-bottom:4vh}}
+#landing h1{background:none;-webkit-text-fill-color:var(--tx);color:var(--tx)}#landing h1 .hl{-webkit-text-fill-color:var(--amber,#FFB547)}
+:root[data-theme="light"] #landing h1 .hl{-webkit-text-fill-color:var(--acd)}
+:root[data-theme="light"] #landing h1 .hl{color:var(--acd)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) #landing h1 .hl{color:var(--acd);-webkit-text-fill-color:var(--acd)}}
+
 
 /* nebulosa de fundo (claro e escuro): js/fx.js */
 #bg canvas.neb{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:.95}
@@ -343,7 +381,6 @@ body:has(#login:not([hidden])) main{margin-left:0}
 #bg.neb{-webkit-mask-image:none;mask-image:none;filter:none}
 /* landing sem esfera: a nebulosa é o fundo */
 #landing{background:transparent}.lg-orb{display:none}
-.lg-strip{bottom:9vh}
 
 /* editor em tela estreita/vertical: vídeo grande em cartão de vidro fixo; só os controles rolam (sem tremor) */
 .flrow{display:none}
@@ -609,11 +646,23 @@ li.item.pj:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(-
 <section id="landing" aria-labelledby="lh1">
  <div class="lg-orb" aria-hidden="true"><i class="lg-corona"></i><i class="lg-sphere"></i></div>
  <header class="lg-nav"><span class="lg-logo"><svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><use href="#fc-mark"/></svg>ForjaClip</span><a class="lg-pill" href="#login">Entrar</a></header>
- <div class="lg-copy">
-  <p class="lg-badge"><i></i>Cortes virais, direto no navegador</p>
-  <h1 id="lh1">Transforme vídeos longos em cortes que <span class="hl">prendem a atenção</span>.</h1>
-  <p class="lg-sub">A IA encontra os melhores momentos, gera legendas animadas e prepara seus vídeos para Reels, TikTok e Shorts, direto no navegador.</p>
-  <div class="lg-cta"><a class="lg-btn lg-fill" href="#login">Começar grátis</a><a class="lg-btn lg-line" href="#hw">Ver como funciona</a></div>
+ <div class="lg-hero">
+  <div class="lg-copy">
+   <p class="lg-badge"><i></i>Edição de vídeo com IA, direto no navegador</p>
+   <h1 id="lh1">Sua próxima <span class="hl">grande ideia</span> merece uma nova experiência de edição.</h1>
+   <p class="lg-sub">Da gravação ao corte final, a inteligência artificial simplifica o processo para você se concentrar no que realmente importa: o conteúdo.</p>
+   <div class="lg-cta"><a class="lg-btn lg-fill" href="#login">Começar grátis</a><a class="lg-btn lg-line" href="#hw">Conhecer a experiência</a></div>
+  </div>
+  <div class="hd" role="img" aria-label="Demonstração ilustrativa do editor: vídeo vertical com legendas animadas e linha do tempo">
+   <div class="hd-win">
+    <div class="hd-bar" aria-hidden="true"><i></i><i></i><i></i><span>Editor · demonstração</span></div>
+    <div class="hd-body" aria-hidden="true">
+     <div class="hd-phone"><canvas id="hdc" width="270" height="480"></canvas></div>
+     <div class="hd-panel"><b class="hd-k">Estilo da legenda</b><ul id="hdst"><li class="on">Chama</li><li>Iman</li><li>Impacto</li><li>Cascata<em>Pro</em></li></ul></div>
+    </div>
+    <div class="hd-tl" aria-hidden="true"><span>LEGENDAS</span><i class="t1"></i><span>CORTES</span><i class="t2"></i><u id="hdph"></u></div>
+   </div>
+  </div>
  </div>
  <div class="lg-strip" aria-hidden="true"><div class="lg-track"><span>Legendas animadas</span><span>Cortes com IA</span><span>Teleprompter</span><span>SRT e VTT</span><span>100% no navegador</span><span>Zoom automático</span><span>Remoção de ruído</span><span>Legendas animadas</span><span>Cortes com IA</span><span>Teleprompter</span><span>SRT e VTT</span><span>100% no navegador</span><span>Zoom automático</span><span>Remoção de ruído</span></div></div>
 </section>
@@ -759,5 +808,5 @@ li.item.pj:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(-
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=84"></script>
+<script type="module" src="js/app.js?v=85"></script>
 </body></html>

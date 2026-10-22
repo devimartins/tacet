@@ -35,7 +35,7 @@ function reveal(h1) {
   h1.classList.add('rv');
 }
 
-function embers(host) {
+function embers(host, cap = 46) {
   if (host.querySelector('canvas.embers')) return;
   const cv = document.createElement('canvas'); cv.className = 'embers'; cv.setAttribute('aria-hidden', 'true');
   host.prepend(cv);
@@ -43,7 +43,7 @@ function embers(host) {
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const size = () => { const r = host.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
   const mk = (init) => ({ x: Math.random() * W, y: init ? Math.random() * H : H + 10, r: .6 + Math.random() * 1.8, v: .25 + Math.random() * .7, d: Math.random() * 6.28, a: .25 + Math.random() * .6 });
-  const N = () => Math.max(14, Math.min(46, Math.round(W / 28)));
+  const N = () => Math.max(14, Math.min(cap, Math.round(W / 28)));
   const tick = () => {
     if (!run) return;
     fx.vel *= .94; ctx.clearRect(0, 0, W, H);
@@ -236,9 +236,39 @@ export function initFx() {
   scrollFx();
   if (reduce) return;
   const land = document.querySelector('#landing');
-  if (land) embers(land);
+  if (land) { embers(land, 16); heroDemo(); }
   const hero = document.querySelector('#home .hero');
   if (!hero) return;
   reveal(hero.querySelector('h1'));
   embers(hero);
+}
+
+// Demonstração do hero: usa o renderizador real de legendas (captions.js), alternando entre estilos reais. Ilustrativa, sem vídeo de cliente.
+async function heroDemo() {
+  const cv = document.querySelector('#hdc'); if (!cv) return;
+  const cap = await import('./captions.js'); const ctx = cv.getContext('2d');
+  const dpr = Math.min(devicePixelRatio || 1, 2), W = 270, H = 480; cv.width = W * dpr; cv.height = H * dpr;
+  const txt = 'Sua próxima grande ideia merece uma nova experiência de edição'.split(' ');
+  const words = txt.map((w, i) => ({ w: i === txt.length - 1 ? w + '.' : w, s: 0.2 + i * 0.42, e: 0.2 + i * 0.42 + 0.4 }));
+  const LOOP = words[words.length - 1].e + 1.3, ids = ['chama', 'iman', 'impacto', 'cascata'];
+  const items = [...document.querySelectorAll('#hdst li')], ph = document.querySelector('#hdph');
+  const set = ids.map(id => { const rs = cap.resolve({ preset: id, o: {} }); return { rs: { ...rs, x: .5, y: id === 'cascata' ? .6 : .66, fs: Math.min(100, rs.fs * 1.45) }, ch: cap.chunksOf(words, rs.n) }; });
+  await Promise.all(set.map(o => cap.loadFont(o.rs.font, o.rs.wLight, o.rs.wActive)));
+  const frame = (si, t) => {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const g = ctx.createRadialGradient(W / 2, H * .38, 10, W / 2, H * .38, H * .7); g.addColorStop(0, '#4a2a1c'); g.addColorStop(1, '#0a0807'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,190,140,.08)'; ctx.beginPath(); ctx.arc(W / 2, H * .3, 38, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(W / 2, H * .52, 70, 62, 0, Math.PI, 0); ctx.fill();
+    cap.drawCaption(ctx, W, H, set[si].ch, t, set[si].rs);
+    items.forEach((li, i) => li.classList.toggle('on', i === si)); if (ph) ph.style.setProperty('--p', (.06 + .88 * t / LOOP).toFixed(3));
+  };
+  if (reduce || document.documentElement.classList.contains('still')) { frame(0, 2.6); return; }
+  let t0 = performance.now(), n = 0, vis = true, raf = 0, last = 0;
+  const loop = now => {
+    raf = 0; if (!vis || document.hidden) return;
+    if (now - last > (innerWidth < 760 ? 32 : 15)) { last = now; const el = (now - t0) / 1000, si = Math.floor(el / LOOP) % ids.length; frame(si, el % LOOP); }
+    raf = requestAnimationFrame(loop);
+  };
+  const go = () => { if (!raf && vis && !document.hidden) { t0 = performance.now() - (n++ ? 0 : 0); raf = requestAnimationFrame(loop); } };
+  new IntersectionObserver(e => { vis = e[0].isIntersecting; go(); }).observe(cv);
+  document.addEventListener('visibilitychange', go); go();
 }
