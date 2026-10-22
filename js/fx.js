@@ -139,7 +139,16 @@ function countUp(nodes) {
   }), { threshold: .6 });
   nodes.forEach(n => io.observe(n));
 }
+
+// texto que se preenche conforme a rolagem (títulos .fillt)
+function fillText(nodes) {
+  const list = [...nodes]; if (!list.length) return;
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) { list.forEach(n => n.style.setProperty('--f', '100%')); return; }
+  const upd = () => { const h = innerHeight; list.forEach(n => { const r = n.getBoundingClientRect(), p = Math.min(1, Math.max(0, (h * .92 - r.top) / (h * .42))); n.style.setProperty('--f', (p * 100).toFixed(1) + '%'); }); };
+  addEventListener('scroll', upd, { passive: true }); addEventListener('resize', upd); upd();
+}
 export function initFx() {
+  document.querySelectorAll('#about h2').forEach(h => h.classList.add('fillt')); fillText(document.querySelectorAll('.fillt'));
   countUp(document.querySelectorAll('.pcp b, .pprice b'));
   scrollLit(document.querySelector('#lit'));
   nebula();

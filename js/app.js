@@ -780,7 +780,7 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
   }, { passive: true });
 }
 
-import('./fx.js?v=8').then(m => m.initFx()).catch(() => {});
+import('./fx.js?v=9').then(m => m.initFx()).catch(() => {});
 
 // editor em tela estreita: reduzir/ampliar o vídeo flutuante e mostrar opções do vídeo
 {
