@@ -425,10 +425,11 @@ function buildPresets() {
 S.tlz = 1;
 function tlZoom(z) { S.tlz = Math.min(12, Math.max(1, z)); $('#tl .tw').style.width = S.tlz * 100 + '%'; $('#tlZv').textContent = (Math.round(S.tlz * 10) / 10) + '×'; }
 $('#tlZp').onclick = () => tlZoom(S.tlz * 1.6); $('#tlZm').onclick = () => tlZoom(S.tlz / 1.6);
+const hnd = h => { const u = el('u', { className: 'h ' + h }); u.dataset.h = h; return u; };
 function drawTimeline() {
   const c = $('#trkC'), k = $('#trkK'); if (!c) return; c.replaceChildren(); k.replaceChildren(); const D = Math.max(S.dur, 1);
   S.chunks.forEach(ch => { const s0 = ch[0].s, e0 = ch[ch.length - 1].e; c.append(el('i', { style: `left:${s0 / D * 100}%;width:${Math.max(.35, (e0 - s0) / D * 100)}%`, title: ch.map(w => w.w).join(' ') })); });
-  S.clips.forEach((cl, i) => k.append(el('i', { style: `left:${cl.start / D * 100}%;width:${Math.max(.8, (cl.end - cl.start) / D * 100)}%`, textContent: cl.title || 'Corte ' + (i + 1), title: mmss(cl.start) + ' a ' + mmss(cl.end) })));
+  S.clips.forEach((cl, i) => { const b = el('i', { className: 'drag', style: `left:${cl.start / D * 100}%;width:${Math.max(.8, (cl.end - cl.start) / D * 100)}%`, title: mmss(cl.start) + ' a ' + mmss(cl.end) + ' · arraste para mover; as bordas ajustam o início e o fim' }, hnd('l'), el('span', { textContent: cl.title || 'Corte ' + (i + 1) }), hnd('r')); k.append(b); if (cl.state !== 'rendering') tlDrag(b, k, cl, 'start', 'end', 3, () => { delete cl.url; delete cl.state; save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI(); }); });
   // faixas extras: áudios (arrastáveis), música e imagens/B-roll/títulos
   document.querySelectorAll('#tl .x').forEach(n => n.remove());
   const nc = document.querySelector('#tl .tnc'), tw = document.querySelector('#tl .tw'), ph = $('#ph2');
@@ -441,7 +442,31 @@ function drawTimeline() {
     b.onclick = e => e.stopPropagation(); t.append(b); }));
   if (S.music) addTrack('Música', t => t.append(el('i', { style: 'left:0;width:100%;opacity:.55', textContent: S.music.name })));
   const ovs = (S.ov || []).filter(o => o.from != null);
-  if (ovs.length) addTrack('Imagens', t => ovs.forEach(o => t.append(el('i', { style: `left:${o.from / D * 100}%;width:${Math.max(1.5, (o.to - o.from) / D * 100)}%`, textContent: o.kind === 'title' ? o.text : o.name, title: o.kind === 'broll' ? 'B-roll' : o.kind === 'title' ? 'Título' : 'Imagem' }))));
+  if (ovs.length) addTrack('Imagens', t => ovs.forEach(o => { const b = el('i', { className: 'drag', style: `left:${o.from / D * 100}%;width:${Math.max(1.5, (o.to - o.from) / D * 100)}%`, title: (o.kind === 'broll' ? 'B-roll' : o.kind === 'title' ? 'Título' : 'Imagem') + ' · arraste para mover; as bordas ajustam o tempo' }, hnd('l'), el('span', { textContent: o.kind === 'title' ? o.text : o.name }), hnd('r')); t.append(b); tlDrag(b, t, o, 'from', 'to', 0.5, () => ovUI()); }));
+  // régua de tempo (no topo) e guia do ímã
+  { const w = tw.getBoundingClientRect().width || 560, steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600], st = steps.find(x => x / D * w >= 58) || 600, rl = el('div', { className: 'trk x rl', ariaHidden: 'true' });
+    for (let t0 = 0; t0 <= D + 0.01; t0 += st) rl.append(el('s', { style: `left:${t0 / D * 100}%`, textContent: mmss(t0) }));
+    nc.prepend(el('span', { className: 'tn x', textContent: ' ' })); tw.prepend(rl); tw.insertBefore(el('b', { className: 'x snapG', id: 'tlSnapG' }), ph); }
+}
+// ímã: pontos de encaixe = início/fim do vídeo, cabeça de reprodução, bordas de legendas, cortes e imagens
+function tlPoints(skip) { const a = [0, S.dur, S.cur || 0]; S.chunks.forEach(ch => a.push(ch[0].s, ch[ch.length - 1].e)); S.clips.forEach(c => { if (c !== skip) a.push(c.start, c.end); }); (S.ov || []).forEach(o => { if (o !== skip && o.from != null) a.push(o.from, o.to); }); return a; }
+function tlSnap(t, skip) { const D = Math.max(S.dur, 1), w = $('#tl .tw').getBoundingClientRect().width || 560, th = 9 / w * D; let best = null, bd = th; for (const p of tlPoints(skip)) { const d = Math.abs(p - t); if (d < bd) { bd = d; best = p; } } return best; }
+function tlGuide(t) { const g = $('#tlSnapG'); if (!g) return; if (t == null) { g.style.display = 'none'; return; } g.style.display = 'block'; g.style.left = t / Math.max(S.dur, 1) * 100 + '%'; }
+// arrastar um bloco da linha do tempo: corpo move, bordas (.h) ajustam início/fim; encaixa nos pontos próximos
+function tlDrag(b, track, o, kS, kE, min, done) {
+  b.onpointerdown = e => {
+    e.stopPropagation(); const D = Math.max(S.dur, 1), mode = e.target.dataset?.h || 'move'; b.setPointerCapture(e.pointerId);
+    const r = track.getBoundingClientRect(), x0 = e.clientX, s0 = o[kS], e0 = o[kE], len = e0 - s0; let moved = false;
+    b.onpointermove = ev => {
+      moved = true; const dt = (ev.clientX - x0) / r.width * D; let s = s0, en = e0, at = null;
+      if (mode === 'move') { s = Math.max(0, Math.min(D - len, s0 + dt)); const a = tlSnap(s, o), c = tlSnap(s + len, o); if (a != null) { s = a; at = a; } else if (c != null) { s = c - len; at = c; } en = s + len; }
+      else if (mode === 'l') { s = Math.max(0, Math.min(e0 - min, s0 + dt)); const a = tlSnap(s, o); if (a != null && a <= e0 - min) { s = a; at = a; } }
+      else { en = Math.min(D, Math.max(s0 + min, e0 + dt)); const a = tlSnap(en, o); if (a != null && a >= s0 + min) { en = a; at = a; } }
+      o[kS] = s; o[kE] = en; b.style.left = s / D * 100 + '%'; b.style.width = (en - s) / D * 100 + '%'; tlGuide(at);
+    };
+    b.onpointerup = b.onpointercancel = () => { b.onpointermove = b.onpointerup = b.onpointercancel = null; tlGuide(null); if (moved) done(); };
+  };
+  b.onclick = e => e.stopPropagation();
 }
 function thumb(pid) {
   if (!pid) return; const v = $('#vid');
@@ -582,7 +607,9 @@ const endDrag = () => { drag = null; $('#stage').classList.remove('drag'); }; $(
 async function boot() {
   const l = el('link', { rel: 'stylesheet', href: fontsUrl() }); document.head.append(l);
   buildControls(); buildFx(); buildPresets(); requestAnimationFrame(frame); requestAnimationFrame(animGal); Object.values(PRESETS).forEach(p => loadFont(p.font, p.wLight, p.wActive));
-  $('#tl').onpointerdown = e => { const r = $('#tl .tw').getBoundingClientRect(); S.prev = null; seek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * S.dur); };
+  { const T = $('#tl'), at = e => { const r = $('#tl .tw').getBoundingClientRect(); S.prev = null; seek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * S.dur); }; let dn = false;
+    T.onpointerdown = e => { dn = true; try { T.setPointerCapture(e.pointerId); } catch { /* ok */ } at(e); };
+    T.onpointermove = e => { if (dn) at(e); }; T.onpointerup = T.onpointercancel = () => { dn = false; }; }
   await loadFont('Montserrat', 300, 500, 900);
   if (!LIVE) { view('home'); $('#homeSub').textContent = 'Sem conta: a transcrição roda no seu aparelho e nada é salvo. Entre para guardar projetos.'; $('#nOut').hidden = true; return; }
   S.sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON);
@@ -823,7 +850,8 @@ $('#ovTitle').onclick = async () => {
   S.ov.push({ kind: 'title', text, from: 0, to: Math.min(4, S.dur || 4) }); ovUI();
 };
 const brUsed = new Set(), brSeen = new Set();
-async function brollFor(qs, secs) {   // qs: consulta principal + alternativas equivalentes (nunca uma palavra solta: melhor sem B-roll do que B-roll sem relação)
+async function brollFor(qs, secs) {
+  qs = [].concat(qs);   // qs: consulta principal + alternativas equivalentes (nunca uma palavra solta: melhor sem B-roll do que B-roll sem relação)
   for (const qq of qs) {
     if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=2')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
     const img = await findBroll(qq).catch(() => null); if (img) return { img, q: qq };
