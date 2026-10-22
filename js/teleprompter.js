@@ -194,6 +194,22 @@ export function openTeleprompter({ onUse, flash, ai }) {
     };
   }
 
+  function rawDialog(file, go) {
+    const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua), mobile = ios || /Android/.test(ua);
+    const d = document.createElement('dialog'); d.className = 'tpperm'; d.setAttribute('aria-labelledby', 'rwT');
+    d.innerHTML = `<h2 id="rwT" style="margin:0 0 6px">Gravação pronta</h2><p class="mut" style="margin:0 0 10px">Guarde uma cópia do vídeo bruto no seu aparelho para comparar depois com a versão editada no ForjaClip.</p>${ios ? '<p class="mut" style="font-size:13px;margin:0 0 10px">No iPhone, na janela que abrir, toque em <b>Salvar Vídeo</b> para ir à galeria.</p>' : ''}<p class="mut" id="rwM" role="status" style="font-size:13px;margin:0 0 10px"></p><div class="row btns"><button class="btn pri" id="rwSave" type="button">Salvar cópia no aparelho</button><button class="btn" id="rwGo" type="button">Editar no ForjaClip</button></div>`;
+    document.body.append(d); let went = false;
+    const proceed = () => { if (went) return; went = true; d.remove(); go(); };
+    d.addEventListener('close', proceed);
+    d.querySelector('#rwGo').onclick = () => d.close();
+    d.querySelector('#rwSave').onclick = async () => {
+      const m = d.querySelector('#rwM');
+      try { if (mobile && navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); m.textContent = 'Pronto. Se você salvou, a cópia está no aparelho.'; return; } } catch (e) { if (e.name === 'AbortError') { m.textContent = 'Cópia não salva. Toque de novo para salvar.'; return; } }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.append(a); a.click(); a.remove();
+      m.textContent = 'Cópia baixada: veja a pasta Downloads do aparelho.';
+    };
+    d.showModal();
+  }
   // ---------- 3. resultado ----------
   function result() {
     stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* ok */ }
@@ -202,7 +218,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
     const blob = new Blob(chunks, { type }); url = URL.createObjectURL(blob);
     const file = new File([blob], 'teleprompter-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.' + ext, { type });
     if (!file.size) { flash('A gravação saiu vazia. Tente de novo.'); camera(); return; }
-    close(); flash('Gravação aberta no editor. Escolha o estilo e gere as legendas.'); onUse(file); return;
+    rawDialog(file, () => { close(); flash('Gravação aberta no editor. Escolha o estilo e gere as legendas.'); onUse(file); }); return;
     h(`<div class="bar"><b>Gravação pronta</b></div>
     <div class="res"><video id="pv" src="${url}" controls playsinline></video>
     <p class="tip" id="wm" style="font-size:14px;color:#fff">Atenção: a gravação ainda não está no editor. Toque em <b>Usar no ForjaClip</b> para legendar agora, ou toque em <b>Salvar no aparelho</b> e depois envie esse arquivo ao ForjaClip em <b>Só legendas</b>.</p>

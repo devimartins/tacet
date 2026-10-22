@@ -218,7 +218,7 @@ $('#ytForm').onsubmit = async e => {
   btn.disabled = false;
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=8');
+$('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=9');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -656,6 +656,33 @@ $('#cutsX').onclick = cutsClose; $('#cuts').addEventListener('close', () => { if
 $('#cutsOpen').onclick = cutsOpen;
 $('#cutsMan').onclick = () => { cutsClose(); tab('clips'); try { $('#ms').scrollIntoView({ block: 'center' }); $('#ms').focus(); } catch { /* ok */ } };
 
+// ---------- exportar (botão sempre visível no editor) ----------
+async function saveVideo(url, name) {
+  try { const b = await (await fetch(url)).blob(), f = new File([b], name, { type: b.type || 'video/mp4' }); if (/iPhone|iPad|Android/.test(navigator.userAgent) && navigator.canShare?.({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = el('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove();
+}
+function expOpen() {
+  if (!S.file && !S.words.length) { flash('Abra um vídeo primeiro.'); return; }
+  const d = $('#expD'), real = S.clips.filter(c => c.id !== 'full');
+  $('#expCuts').hidden = !real.length; $('#expCuts').textContent = 'Escolher entre os cortes sugeridos (' + real.length + ')';
+  $('#expSave').hidden = !(S.expClip && S.expClip.url); $('#expMsg').textContent = ''; $('#expPg').hidden = true; $('#expFull').disabled = !!S.busy;
+  if (!d.open) d.showModal();
+}
+$('#expBtn').onclick = $('#expBtn2').onclick = expOpen; $('#expX').onclick = () => $('#expD').close();
+$('#expCuts').onclick = () => { $('#expD').close(); cutsOpen(); };
+$('#expFull').onclick = async () => {
+  if (!S.file) { $('#expD').close(); flash('Selecione o vídeo original para exportar.'); $('#ph').hidden = false; return; }
+  let c = S.mode === 'captions' ? S.clips.find(x => x.id === 'full') : S.fullClip;
+  if (!c) { c = { id: 'full', start: 0, end: S.dur, title: 'Vídeo completo', reason: '' }; if (S.mode === 'captions') S.clips.unshift(c); else S.fullClip = c; }
+  c.start = 0; c.end = S.dur || S.media.duration;
+  if (c.end - c.start > 120) { $('#expMsg').textContent = 'No navegador, cada exportação pode ter até 2 minutos. Use um corte menor (aba Ferramentas) ou um vídeo mais curto.'; return; }
+  S.expClip = c; $('#expSave').hidden = true; $('#expPg').hidden = false; $('#expPg').value = 0; $('#expMsg').textContent = 'Gerando…'; $('#expFull').disabled = true;
+  await renderOne(c);
+  $('#expFull').disabled = false; $('#expPg').hidden = true;
+  if (c.url) { $('#expMsg').textContent = 'Pronto! Toque em “Salvar vídeo pronto”.'; $('#expSave').hidden = false; } else $('#expMsg').textContent = c.state === 'error' ? (c.err || 'Falha ao gerar.') : 'Geração cancelada.';
+};
+$('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) + '.mp4'); };
+
 $('#addManual').onclick = () => {
   const s = +$('#ms').value, e = +$('#me').value;
   if (!(e - s >= 3)) { flash('O corte precisa ter pelo menos 3 segundos.'); return; }
@@ -667,7 +694,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
