@@ -91,20 +91,55 @@ async function home() {
   if (!LIVE) { $('#plist').replaceChildren(); $('#pempty').hidden = false; $('#pempty').textContent = 'Modo demonstração: os projetos não são salvos.'; return; }
   const { data, error } = await S.sb.from('projects').select('id,title,duration,expires_at,created_at').order('created_at', { ascending: false });
   if (error) { flash('Não foi possível listar os projetos: ' + error.message); return; }
-  const ul = $('#plist'); ul.replaceChildren(); $('#pempty').hidden = data.length > 0; $('#pempty').textContent = 'Nenhum projeto ainda.';
+  PJ.mode = false; PJ.sel.clear(); const ul = $('#plist'); ul.replaceChildren(); $('#pempty').hidden = data.length > 0; $('#pempty').textContent = 'Nenhum projeto ainda.';
   for (const [i, p] of data.entries()) {
     const days = Math.max(0, Math.ceil((new Date(p.expires_at) - Date.now()) / 864e5));
     const th = ls.get('th_' + p.id);
     const ico = el('span', { className: 'pic' }); ico.innerHTML = '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><use href="#fc-mark"/></svg>';
-    ul.append(el('li', { className: 'item pj' }, ...(th ? [el('img', { className: 'th', src: th, alt: '' })] : [ico]),
+    const cb = el('input', { type: 'checkbox', className: 'psel', hidden: true }); cb.setAttribute('aria-label', 'Selecionar ' + (p.title || 'projeto')); cb.onchange = () => pjToggle(p.id, cb.checked);
+    const li = el('li', { className: 'item pj' }, cb, ...(th ? [el('img', { className: 'th', src: th, alt: '' })] : [ico]),
       el('div', { className: 'grow' }, el('b', { textContent: p.title || 'Sem título' }), el('div', { className: 'mut pm' }, el('span', { textContent: p.duration ? mmss(p.duration) : 'Projeto' }), el('span', { className: 'exp' + (days <= 1 ? ' soon' : ''), textContent: 'expira em ' + days + (days === 1 ? ' dia' : ' dias') }))),
       el('div', { className: 'pa' },
         el('button', { className: 'btn pri', textContent: 'Abrir', onclick: () => openProject(p.id) }),
-        el('button', { className: 'btn', textContent: 'Excluir', onclick: async () => { if (!confirm('Excluir este projeto?')) return; const r = await S.sb.from('projects').delete().eq('id', p.id); if (r.error) flash(r.error.message); else home(); } })),
-      el('span', { className: 'pn', ariaHidden: 'true', textContent: String(i + 1).padStart(2, '0') })));
+        el('button', { className: 'btn', textContent: 'Excluir', onclick: () => { if (PJ.mode) pjToggle(p.id, !PJ.sel.has(p.id)); else { PJ.mode = true; PJ.sel = new Set([p.id]); pjSel(); } } })),
+      el('span', { className: 'pn', ariaHidden: 'true', textContent: String(i + 1).padStart(2, '0') }));
+    li.dataset.id = p.id; li.onclick = e => { if (PJ.mode && !e.target.closest('button,input,a')) pjToggle(p.id, !PJ.sel.has(p.id)); }; ul.append(li);
   }
-  ads();
+  pjSel(); ads();
 }
+// lista de projetos: recolhida (3 primeiros), abre ao passar o mouse; seleção em massa para excluir
+const PJ = { sel: new Set(), mode: false, open: false, pin: false };
+function pjFit() {
+  const ul = $('#plist'), w = $('#pwrap'), n = ul.children.length, more = n > 3, open = PJ.open || PJ.mode || PJ.pin;
+  w.classList.toggle('open', open); w.classList.toggle('fade', more && !open);
+  let h = ul.scrollHeight; if (more && !open) { const l = ul.children[2]; h = l.offsetTop + l.offsetHeight + 2; }
+  ul.style.maxHeight = n ? h + 'px' : '';
+  const b = $('#pmore'); b.hidden = !more; b.textContent = open ? 'Mostrar menos' : 'Ver todos (' + n + ')'; b.setAttribute('aria-expanded', String(open));
+}
+function pjSel() {
+  const items = [...document.querySelectorAll('#plist .pj')], ids = items.map(li => li.dataset.id);
+  items.forEach(li => { const on = PJ.sel.has(li.dataset.id), cb = li.querySelector('.psel'); li.classList.toggle('sel', on); cb.checked = on; cb.hidden = !PJ.mode; });
+  $('#pwrap').classList.toggle('selmode', PJ.mode); $('#pbar').hidden = !PJ.mode;
+  const all = ids.length > 0 && ids.every(i => PJ.sel.has(i)), b = $('#pall');
+  b.setAttribute('aria-pressed', String(all)); b.textContent = all ? 'Desmarcar todos' : 'Selecionar todos';
+  $('#pcount').textContent = PJ.sel.size + ' de ' + ids.length + ' selecionados'; $('#pdel').disabled = !PJ.sel.size; pjFit();
+}
+function pjToggle(id, on) { on ? PJ.sel.add(id) : PJ.sel.delete(id); pjSel(); }
+function pjCancel() { PJ.mode = false; PJ.sel.clear(); pjSel(); }
+$('#pall').onclick = () => { const ids = [...document.querySelectorAll('#plist .pj')].map(li => li.dataset.id); if (ids.every(i => PJ.sel.has(i))) PJ.sel.clear(); else ids.forEach(i => PJ.sel.add(i)); pjSel(); };
+$('#pcancel').onclick = pjCancel;
+$('#pdel').onclick = async () => {
+  const ids = [...PJ.sel]; if (!ids.length) return;
+  if (!confirm(ids.length === 1 ? 'Excluir este projeto? Isso não pode ser desfeito.' : 'Excluir ' + ids.length + ' projetos? Isso não pode ser desfeito.')) return;
+  $('#pdel').disabled = true; const r = await S.sb.from('projects').delete().in('id', ids);
+  if (r.error) { flash(r.error.message); pjSel(); return; }
+  flash(ids.length === 1 ? 'Projeto excluído.' : ids.length + ' projetos excluídos.'); home();
+};
+$('#pmore').onclick = () => { PJ.pin = !PJ.pin; if (!PJ.pin) PJ.open = false; pjFit(); };
+{ const w = $('#pwrap'), canHover = matchMedia('(hover:hover)').matches;
+  if (canHover) { w.onmouseenter = () => { PJ.open = true; pjFit(); }; w.onmouseleave = () => { PJ.open = false; pjFit(); }; }
+  w.addEventListener('focusin', () => { PJ.open = true; pjFit(); }); w.addEventListener('focusout', e => { if (!w.contains(e.relatedTarget)) { PJ.open = false; pjFit(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && PJ.mode && !document.querySelector('dialog[open]')) pjCancel(); }); }
 const adConsent = () => { try { return (localStorage.getItem('forjaclip-ads') || localStorage.getItem('tacet-ads')); } catch { return null; } };
 function adBanner() {   // LGPD: pergunta antes de carregar qualquer anúncio (só o plano gratuito vê)
   if (document.getElementById('adc')) return;
