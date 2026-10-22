@@ -125,7 +125,7 @@ function ads() {   // anúncios só no plano gratuito, com ID do AdSense configu
 const fp = f => `${f.name}|${f.size}|${f.lastModified}`;
 async function newVideo(f, mode = 'clips') {
   if (!f) return; S.mode = mode;
-  const pro = S.plan === 'pro', max = pro ? LIMIT.pro : LIMIT.free, mb = Math.round(f.size / MB);
+  const pro = S.plan === 'pro', max = S.isAdmin ? Infinity : pro ? LIMIT.pro : LIMIT.free, mb = Math.round(f.size / MB);
   if (f.size > max) { flash(pro ? `Este vídeo tem ${mb} MB e o limite do Pro é 1 GB. Tente comprimir o vídeo antes de enviar.` : `Este vídeo tem ${mb} MB. O plano gratuito aceita até 350 MB. Com o Pro você envia até 1 GB, ou pode comprimir o vídeo antes.`, { label: 'Ver Pro', fn: () => $('#nPro').onclick && $('#nPro').onclick() }); return; }
   if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
@@ -633,7 +633,7 @@ async function boot() {
   const apply = async s => {
     if (!s) { S.user = null; forget(); view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
-    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
+    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
@@ -968,3 +968,32 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
   sz?.addEventListener('click', () => { const m = ed.classList.toggle('mini'); sz.textContent = m ? 'Ampliar vídeo' : 'Reduzir vídeo'; });
   mo?.addEventListener('click', () => { const m = ed.classList.toggle('more'); mo.textContent = m ? 'Ocultar opções' : 'Opções do vídeo'; });
 }
+
+// ---------- painel do criador (só aparece para quem está na tabela admins; o servidor confere de novo em cada chamada) ----------
+(() => {
+  const d = $('#adm'), T = $('#amT'), M = $('#amM'), fmt = v => v ? new Date(v).toLocaleDateString('pt-BR') : '–', brl = n => 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',');
+  const err = e => { M.textContent = 'Erro: ' + (e?.message || e); };
+  async function overview() {
+    const { data, error } = await S.sb.rpc('admin_overview'); if (error) return err(error);
+    const c = [['Usuários', data.users], ['Novos (7 dias)', data.new7], ['Assinantes Pro', data.pro], ['Projetos', data.projects], ['Pagamentos', data.payments], ['Receita', brl(data.revenue)], ['Áudio hoje (min)', Math.round(data.audio_today / 60)], ['Análises IA hoje', data.llm_today]];
+    $('#amC').replaceChildren(...c.map(([k, v]) => { const x = document.createElement('div'), b = document.createElement('b'), s = document.createElement('span'); b.textContent = v ?? 0; s.textContent = k; x.append(b, s); return x; }));
+  }
+  async function users() {
+    M.textContent = ''; const { data, error } = await S.sb.rpc('admin_users', { q: $('#amQ').value.trim(), lim: 50 }); if (error) return err(error);
+    const t = document.createElement('table'), hr = t.insertRow();
+    for (const h of ['E-mail', 'Criado', 'Último acesso', 'Pro até', 'Projetos', 'Pago', 'Ações']) { const th = document.createElement('th'); th.textContent = h; hr.append(th); }
+    for (const u of data || []) {
+      const r = t.insertRow(), on = u.pro_until && new Date(u.pro_until) > new Date();
+      [u.email || '(sem e-mail)', fmt(u.created_at), fmt(u.last_sign_in_at), on ? fmt(u.pro_until) : '–', u.projects, brl(u.paid)].forEach((v, i) => { const c = r.insertCell(); c.textContent = v; if (i === 3 && on) c.className = 'ok'; });
+      const ac = r.insertCell();
+      for (const [lab, days] of [['+31 dias', 31], ['+1 ano', 366], ['Encerrar Pro', 0]]) {
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = lab;
+        b.onclick = async () => { if (!confirm(`${lab} para ${u.email}?`)) return; const x = await S.sb.rpc('admin_grant', { uid: u.id, days }); if (x.error) return err(x.error); M.textContent = 'Feito para ' + u.email + '.'; users(); overview(); };
+        ac.append(b);
+      }
+    }
+    T.replaceChildren(t); if (!data?.length) M.textContent = 'Nenhum usuário encontrado.';
+  }
+  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); };
+  $('#amGo').onclick = users; $('#amQ').onkeydown = e => { if (e.key === 'Enter') users(); }; $('#amX').onclick = () => d.close();
+})();
