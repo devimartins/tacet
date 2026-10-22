@@ -149,7 +149,7 @@ async function openProject(id) {
 }
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
-if (!ytSupported()) { const f = $('#ytForm'); f.querySelector('label').textContent = 'Link do YouTube (disponível só no computador)'; $('#ytUrl').disabled = true; $('#ytUrl').placeholder = 'Abra no Chrome ou Edge do computador'; f.querySelector('button').disabled = true; $('#ytMsg').textContent = 'Celulares e o Safari não permitem gravar a aba do navegador. Aqui, use o arquivo do vídeo: no iPhone, grave a tela (Central de Controle) ou salve o vídeo na Galeria e envie em “Novo vídeo”.'; }
+if (!ytSupported()) { const f = $('#ytForm'); f.querySelector('label').textContent = 'Link do YouTube (disponível só no computador)'; $('#ytUrl').disabled = true; $('#ytUrl').placeholder = 'Abra no Chrome ou Edge do computador'; f.querySelector('button').disabled = true; $('#ytMsg').textContent = 'Celulares e o Safari não permitem gravar a aba do navegador. Aqui, use o arquivo do vídeo: no iPhone, grave a tela (Central de Controle) ou salve o vídeo na Galeria e envie em “Novo vídeo”. Se o vídeo é seu, o YouTube Studio tem a opção de baixar o arquivo original (Conteúdo › ⋮ › Baixar).'; }
 $('#ytForm').onsubmit = async e => {
   e.preventDefault(); const id = ytId($('#ytUrl').value.trim()), m = $('#ytMsg'), say = (t, bad) => { m.textContent = t; m.style.color = bad ? '#ff6a6a' : ''; m.style.fontWeight = bad ? '600' : ''; };
   if (!id) { say('Cole um link do YouTube válido (youtube.com ou youtu.be).', 1); return; }
