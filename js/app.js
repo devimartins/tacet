@@ -311,23 +311,32 @@ function buildControls() {
 // galeria de estilos: prévia animada de cada estilo, filtro por categoria e busca
 const PREV = [{ w: 'Palavras', s: 0, e: .6 }, { w: 'que', s: .6, e: 1.1 }, { w: 'prendem', s: 1.1, e: 1.8 }, { w: 'a', s: 1.8, e: 2.1 }, { w: 'tela', s: 2.1, e: 2.9 }], PCH = chunksOf(PREV, 3);
 function mountGallery(box, getCur, onPick, hover) {
-  box.replaceChildren(); let cat = 'Todos', q = '';
-  const chips = el('div', { className: 'chips', role: 'group', ariaLabel: 'Categorias' }), search = el('input', { type: 'search', placeholder: 'Buscar estilo', ariaLabel: 'Buscar estilo', id: 'gs_' + (box.id || 'x') }), grid = el('div', { className: 'gal' });
+  box.replaceChildren(); let cat = 'Todos', q = ''; const mq = box.id === 'gal';
+  const chips = el('div', { className: 'chips', role: 'group', ariaLabel: 'Categorias' }), search = el('input', { type: 'search', placeholder: 'Buscar estilo', ariaLabel: 'Buscar estilo', id: 'gs_' + (box.id || 'x') }), grid = el('div', { className: mq ? 'mq' : 'gal' });
   const mark = () => grid.querySelectorAll('.gcard').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === getCur())));
   const paint = () => {
     grid.replaceChildren();
     for (const [id, p] of Object.entries(PRESETS)) {
       if ((cat !== 'Todos' && p.cat !== cat) || (q && !p.name.toLowerCase().includes(q))) continue;
-      const locked = !canPro() && !p.free, cv = el('canvas', { width: 300, height: 170 }); cv.dataset.p = id;
+      const locked = !canPro() && !p.free, cv = el('canvas', { width: mq ? 440 : 300, height: mq ? 250 : 170 }); cv.dataset.p = id;
       const b = el('button', { type: 'button', className: 'gcard', onclick: async () => { if (locked) { $('#pay').showModal(); return; } await onPick(id); mark(); } }, cv, el('span', { className: 'gn', textContent: p.name }), el('span', { className: 'lk' + (p.free ? ' fr' : ''), textContent: p.free ? 'GRÁTIS' : 'PRO' }));
       b.dataset.id = id; if (hover && !locked) { const on = async () => { await loadFont(p.font, p.wLight, p.wActive); S.tmp = id; rebuild(); }, off = () => { if (S.tmp) { S.tmp = null; rebuild(); } }; b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse' && S.file) on(); }); b.addEventListener('pointerleave', off); b.addEventListener('focus', () => { if (S.file) on(); }); b.addEventListener('blur', off); b.addEventListener('click', () => { S.tmp = null; }); } grid.append(b);
+    }
+    if (mq) {   // carrossel infinito em 2 linhas: cada linha repete os cartões (cópias só decorativas)
+      const cards = [...grid.children]; grid.replaceChildren();
+      [0, 1].forEach(r => {
+        const tr = el('div', { className: 'mq-track' }), mine = cards.filter((_, i) => i % 2 === r);
+        mine.forEach(c => tr.append(c));
+        mine.forEach(c => { const k = c.cloneNode(true); k.tabIndex = -1; k.setAttribute('aria-hidden', 'true'); k.className = 'gcard dup'; k.onclick = () => c.click(); tr.append(k); });
+        grid.append(el('div', { className: 'mq-row' + (r ? ' rev' : '') }, tr));
+      });
     }
     if (!grid.children.length) grid.append(el('p', { className: 'mut', textContent: 'Nenhum estilo encontrado.' }));
     mark();
   };
   CATS.forEach(c => { const b = el('button', { type: 'button', textContent: c, onclick: () => { cat = c; [...chips.children].forEach(x => x.setAttribute('aria-pressed', String(x === b))); paint(); } }); b.setAttribute('aria-pressed', String(c === 'Todos')); chips.append(b); });
   search.oninput = () => { q = search.value.trim().toLowerCase(); paint(); };
-  box.append(el('div', { className: 'gbar' }, chips, search), grid); paint(); return { mark };
+  if (mq) box.append(grid); else box.append(el('div', { className: 'gbar' }, chips, search), grid); paint(); return { mark };
 }
 let lastG = 0;
 const snap = document.createElement('canvas'); snap.width = 300; snap.height = 170; let snapOk = false, pvKey = '', pvCh = PCH;
