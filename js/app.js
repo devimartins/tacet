@@ -546,7 +546,7 @@ function acutPanel() {
 }
 function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxCut').append(mkFx('acut', 'Auto-corte inteligente', 'Tira contagem regressiva (3, 2, 1), hesitações e vícios isolados. Dá para ver e desmarcar cada corte.')); $('#fxCut').append(acutPanel()); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Só aproxima quando a fala justifica (emoção, revelação, detalhe), no máximo a cada poucos segundos. Lê a transcrição para decidir.')); { const z = el('select', { id: 'zoomL', onchange: () => { S.fx.zoomL = +z.value; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } }, ...[[1, 'Suave'], [2, 'Média'], [3, 'Forte']].map(([v, t]) => el('option', { value: v, textContent: t }))); z.value = S.fx.zoomL || 2; $('#fxZoom').append(el('div', { className: 'row' }, el('label', { htmlFor: 'zoomL', textContent: 'Intensidade do zoom' }), z)); } $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Limpa o ruído de fundo com IA que roda no seu aparelho (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
 function clipsUI() {
-  drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
+  kwSuggest(); drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte ainda. Crie um manualmente abaixo.';
   S.clips.forEach((c, i) => {
     const acts = el('div', { className: 'acts' }, el('button', { className: 'btn', textContent: 'Pré-visualizar', onclick: () => previewClip(c) }));
@@ -1027,3 +1027,50 @@ function miniClip(c) {
   if (miniIO) miniIO.observe(b); else v.src = src + '#t=' + c.start;
   return b;
 }
+
+// ---------- buscar momento por palavra (cria cortes a partir da transcrição, tudo no navegador) ----------
+const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+const STOP = new Set('que para com uma uns umas mais mas como isso essa esse esta este eles elas voce voces porque entao tambem muito pois sobre quando onde ainda aqui assim depois antes cada fazer faz tem tenho tinha foi vai vou ser era sao nao sim nos seu sua dele dela mesmo gente coisa coisas pode ficar bem so ja ate entre desde'.split(' '));
+function kwSuggest() {
+  const box = $('#kwSug'); if (!box) return; box.replaceChildren();
+  const f = new Map(), show = new Map(); for (const w of S.words) { const n = norm(w.w); if (n.length >= 5 && !STOP.has(n)) { f.set(n, (f.get(n) || 0) + 1); if (!show.has(n)) show.set(n, w.w.toLowerCase().replace(/[.,!?;:…"“”()]/g, '')); } }
+  [...f].filter(([, c]) => c >= 3).sort((a, b) => b[1] - a[1]).slice(0, 8).forEach(([n]) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = show.get(n); b.onclick = () => { $('#kwQ').value = show.get(n); kwFind(); }; box.append(b); });
+}
+function kwClip(i) {
+  const W = S.words, hit = W[i]; let a = i; const limit = hit.s - 12;
+  while (a > 0 && W[a - 1].s >= limit && !/[.!?…]$/.test(W[a - 1].w)) a--;
+  const s0 = a === 0 || /[.!?…]$/.test(W[a - 1].w) ? W[a].s : Math.max(0, hit.s - 4);
+  let e0 = Math.min(S.dur || s0 + 35, s0 + 35);
+  for (let j = i; j < W.length && W[j].e <= s0 + 60; j++) if (W[j].e >= s0 + 22 && /[.!?…]$/.test(W[j].w)) { e0 = W[j].e; break; }
+  return { start: +s0.toFixed(2), end: +Math.min(e0, S.dur || e0).toFixed(2) };
+}
+function kwFind() {
+  const q = $('#kwQ').value.trim(), out = $('#kwRes'), msg = $('#kwMsg'); out.replaceChildren(); msg.textContent = '';
+  const toks = q.split(/\s+/).map(norm).filter(Boolean);
+  if (!S.words.length) { msg.textContent = 'Gere a transcrição primeiro.'; return; }
+  if (!toks.length || toks.join('').length < 3) { msg.textContent = 'Digite uma palavra com pelo menos 3 letras.'; return; }
+  const N = S.words.map(w => norm(w.w)), hits = [];
+  for (let i = 0; i + toks.length <= N.length; i++) { if (toks.every((t, k) => toks.length === 1 ? N[i + k].includes(t) : N[i + k] === t)) { if (!hits.length || S.words[i].s - S.words[hits[hits.length - 1]].s >= 20) hits.push(i); } }
+  if (!hits.length) { msg.textContent = 'Não encontrei “' + q + '” na fala.'; return; }
+  msg.textContent = hits.length + (hits.length === 1 ? ' momento encontrado.' : ' momentos encontrados.') + (hits.length > 12 ? ' Mostrando os 12 primeiros.' : '');
+  for (const i of hits.slice(0, 12)) {
+    const c = kwClip(i), li = document.createElement('li'), t = document.createElement('b'), snip = document.createElement('q'), row = document.createElement('div');
+    li.className = 'kwr'; t.textContent = mmss(c.start) + ' a ' + mmss(c.end);
+    const from = Math.max(0, i - 6), to = Math.min(S.words.length, i + toks.length + 6);
+    snip.append('… ', ...S.words.slice(from, to).flatMap((w, k) => { const m = document.createElement('mark'); if (from + k >= i && from + k < i + toks.length) { m.textContent = w.w; return [m, ' ']; } return [w.w + ' ']; }), '…');
+    row.className = 'acts';
+    const prev = document.createElement('button'), add = document.createElement('button'); prev.type = add.type = 'button'; prev.className = 'btn'; add.className = 'btn pri'; prev.textContent = 'Ouvir'; add.textContent = 'Criar corte';
+    prev.onclick = () => previewClip({ start: c.start, end: c.end });
+    add.onclick = () => { S.clips.push({ id: 'k' + Date.now() + i, start: c.start, end: c.end, title: 'Sobre “' + q.slice(0, 40) + '”', reason: 'palavra: ' + q.slice(0, 40) }); save({ clips: S.clips.map(({ url, state, p, err, ...x }) => x) }); clipsUI(); flash('Corte criado. Ele aparece na lista de cortes acima.'); };
+    row.append(prev, add); li.append(t, snip, row); out.append(li);
+  }
+}
+$('#kwGo').onclick = kwFind; $('#kwQ').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); kwFind(); } };
+// ---------- lista de cortes para editores (EDL CMX3600, 30 fps) ----------
+$('#edlBtn').onclick = () => {
+  const cl = [...S.clips].sort((a, b) => a.start - b.start); if (!cl.length) { flash('Crie ou gere cortes primeiro.'); return; }
+  const FPS = 30, tc = t => { const f = Math.round(t * FPS), h = Math.floor(f / (FPS * 3600)), m = Math.floor(f / (FPS * 60)) % 60, s = Math.floor(f / FPS) % 60; return [h, m, s, f % FPS].map(n => String(n).padStart(2, '0')).join(':'); };
+  const name = (S.title || 'video').replace(/[^\w. -]/g, '_'); let rec = 0, out = 'TITLE: ' + name + '\nFCM: NON-DROP FRAME\n\n';
+  cl.forEach((c, i) => { const d = c.end - c.start; out += String(i + 1).padStart(3, '0') + '  AX       AA/V  C        ' + tc(c.start) + ' ' + tc(c.end) + ' ' + tc(rec) + ' ' + tc(rec + d) + '\n* FROM CLIP NAME: ' + name + '\n* COMMENT: ' + String(c.title || 'Corte ' + (i + 1)).replace(/[\r\n]/g, ' ') + '\n\n'; rec += d; });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/plain' })); a.download = 'forjaclip-cortes.edl'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
