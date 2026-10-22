@@ -76,6 +76,24 @@ export function openTeleprompter({ onUse, flash, ai }) {
   }
 
   // ---------- 2. câmera + texto + gravação ----------
+  function permDialog(n, retry) {
+    const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua), android = /Android/.test(ua), chromeIos = /CriOS/.test(ua);
+    const blocked = n === 'NotAllowedError' || n === 'SecurityError';
+    let title = 'Não consegui abrir a câmera', lead = 'Feche outros apps que usam a câmera e tente de novo.', steps = [];
+    if (blocked) {
+      title = 'Libere a câmera e o microfone'; lead = 'O navegador bloqueou o acesso para este site. É só liberar uma vez:';
+      if (ios) steps = chromeIos ? ['Abra os <b>Ajustes</b> do iPhone.', 'Role até <b>Chrome</b> e toque nele.', 'Ative <b>Câmera</b> e <b>Microfone</b>.'] : ['Toque em <b>aA</b> ao lado do endereço.', 'Abra <b>Ajustes do Site</b>.', 'Em <b>Câmera</b> e <b>Microfone</b>, escolha <b>Permitir</b>.', 'Se ainda falhar: Ajustes do iPhone > Safari > Câmera e Microfone.'];
+      else if (android) steps = ['Toque no ícone ao lado do endereço (cadeado).', 'Abra <b>Permissões</b>.', 'Ative <b>Câmera</b> e <b>Microfone</b>.'];
+      else steps = ['Clique no ícone de cadeado ou câmera ao lado do endereço.', 'Ative <b>Câmera</b> e <b>Microfone</b> para este site.', 'Se a página pedir, recarregue.'];
+    } else if (n === 'NotFoundError') { title = 'Câmera não encontrada'; lead = 'Não achei câmera ou microfone neste aparelho.'; }
+    else if (n === 'NotReadableError' || n === 'AbortError') { title = 'Câmera em uso'; lead = 'Outro app ou aba está usando a câmera. Feche-o e tente de novo.'; }
+    else lead += n ? ' (' + n + ')' : '';
+    const d = document.createElement('dialog'); d.className = 'tpperm'; d.setAttribute('aria-labelledby', 'tppT');
+    d.innerHTML = `<h2 id="tppT" style="margin:0 0 6px">${title}</h2><p class="mut" style="margin:0 0 10px">${lead}</p>${steps.length ? '<ol style="margin:0 0 14px;padding-left:20px;line-height:1.6">' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol>' : ''}<p class="mut" style="font-size:12px;margin:0 0 14px">O vídeo é gravado no seu aparelho e não é enviado a nenhum servidor.</p><div class="row btns"><button class="btn pri" id="tppRetry" type="button">Já liberei, tentar de novo</button><button class="btn" id="tppX" type="button">Fechar</button></div>`;
+    document.body.append(d); d.addEventListener('close', () => d.remove());
+    d.querySelector('#tppX').onclick = () => d.close(); d.querySelector('#tppRetry').onclick = () => { d.close(); retry(); };
+    d.showModal();
+  }
   async function camera() {
     h(`<div class="cam"><video id="v" playsinline muted autoplay></video>
       <div class="win"><div class="txt" id="tx"></div></div><div class="line"></div>
@@ -93,14 +111,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
       { audio: true, video: true }];
     let err = null; stream = null;
     for (const c of tries) { try { stream = await navigator.mediaDevices.getUserMedia(c); err = null; break; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
-    if (!stream) {
-      const n = err && err.name, msg = n === 'NotAllowedError' || n === 'SecurityError'
-        ? 'A câmera ou o microfone está bloqueado para este site. No iPhone: Ajustes > nome do navegador (Chrome ou Safari) > ative Câmera e Microfone. Se usa o Safari, toque em “aA” ao lado do endereço > Ajustes do Site > Permitir. No Android/Chrome: toque no ícone ao lado do endereço > Permissões. Depois toque em Iniciar TP de novo.'
-        : n === 'NotFoundError' ? 'Não encontrei câmera ou microfone neste aparelho.'
-        : n === 'NotReadableError' || n === 'AbortError' ? 'A câmera está sendo usada por outro app ou aba. Feche-o e tente de novo.'
-        : 'Não consegui abrir a câmera' + (n ? ' (' + n + ')' : '') + '. Feche outros apps que usam a câmera e tente de novo.';
-      editor(); const pm = document.createElement('p'); pm.setAttribute('role', 'alert'); pm.style.cssText = 'color:#ffb454;font-size:14px;line-height:1.45;margin:8px 0'; pm.textContent = msg; root.prepend(pm); flash('Não consegui abrir a câmera.'); return;
-    }
+    if (!stream) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
     const v = $('#v'); v.srcObject = stream; v.play().catch(() => { /* autoplay */ });
     const tx = $('#tx'); tx.textContent = cfg.text; tx.style.fontSize = cfg.size + 'px'; tx.style.lineHeight = '1.35'; tx.style.transform = cfg.mirror ? 'scaleX(-1)' : '';
     const words = Math.max(1, cfg.text.trim().split(/\s+/).length);
