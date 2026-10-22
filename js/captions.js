@@ -33,6 +33,13 @@ export const PRESETS = {
   minimal: { ...B, name: 'Minimal', free: true, font: 'Inter', wLight: 500, wActive: 700, n: 4, fs: 38 },
   pilula: { ...B, name: 'Pílula', free: false, font: 'Inter', wLight: 600, wActive: 700, color: '#ffffff', activeColor: '#111111', bgOpacity: 92, bg: '#ffffff', n: 3, pop: 1, fs: 44, shadow: 0, mode: 'pill' },
   digitacao: { ...B, name: 'Digitação', free: false, font: 'Space Grotesk', wLight: 500, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', type: 1, reveal: 1, anim: 'fade', n: 4, fs: 42, mode: 'glow' },
+  glitch: { ...B, name: 'Glitch', free: false, font: 'Space Grotesk', wLight: 700, wActive: 700, case: 'upper', color: '#ffffff', activeColor: '#ffffff', n: 3, fs: 50, shadow: 0, fx: 'glitch' },
+  aurora: { ...B, name: 'Aurora', free: false, font: 'Poppins', wLight: 700, wActive: 800, color: '#d9e4ff', activeColor: '#7bffe0', n: 3, fs: 50, shadow: 0, fx: 'aurora' },
+  ouro: { ...B, name: 'Ouro', free: false, font: 'Montserrat', wLight: 800, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#ffd24a', n: 3, fs: 50, shadow: 1, fx: 'gold' },
+  eco: { ...B, name: 'Eco', free: false, font: 'Montserrat', wLight: 800, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#ffffff', n: 3, fs: 50, shadow: 0, fx: 'echo' },
+  decodificar: { ...B, name: 'Decodificar', free: false, font: 'Space Grotesk', wLight: 700, wActive: 700, case: 'upper', color: '#ffffff', activeColor: '#7CFFB2', n: 3, fs: 48, shadow: 0, fx: 'cipher' },
+  sombra: { ...B, name: 'Sombra longa', free: false, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#ffffff', n: 3, fs: 50, shadow: 0, fx: 'long' },
+  elastico: { ...B, name: 'Elástico', free: false, font: 'Poppins', wLight: 800, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#FFD500', stroke: 45, n: 3, fs: 50, shadow: 1, fx: 'elastic' },
   neon: { ...B, name: 'Neon', free: false, font: 'Poppins', wLight: 600, wActive: 700, color: '#d9fbff', activeColor: '#4DF3FF', stroke: 0, n: 3, fs: 48, mode: 'glow' },
   manuscrito: { ...B, name: 'Manuscrito', free: false, font: 'Pacifico', wLight: 400, wActive: 400, color: '#ffffff', activeColor: '#FF9EC7', stroke: 30, n: 3, fs: 50 },
   chama: { ...B, name: 'Chama', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', color: '#ffffff', activeColor: '#FFD500', cycle: ['#FFD500', '#3DDC84', '#FF4D4D', '#4DC3FF'], stroke: 60, n: 3, anim: 'bounce', emph: 1, fs: 54, mode: 'flame', strokeColor: '#3a0a00' },
@@ -44,9 +51,9 @@ export const PRESETS = {
   pulso: { ...B, name: 'Pulso', free: false, font: 'Sora', wLight: 700, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#B8FF3D', anim: 'pulse', emph: 1, stroke: 40, n: 3, fs: 48 },
   cascata: { ...B, name: 'Cascata', free: false, font: 'Montserrat', wLight: 700, wActive: 700, color: '#ffffff', activeColor: '#ffffff', n: 12, fs: 58, shadow: 1, mode: 'cascade' },
 };
-const CAT = { classico: 'Elegante', cascata: 'Cinético', digitacao: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
+const CAT = { glitch: 'Efeitos', aurora: 'Efeitos', ouro: 'Efeitos', eco: 'Efeitos', decodificar: 'Efeitos', sombra: 'Efeitos', elastico: 'Efeitos', classico: 'Elegante', cascata: 'Cinético', digitacao: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
 Object.entries(CAT).forEach(([k, v]) => { PRESETS[k].cat = v; });
-export const CATS = ['Todos', 'Cinético', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
+export const CATS = ['Todos', 'Cinético', 'Efeitos', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
 export function resolve(style) {   // preset + ajustes do usuário
   const s = style || DEFAULT_STYLE;
@@ -152,6 +159,7 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
         const ws = ch.map((q, i) => { ctx.font = fnt(rs, i < n ? rs.wActive : rs.wLight, px); return ctx.measureText(q).width; });
         let lx = (o.rw - ws.reduce((s, v) => s + v, 0)) / 2; ch.forEach((q, i) => { ctx.font = fnt(rs, i < n ? rs.wActive : rs.wLight, px); ctx.fillText(q, lx, 0); lx += ws[i]; });
       } else if (rs.type && act) { const n = Math.max(1, Math.ceil(cl(age / Math.max(0.12, (o.w.e - o.w.s) * 0.8)) * o.t.length)); ctx.fillText(o.t.slice(0, n), off, 0); }
+      else if (rs.fx && act) drawFx(ctx, rs.fx, o, { px, off, w, age, t, col, rs });
       else if (rs.fill && act) { const pr = cl(age / Math.max(0.1, o.w.e - o.w.s)); ctx.fillStyle = rs.color; ctx.fillText(o.t, off, 0); ctx.save(); ctx.beginPath(); ctx.rect(off - 4, -px * 1.3, w * pr + 4, px * 1.8); ctx.clip(); ctx.fillStyle = rs.activeColor; ctx.fillText(o.t, off, 0); ctx.restore(); }
       else ctx.fillText(o.t, off, 0);
       ctx.restore();
@@ -159,6 +167,40 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
   });
   ctx.restore();
   return { x: left, y: top, w: bw, h: bh };
+}
+
+// Efeitos de texto (inspirados em catálogos CSS de efeitos, redesenhados em canvas para valerem também na exportação)
+const SCR = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&@';
+const rnd = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
+function drawFx(ctx, fx, o, { px, off, w, age, t, col, rs }) {
+  const s = o.t, dur = Math.max(0.2, o.w.e - o.w.s), put = (x, y, c, str = s) => { ctx.fillStyle = c; ctx.fillText(str, off + x, y); };
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  if (fx === 'glitch') {   // deslocamento RGB tremido + fatias deslocadas
+    const j = Math.floor(t * 14), d = px * 0.06 * (0.4 + rnd(j, 1));
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; put(-d, 0, 'rgba(255,0,90,.9)'); put(d, 0, 'rgba(0,235,255,.9)'); ctx.restore(); put(0, 0, '#fff');
+    if (rnd(j, 2) > 0.55) { const y0 = -px * (0.25 + 0.55 * rnd(j, 3)); ctx.save(); ctx.beginPath(); ctx.rect(off - px, y0, w + px * 2, px * 0.13); ctx.clip(); put(px * 0.2 * (rnd(j, 4) - 0.5) * 2, 0, '#fff'); ctx.restore(); }
+  } else if (fx === 'aurora') {   // gradiente boreal em movimento + brilho
+    const ph = (t * 0.55) % 1, x0 = off - 2 * w + ph * 2 * w, g = ctx.createLinearGradient(x0, 0, x0 + 4 * w, 0), c = ['#00ffd0', '#7b5cff', '#ff5cd6'];
+    for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, c[i % 3]);
+    ctx.shadowColor = 'rgba(120,255,220,.7)'; ctx.shadowBlur = px * 0.4; put(0, 0, g);
+  } else if (fx === 'gold') {   // folha de ouro com brilho que varre a palavra
+    const g = ctx.createLinearGradient(0, -px * 0.8, 0, px * 0.1); [[0, '#fff6c8'], [0.35, '#ffd24a'], [0.55, '#b8740a'], [0.75, '#ffe08a'], [1, '#8a5200']].forEach(([a, c]) => g.addColorStop(a, c)); put(0, 0, g);
+    const sx = off - w * 0.4 + ((t * 0.9) % 1.4) * w * 1.4, sg = ctx.createLinearGradient(sx - px * 0.5, -px, sx + px * 0.5, px * 0.2); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,.85)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); put(0, 0, sg);
+  } else if (fx === 'echo') {   // cópias que se afastam em eco
+    const e = Math.min(1, age / 0.5);
+    for (let q = 3; q >= 1; q--) { ctx.save(); ctx.translate(off + w / 2, -px * 0.3); const k = 1 + 0.1 * q * e; ctx.scale(k, k); ctx.globalAlpha *= 0.5 / q * (1 - 0.3 * e); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = px * 0.035; ctx.strokeText(s, -w / 2, px * 0.3); ctx.restore(); }
+    put(0, 0, '#fff');
+  } else if (fx === 'cipher') {   // letras embaralhadas que se travam da esquerda para a direita
+    const ch = [...s], n = Math.floor(Math.min(1, age / (dur * 0.9)) * ch.length); let x = 0;
+    ch.forEach((q, i) => { const cw = ctx.measureText(q).width; if (i < n) put(x, 0, '#fff', q); else { const r = SCR[Math.floor(rnd(Math.floor(t * 16) + i, i + 3) * SCR.length)]; ctx.fillStyle = rs.activeColor; ctx.fillText(r, off + x + (cw - ctx.measureText(r).width) / 2, 0); } x += cw; });
+  } else if (fx === 'long') {   // sombra longa a 45°
+    const n = Math.round(px * 0.4 * (1 - Math.pow(1 - Math.min(1, age / 0.25), 3)));
+    for (let i = n; i >= 1; i--) put(i * 0.7, i * 0.7, `hsl(${18 + (n - i) * 0.6},95%,${34 + (n - i) * 0.35}%)`);
+    put(0, 0, '#fff');
+  } else if (fx === 'elastic') {   // estica e volta como elástico
+    const p = Math.min(1, age / 0.5), sx = 1 + 0.38 * Math.exp(-6 * p) * Math.cos(18 * p);
+    ctx.save(); ctx.translate(off + w / 2, 0); ctx.scale(sx, 1 / Math.sqrt(sx)); ctx.translate(-w / 2, 0); ctx.fillStyle = col; ctx.fillText(s, 0, 0); ctx.restore();
+  } else { ctx.fillStyle = col; ctx.fillText(s, off, 0); }
 }
 const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
