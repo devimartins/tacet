@@ -3,7 +3,7 @@ import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips } from './clips.js';
-import { retime, tokens, fromWhisper, fixCase } from './transcript.js';
+import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
 import { findBroll } from './broll.js';

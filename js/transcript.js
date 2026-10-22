@@ -53,7 +53,18 @@ export const fromWhisper = (data, offset) => punctuate((data.words || []).map(x 
 const PROPER = new Set(['deus', 'jesus', 'cristo', 'jeová', 'javé', 'bíblia', 'brasil', 'portugal', 'israel', 'jerusalém', 'maria', 'pai nosso'].filter(x => !x.includes(' ') && x !== 'maria'));
 const split = w => { const m = /^(\P{L}*)(\p{L}[\p{L}\p{N}'’-]*)(.*)$/su.exec(w); return m ? [m[1], m[2], m[3]] : null; };
 const cap = w => { const p = split(w); return p ? p[0] + p[1][0].toLocaleUpperCase('pt-BR') + p[1].slice(1) + p[2] : w; };
+// Fim de frase por pausa: se o modelo não pontuou e há silêncio longo até a próxima palavra, fecha a frase com ponto.
+const END = /[.!?…]["')\]]*$/, ANY = /[.,;:!?…]["')\]]*$/;
+export function endSentences(words, gap = 0.8) {
+  return words.map((o, i) => {
+    const n = words[i + 1], last = !n;
+    if (END.test(o.w)) return o;
+    if (last || (n.s - o.e >= gap)) return { ...o, w: o.w.replace(/[,;:]+(["')\]]*)$/, '$1') + '.' };
+    return o;
+  });
+}
 export function fixCase(words) {
+  words = endSentences(words);
   let start = true;
   return words.map((o, i) => {
     let w = o.w; const p = split(w), core = p ? p[1].toLocaleLowerCase('pt-BR') : '', prev = i ? split(words[i - 1].w)?.[1].toLocaleLowerCase('pt-BR') : '', next = words[i + 1] ? split(words[i + 1].w)?.[1].toLocaleLowerCase('pt-BR') : '';
