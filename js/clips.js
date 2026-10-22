@@ -16,7 +16,7 @@ export function snap(words, c) {
 export function pick(cands, dur) {
   const sorted = [...cands].sort((a, b) => b.score - a.score), keep = [];
   for (const c of sorted) if (keep.every(k => c.end <= k.start || c.start >= k.end)) keep.push(c);
-  return keep.slice(0, Math.max(3, Math.min(12, Math.round(dur / 300)))).sort((a, b) => a.start - b.start).map((c, i) => ({ ...c, id: 'c' + (i + 1) }));
+  return keep.slice(0, Math.max(5, Math.min(20, Math.round(dur / 200)))).sort((a, b) => a.start - b.start).map((c, i) => ({ ...c, id: 'c' + (i + 1) }));
 }
 export async function suggestClips(words, dur, ask, onProgress) {
   const cands = []; let t0 = 0, n = 0; const total = Math.max(1, Math.ceil(dur / STEP));
@@ -27,3 +27,28 @@ export async function suggestClips(words, dur, ask, onProgress) {
   }
   return pick(cands, dur);
 }
+
+// Seleção local (sem IA): janelas de 25 a 60 s em limites de frase, pontuadas por gancho, densidade de fala e pausas.
+const HOOK = /^(voc[eê]|ningu[eé]m|nunca|sempre|segredo|erro|verdade|cuidado|aten[cç][aã]o|por que|porque|como|quando|o que|quem|n[aã]o|sabe|imagine|entenda|lembre|pare|olha)\b/i;
+const STRONG = /(deus|vida|amor|f[eé]|dinheiro|medo|sucesso|verdade|tempo|segredo|erro|valor|esperan[cç]a|mudar|mudan[cç]a|importante|principal|exemplo|problema|solu[cç][aã]o)/i;
+export function localClips(words, dur, taken = [], want = 8) {
+  if (!words.length) return [];
+  const sent = []; let a = 0;
+  words.forEach((w, i) => { const last = i === words.length - 1, gap = !last && words[i + 1].s - w.e > 1.2; if (last || gap || /[.?!…]["”)]?$/.test(w.w)) { sent.push({ a, b: i, s: words[a].s, e: w.e }); a = i + 1; } });
+  const cands = [];
+  for (let i = 0; i < sent.length; i++) {
+    let j = i; while (j < sent.length - 1 && sent[j].e - sent[i].s < 25) j++;
+    const len = sent[j].e - sent[i].s; if (len < 20 || len > 60) continue;
+    const ws = words.slice(sent[i].a, sent[j].b + 1), txt = ws.map(x => x.w).join(' ');
+    let pauses = 0; for (let k = 1; k < ws.length; k++) if (ws[k].s - ws[k - 1].e > 0.8) pauses++;
+    const rate = ws.length / len, first = ws.slice(0, 14).map(x => x.w).join(' ');
+    let sc = 50 + (HOOK.test(first) ? 10 : 0) + (/\?/.test(first) ? 8 : 0) + (/\d/.test(first) ? 4 : 0) + Math.min(10, (txt.match(new RegExp(STRONG.source, 'gi')) || []).length * 2) + (rate >= 2 && rate <= 3.8 ? 8 : 0) - pauses * 2;
+    sc = Math.max(40, Math.min(85, Math.round(sc)));
+    const t = ws.slice(0, 7).map(x => x.w).join(' ').replace(/[.,;:!?…]+$/, '');
+    cands.push({ start: sent[i].s, end: sent[j].e, title: t.charAt(0).toUpperCase() + t.slice(1) + '…', reason: 'Seleção automática: fala contínua, com começo claro e sentido próprio.', score: sc, auto: 1 });
+  }
+  const out = [], free = c => [...taken, ...out].every(k => c.end <= k.start - 3 || c.start >= k.end + 3);
+  for (const c of cands.sort((x, y) => y.score - x.score)) { if (out.length >= want) break; if (free(c)) out.push(c); }
+  return out.sort((x, y) => x.start - y.start);
+}
+export const cutsWanted = dur => Math.max(6, Math.min(16, Math.round(dur / 240)));

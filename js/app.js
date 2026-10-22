@@ -2,7 +2,7 @@ import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, res
 import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
-import { suggestClips } from './clips.js';
+import { suggestClips, localClips, cutsWanted } from './clips.js?v=2';
 import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
@@ -233,12 +233,13 @@ async function pipeline() {
     words = fixCase(words); S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
     await save({ transcript: { words }, duration: S.media.duration });
     if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); return; }
-    if (!LIVE) { clipsUI(); status('Transcrição pronta. A sugestão de cortes por IA precisa do servidor; crie um corte manual na aba Ferramentas.'); return; }
+    const fill = (cl = []) => { const w = cutsWanted(S.media.duration); let all = cl.slice(); if (all.length < w) all = all.concat(localClips(words, S.media.duration, all, w - all.length).map((c, k) => ({ ...c, id: 'l' + (k + 1) }))); return all.sort((x, y) => x.start - y.start); };
+    if (!LIVE) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
     status('Transcrição pronta. Procurando os melhores cortes…'); prog(0);
-    try { const cl = await suggestClips(words, S.media.duration, async lines => (await ai('/clips', JSON.stringify({ lines }), 'application/json')).clips, p => prog(p)); S.clips = cl; await save({ clips: cl }); clipsUI(); status(cl.length ? 'Pronto: transcrição e ' + cl.length + (cl.length === 1 ? ' corte sugerido.' : ' cortes sugeridos.') : 'Transcrição pronta. Nenhum corte forte encontrado; você pode criar um manualmente.'); }
-    catch (e) { clipsUI(); status(e.code === 'paid' ? 'Transcrição pronta. Cortes por IA fazem parte do plano pago.' : 'Transcrição pronta. Os cortes sugeridos falharam: ' + e.message); }
+    try { const cl = await suggestClips(words, S.media.duration, async lines => (await ai('/clips', JSON.stringify({ lines }), 'application/json')).clips, p => prog(p)); S.clips = fill(cl); await save({ clips: S.clips }); clipsUI(); status(S.clips.length ? 'Pronto: transcrição e ' + S.clips.length + (S.clips.length === 1 ? ' corte sugerido.' : ' cortes sugeridos.') + (cl.length < S.clips.length ? ' Alguns são seleção automática.' : '') : 'Transcrição pronta. Não achei trechos; crie um corte manual.'); }
+    catch (e) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status(e.code === 'paid' ? 'Transcrição pronta. Separei trechos relevantes; a seleção por IA faz parte do plano pago.' : 'Transcrição pronta. A IA falhou (' + e.message + '); separei trechos relevantes automaticamente.'); }
   } catch (e) { status('Não foi possível transcrever: ' + (/fetch|network|import/i.test(e.message) && !LIVE ? 'o download do modelo de voz foi bloqueado neste ambiente (a prévia do Claude não permite). Publique o app (GitHub Pages) ou conecte o Worker.' : e.message)); }
-  finally { prog(null); S.busy = false; $('#txt').readOnly = false; if (S.mode === 'clips' && S.words.length && !$('#edit').hidden) { tab('clips'); try { $('#pClips').scrollIntoView({ block: 'nearest' }); } catch { /* ok */ } } }
+  finally { prog(null); S.busy = false; $('#txt').readOnly = false; if (S.mode === 'clips' && S.words.length && !$('#edit').hidden) { tab('clips'); if (S.clips.length && S.file) cutsOpen(); } }
 }
 // Transcrição no próprio aparelho (Whisper via transformers.js): funciona sem servidor e sem conta.
 let ASR = null;
@@ -551,6 +552,7 @@ function acutPanel() {
 }
 function buildFx() { $('#fxCut').append(fillerBtn()); $('#fxCut').append(mkFx('cut', 'Remover silêncios', 'Corta pausas longas entre as falas.')); $('#fxCut').append(mkFx('acut', 'Auto-corte inteligente', 'Tira contagem regressiva (3, 2, 1), hesitações e vícios isolados. Dá para ver e desmarcar cada corte.')); $('#fxCut').append(acutPanel()); $('#fxZoom').append(mkFx('zoom', 'Zoom automático', 'Só aproxima quando a fala justifica (emoção, revelação, detalhe), no máximo a cada poucos segundos. Lê a transcrição para decidir.')); { const z = el('select', { id: 'zoomL', onchange: () => { S.fx.zoomL = +z.value; S.style.fx = S.fx; saveSoon('style', { style: S.style }); } }, ...[[1, 'Suave'], [2, 'Média'], [3, 'Forte']].map(([v, t]) => el('option', { value: v, textContent: t }))); z.value = S.fx.zoomL || 2; $('#fxZoom').append(el('div', { className: 'row' }, el('label', { htmlFor: 'zoomL', textContent: 'Intensidade do zoom' }), z)); } $('#fxZoom').append(mkFx('emoji', 'Emojis nas legendas', 'Adiciona emojis nas palavras-chave, sem exagero.')); $('#fxCut').append(mkFx('denoise', 'Reduzir ruído', 'Limpa o ruído de fundo com IA que roda no seu aparelho (aplicado ao exportar).')); $('#fxCut').append(mkFx('sfx', 'Efeitos sonoros', 'Whoosh nas trocas de zoom e pop nos títulos (ouvidos ao exportar).')); syncFx(); }
 function clipsUI() {
+  if ($('#cuts').open) cutsUI();
   kwSuggest(); drawTimeline(); syncFx(); const ul = $('#clips'); ul.replaceChildren();
   $('#cmsg').textContent = S.clips.length ? 'Escolha o que gerar. A seleção usa IA e serve de ponto de partida.' : 'Nenhum corte forte encontrado. Busque um momento por palavra ou crie um corte manualmente abaixo.';
   S.clips.forEach((c, i) => {
@@ -563,6 +565,62 @@ function clipsUI() {
     const mp = miniClip(c); ul.append(el('li', { className: 'clip' + (mp ? ' hm' : '') }, ...(mp ? [mp] : []), el('div', {}, el('b', { textContent: c.title || 'Corte ' + (i + 1) }), ' ', el('span', { className: 'score', textContent: c.score != null ? 'nota ' + c.score : 'manual' })), el('div', { className: 'mut', textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }), acts));
   });
 }
+// ---------- tela de cortes sugeridos (grade 9:16: o usuário aprova, rejeita, ajusta ou baixa) ----------
+let cutsF = 'all';
+const cutSave = () => save({ clips: S.clips.map(({ url, state, p, err, t0, ...c }) => c) });
+function cutsOpen() { if (!S.clips.length) { flash('Ainda não há cortes. Crie um manual.'); return; } cutsUI(); if (!$('#cuts').open) $('#cuts').showModal(); }
+function cutsClose() { if (miniOn) miniStop(miniOn); $('#cuts').close(); }
+async function cutDl(c) {
+  if (!c.url) await renderOne(c);
+  if (c.url) { const a = el('a', { href: c.url, download: `forjaclip-corte-${S.clips.indexOf(c) + 1}.mp4` }); document.body.append(a); a.click(); a.remove(); }
+}
+function cutCard(c, i) {
+  const src = $('#vid').src, card = el('div', { className: 'cc' + (c.status === 'no' ? ' no' : '') }); card.dataset.id = c.id;
+  const box = el('div', { className: 'cvid' + (c.state === 'rendering' ? ' rend' : '') }), v = document.createElement('video'), pl = el('span', { className: 'mpl', textContent: '▶' });
+  v.muted = true; v.playsInline = true; v.preload = 'metadata'; v.setAttribute('aria-hidden', 'true'); box._c = c; box._src = src; box.setAttribute('aria-label', 'Prévia do corte ' + (c.title || i + 1) + ': tocar');
+  const tool = el('div', { className: 'ctool' }); tool.setAttribute('role', 'toolbar'); tool.setAttribute('aria-label', 'Ações do corte');
+  const btn = (txt, label, fn, cls = '') => { const b = el('button', { type: 'button', textContent: txt, title: label, className: cls }); b.setAttribute('aria-label', label); b.onclick = e => { e.stopPropagation(); fn(); }; return b; };
+  tool.append(
+    btn('✎', 'Ajustar título e trecho', () => cutEdit(c)),
+    btn('⬇', c.url ? 'Baixar o corte' : 'Gerar e baixar o corte', () => cutDl(c)),
+    btn('✓', 'Aprovar', () => { c.status = c.status === 'ok' ? '' : 'ok'; cutSave(); cutsUI(); }, c.status === 'ok' ? 'on' : ''),
+    btn('✕', 'Rejeitar', () => { c.status = c.status === 'no' ? '' : 'no'; cutSave(); cutsUI(); }, c.status === 'no' ? 'x on' : 'x'));
+  const sc = el('span', { className: 'cs' + (c.auto ? ' a' : ''), textContent: c.auto ? 'Relevante' : c.score != null ? c.score + '%' : 'Manual' });
+  const pr = el('progress', { max: 1, value: c.p || 0 });
+  box.append(v, sc, el('span', { className: 'cb', textContent: 'Prévia' }), pl, el('span', { className: 'cd', textContent: mmss(c.end - c.start) }), tool, pr);
+  v.ontimeupdate = () => { if (v.currentTime >= c.end) miniStop(box); };
+  let ht = 0; const hover = matchMedia('(hover:hover)').matches && !matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if (hover) { box.onmouseenter = () => { ht = setTimeout(() => miniPlay(box, false), 300); }; box.onmouseleave = () => { clearTimeout(ht); if (box.classList.contains('on') && v.muted) miniStop(box); }; }
+  box.onclick = () => { clearTimeout(ht); if (box.classList.contains('on') && !v.muted) miniStop(box); else miniPlay(box, true); };
+  box.onkeydown = e => { if (e.key === 'Escape') miniStop(box); };
+  if (src) { if (miniIO) miniIO.observe(box); else v.src = src + '#t=' + c.start; }
+  card.append(box, el('h3', { textContent: c.title || 'Corte ' + (i + 1) }), el('p', { textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }));
+  return card;
+}
+function cutsUI() {
+  if (miniOn) miniStop(miniOn);
+  const all = S.clips, n = { all: all.length, ok: all.filter(c => c.status === 'ok').length, no: all.filter(c => c.status === 'no').length };
+  document.querySelectorAll('#cutsTabs button').forEach(b => { const f = b.dataset.f; b.textContent = { all: 'Todos', ok: 'Aprovados', no: 'Rejeitados' }[f] + ' (' + n[f] + ')'; b.setAttribute('aria-selected', String(f === cutsF)); b.onclick = () => { cutsF = f; cutsUI(); }; });
+  $('#cutsSub').textContent = (S.title || '') + ' · ' + n.all + ' trechos separados. Você decide quais usar.';
+  const g = $('#cutsGrid'); g.replaceChildren();
+  const list = all.map((c, i) => [c, i]).filter(([c]) => cutsF === 'all' || (c.status || '') === cutsF);
+  if (!list.length) g.append(el('p', { className: 'mut', textContent: 'Nenhum corte nesta aba.' }));
+  for (const [c, i] of list) g.append(cutCard(c, i));
+}
+function cutEdit(c) {
+  const d = $('#cedit'); $('#ceT').value = c.title || ''; $('#ceS').value = tfmt(c.start); $('#ceE').value = tfmt(c.end); $('#ceM').textContent = ''; d.showModal();
+  $('#ceNo').onclick = () => d.close();
+  $('#ceOk').onclick = () => {
+    const s0 = tsec($('#ceS').value), e0 = tsec($('#ceE').value);
+    if (!(e0 - s0 >= 3) || e0 > S.dur + 0.5) { $('#ceM').textContent = 'O corte precisa ter pelo menos 3 segundos e ficar dentro do vídeo (' + tfmt(S.dur) + ').'; return; }
+    if (e0 - s0 > 120) { $('#ceM').textContent = 'No navegador, cada corte pode ter até 2 minutos.'; return; }
+    c.title = $('#ceT').value.trim().slice(0, 80) || c.title; c.start = s0; c.end = e0; if (c.url) { URL.revokeObjectURL(c.url); delete c.url; c.state = 'idle'; } cutSave(); d.close(); cutsUI(); drawTimeline();
+  };
+}
+$('#cutsX').onclick = cutsClose; $('#cuts').addEventListener('close', () => { if (miniOn) miniStop(miniOn); });
+$('#cutsOpen').onclick = cutsOpen;
+$('#cutsMan').onclick = () => { cutsClose(); tab('clips'); try { $('#ms').scrollIntoView({ block: 'center' }); $('#ms').focus(); } catch { /* ok */ } };
+
 $('#addManual').onclick = () => {
   const s = +$('#ms').value, e = +$('#me').value;
   if (!(e - s >= 3)) { flash('O corte precisa ter pelo menos 3 segundos.'); return; }
@@ -574,7 +632,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
