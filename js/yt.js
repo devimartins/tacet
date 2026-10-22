@@ -2,6 +2,8 @@
 // (getDisplayMedia + CropTarget). Nada é baixado do YouTube. Só desktop Chrome/Edge.
 export const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1); if (/youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };
 
+// segundo inicial de links como ?t=1759, ?t=29m19s ou ?start=1759
+export const ytStart = u => { try { const x = new URL(u), v = x.searchParams.get('t') || x.searchParams.get('start') || ''; const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(v); return m && v ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0; } catch { return 0; } };
 export function ytSupported() {
   return !!(navigator.mediaDevices?.getDisplayMedia && window.MediaRecorder && window.CropTarget && !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
 }

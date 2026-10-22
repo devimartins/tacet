@@ -7,7 +7,7 @@ import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
 import { findBroll } from './broll.js';
-import { ytId, ytSupported, mountPlayer, record, flatten } from './yt.js';
+import { ytId, ytStart, ytSupported, mountPlayer, record, flatten } from './yt.js';
 import { initGuide } from './guide.js';
 import { trackFaces, trackAt } from './facetrack.js';
 import { avatarSvg, parseAv, AV_COUNT, BG_COUNT } from './avatar.js';
@@ -150,6 +150,8 @@ async function openProject(id) {
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
 if (!ytSupported()) { const f = $('#ytForm'); f.querySelector('label').textContent = 'Link do YouTube (disponível só no computador)'; $('#ytUrl').disabled = true; $('#ytUrl').placeholder = 'Abra no Chrome ou Edge do computador'; f.querySelector('button').disabled = true; $('#ytMsg').textContent = 'Celulares e o Safari não permitem gravar a aba do navegador. Aqui, use o arquivo do vídeo: no iPhone, grave a tela (Central de Controle) ou salve o vídeo na Galeria e envie em “Novo vídeo”. Se o vídeo é seu, o YouTube Studio tem a opção de baixar o arquivo original (Conteúdo › ⋮ › Baixar).'; }
+// Registro da declaração de direitos (quem aceitou, quando e sobre qual vídeo). Falha de rede não bloqueia o uso.
+async function logRights(kind, ref, s, e) { try { if (!S.sb || !S.user) return; await S.sb.from('rights_log').insert({ kind, video_ref: ref, start_s: s, end_s: e, termo: 'v1', ua: navigator.userAgent.slice(0, 200) }); } catch { /* sem registro */ } }
 $('#ytForm').onsubmit = async e => {
   e.preventDefault(); const id = ytId($('#ytUrl').value.trim()), m = $('#ytMsg'), say = (t, bad) => { m.textContent = t; m.style.color = bad ? '#ff6a6a' : ''; m.style.fontWeight = bad ? '600' : ''; };
   if (!id) { say('Cole um link do YouTube válido (youtube.com ou youtu.be).', 1); return; }
@@ -158,12 +160,13 @@ $('#ytForm').onsubmit = async e => {
   try {
     const box = $('#ytbox'), player = await mountPlayer(box, id); say('');
     const st = $('#ytSt'), bar = $('#ytBar'), step = (t, v) => { st.textContent = t; if (v == null) bar.hidden = true; else { bar.hidden = false; bar.value = v; } };
-    $('#ytd').showModal(); $('#ytOk').checked = false; $('#ytS').value = 0; $('#ytE').value = Math.floor(player.getDuration() || 0) || ''; $('#ytRec').disabled = false; $('#ytStop').hidden = true;
+    $('#ytd').showModal(); $('#ytOk').checked = false; $('#ytS').value = ytStart($('#ytUrl').value) || 0; { const o = $('#ytOpen'), up = () => { o.href = 'https://youtu.be/' + id + '?t=' + (Math.floor(+$('#ytS').value) || 0); }; up(); $('#ytS').oninput = up; } let pv = 0; const stopPv = () => { clearInterval(pv); pv = 0; }; $('#ytPrev').onclick = () => { stopPv(); const s0 = +$('#ytS').value || 0, e0 = +$('#ytE').value || 0; try { player.seekTo(s0, true); player.playVideo(); } catch { return; } pv = setInterval(() => { try { if (e0 && player.getCurrentTime() >= e0) { player.pauseVideo(); stopPv(); } } catch { stopPv(); } }, 250); }; box._stopPv = stopPv; $('#ytE').value = Math.floor(player.getDuration() || 0) || ''; $('#ytRec').disabled = false; $('#ytStop').hidden = true;
     step('Passo 1: escolha o trecho. Passo 2: marque que tem os direitos. Passo 3: clique em “Gravar e transcrever” e, na janela do navegador, escolha ESTA ABA e marque “Compartilhar áudio”.', null);
-    $('#ytX').onclick = () => { try { player.destroy(); } catch {} $('#ytd').close(); };
+    $('#ytX').onclick = () => { box._stopPv?.(); try { player.destroy(); } catch {} $('#ytd').close(); };
     $('#ytStop').onclick = () => box._stop?.();
     $('#ytRec').onclick = async () => {
       if (!$('#ytOk').checked) { step('Marque a caixa de direitos sobre o vídeo para continuar.', null); return; }
+      logRights('youtube', id, +$('#ytS').value || 0, +$('#ytE').value || 0);
       $('#ytRec').disabled = true; $('#ytStop').hidden = false; step('Aguardando você escolher “Esta aba” e ativar o áudio na janela do navegador…', 0);
       try {
         const f = await record(player, box, { start: +$('#ytS').value || 0, end: +$('#ytE').value || 0, onStatus: (a, b2) => step(`Gravando o trecho… ${mmss(a)} / ${mmss(b2)} — não feche nem troque de aba.`, b2 ? a / b2 : 0) });
@@ -552,7 +555,7 @@ function clipsUI() {
     if (c.url) acts.append(el('a', { className: 'btn', textContent: 'Baixar', href: c.url, download: `forjaclip-corte-${i + 1}.mp4` }));
     { const d = el('button', { className: 'btn', textContent: 'Descrição e hashtags', onclick: () => describeClip(c, d) }); acts.append(d); }
     if (c.state === 'error') acts.append(el('span', { className: 'warn', textContent: c.err }));
-    ul.append(el('li', { className: 'clip' }, el('div', {}, el('b', { textContent: c.title || 'Corte ' + (i + 1) }), ' ', el('span', { className: 'score', textContent: c.score != null ? 'nota ' + c.score : 'manual' })), el('div', { className: 'mut', textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }), acts));
+    const mp = miniClip(c); ul.append(el('li', { className: 'clip' + (mp ? ' hm' : '') }, ...(mp ? [mp] : []), el('div', {}, el('b', { textContent: c.title || 'Corte ' + (i + 1) }), ' ', el('span', { className: 'score', textContent: c.score != null ? 'nota ' + c.score : 'manual' })), el('div', { className: 'mut', textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }), acts));
   });
 }
 $('#addManual').onclick = () => {
@@ -1006,3 +1009,21 @@ function tourAuto(k, view) { if (tourSeen(k)) return; setTimeout(() => { if ($('
 $('#nTour').onclick = () => tourRun($('#edit').hidden ? 'home' : 'edit');
 new MutationObserver(() => { if (!$('#home').hidden) tourAuto('home', 'home'); else if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] });
 new MutationObserver(() => { if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#edit'), { attributes: true, attributeFilter: ['hidden'] });
+
+// ---------- mini-players dos cortes: prévia muda no hover, um ativo por vez, carrega só ao aparecer na tela ----------
+let miniOn = null;
+const miniIO = 'IntersectionObserver' in window ? new IntersectionObserver(es => { for (const x of es) if (x.isIntersecting) { const v = x.target.querySelector('video'); if (v && !v.src) { v.src = x.target._src + '#t=' + x.target._c.start; } miniIO.unobserve(x.target); } }, { rootMargin: '120px' }) : null;
+function miniStop(b) { const v = b.querySelector('video'); b.classList.remove('on'); b.setAttribute('aria-label', 'Prévia do corte ' + (b._c.title || '') + ': tocar'); try { v.pause(); v.muted = true; v.currentTime = b._c.start; } catch { /* ok */ } if (miniOn === b) miniOn = null; }
+function miniPlay(b, sound) { if (miniOn && miniOn !== b) miniStop(miniOn); const v = b.querySelector('video'); if (!v.src) v.src = b._src; miniOn = b; b.classList.add('on'); b.setAttribute('aria-label', 'Prévia do corte ' + (b._c.title || '') + ': parar'); v.muted = !sound; if (v.currentTime < b._c.start || v.currentTime >= b._c.end) v.currentTime = b._c.start; v.play().catch(() => miniStop(b)); }
+function miniClip(c) {
+  const src = $('#vid').src; if (!src || !S.file) return null;
+  const b = document.createElement('button'), v = document.createElement('video'), pl = document.createElement('span');
+  b.type = 'button'; b.className = 'mini'; b._c = c; b._src = src; v.muted = true; v.playsInline = true; v.preload = 'metadata'; v.setAttribute('aria-hidden', 'true'); pl.className = 'mpl'; pl.textContent = '▶'; pl.setAttribute('aria-hidden', 'true'); b.append(v, pl); b.setAttribute('aria-label', 'Prévia do corte ' + (c.title || '') + ': tocar');
+  v.ontimeupdate = () => { if (v.currentTime >= c.end) miniStop(b); };
+  let ht = 0; const hover = matchMedia('(hover:hover)').matches && !matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if (hover) { b.onmouseenter = () => { ht = setTimeout(() => miniPlay(b, false), 300); }; b.onmouseleave = () => { clearTimeout(ht); if (b.classList.contains('on') && v.muted) miniStop(b); }; }
+  b.onclick = () => { clearTimeout(ht); if (b.classList.contains('on') && !v.muted) miniStop(b); else miniPlay(b, true); };
+  b.onkeydown = e => { if (e.key === 'Escape') miniStop(b); };
+  if (miniIO) miniIO.observe(b); else v.src = src + '#t=' + c.start;
+  return b;
+}
