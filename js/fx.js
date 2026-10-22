@@ -72,7 +72,7 @@ function nebula() {
   const cv = document.createElement('canvas'); cv.className = 'neb';
   const gl = cv.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'low-power' }); if (!gl) return;
   const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
-  const fs = `precision mediump float;uniform vec2 R;uniform float T,S;
+  const fs = `precision mediump float;uniform vec2 R;uniform float T,S,L;
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p=p*2.02+vec2(1.7,9.2);a*=.5;}return v;}
@@ -85,7 +85,9 @@ c=mix(c,vec3(.26,.025,.035),smoothstep(.35,.8,f)*.85);
 c=mix(c,vec3(.95,.28,.06),smoothstep(.66,1.,r.x*f*2.4)*.24);
 c+=vec3(1.,.7,.25)*pow(smoothstep(.75,1.,f*r.y*2.6),3.)*.14;
 float v=smoothstep(1.25,.25,length(gl_FragCoord.xy/R-.5)*1.5);
-c*=.2+.64*v*smoothstep(.1,.9,length(gl_FragCoord.xy/R-vec2(.5,.52))*1.6+.25);gl_FragColor=vec4(c,1.);}`;
+c*=.2+.64*v*smoothstep(.1,.9,length(gl_FragCoord.xy/R-vec2(.5,.52))*1.6+.25);
+vec3 l=vec3(.985,.962,.94);l=mix(l,vec3(.99,.80,.70),smoothstep(.32,.8,f)*.7);l=mix(l,vec3(1.,.56,.24),smoothstep(.62,1.,r.x*f*2.4)*.4);l+=vec3(1.,.8,.4)*pow(smoothstep(.75,1.,f*r.y*2.6),3.)*.08;l*=.93+.07*v;
+gl_FragColor=vec4(mix(c,l,L),1.);}`;
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return gl.getShaderParameter(o, gl.COMPILE_STATUS) ? o : null; };
   const v = sh(gl.VERTEX_SHADER, vs), f = sh(gl.FRAGMENT_SHADER, fs); if (!v || !f) return;
   const pr = gl.createProgram(); gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
@@ -93,18 +95,19 @@ c*=.2+.64*v*smoothstep(.1,.9,length(gl_FragCoord.xy/R-vec2(.5,.52))*1.6+.25);gl_
   const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const a = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
-  const uR = gl.getUniformLocation(pr, 'R'), uT = gl.getUniformLocation(pr, 'T'), uS = gl.getUniformLocation(pr, 'S');
+  const uL = gl.getUniformLocation(pr, 'L'), uR = gl.getUniformLocation(pr, 'R'), uT = gl.getUniformLocation(pr, 'T'), uS = gl.getUniformLocation(pr, 'S');
   const scale = innerWidth < 760 ? .32 : .42;
   const size = () => { cv.width = Math.max(2, Math.round(innerWidth * scale)); cv.height = Math.max(2, Math.round(innerHeight * scale)); gl.viewport(0, 0, cv.width, cv.height); };
   size(); addEventListener('resize', size, { passive: true });
   bg.prepend(cv); bg.classList.add('neb');
-  let sm = 0, t0 = performance.now();
+  let sm = 0, lm = 0, t0 = performance.now(); const mq = matchMedia('(prefers-color-scheme:light)');
+  const isLight = () => { const t = document.documentElement.dataset.theme; return t ? t === 'light' : mq.matches; };
   const draw = now => {
     requestAnimationFrame(draw);
-    if (document.hidden || !cv.offsetParent && getComputedStyle(cv).display === 'none') return;
+    if (document.hidden) return;
     const sp = parseFloat(document.documentElement.style.getPropertyValue('--sp')) || 0;
     sm += (sp - sm) * .08;
-    gl.uniform2f(uR, cv.width, cv.height); gl.uniform1f(uT, (now - t0) / 1000); gl.uniform1f(uS, sm * 3 + fx.vel * .02);
+    gl.uniform2f(uR, cv.width, cv.height); gl.uniform1f(uT, (now - t0) / 1000); lm += ((isLight() ? 1 : 0) - lm) * .12; gl.uniform1f(uL, lm); gl.uniform1f(uS, sm * 3 + fx.vel * .02);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
   requestAnimationFrame(draw);
