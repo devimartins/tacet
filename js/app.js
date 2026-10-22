@@ -424,6 +424,14 @@ function buildPresets() {
 // linha do tempo: faixa de legendas e faixa de cortes, com cabeça de reprodução
 S.tlz = 1;
 function tlZoom(z) { S.tlz = Math.min(12, Math.max(1, z)); $('#tl .tw').style.width = S.tlz * 100 + '%'; $('#tlZv').textContent = (Math.round(S.tlz * 10) / 10) + '×'; }
+$('#tlTrim').onclick = () => {   // tira a preparação do começo e a pausa do final: início ≈ 0,3 s antes da 1ª fala, fim ≈ 0,7 s depois da última
+  let n = 0, cut = 0;
+  S.clips.forEach(c => { if (c.state === 'rendering') return; const ws = S.words.filter(w => w.e > c.start && w.s < c.end); if (!ws.length) return;
+    const ns = Math.max(c.start, ws[0].s - 0.3), ne = Math.min(c.end, ws[ws.length - 1].e + 0.7); if (ne - ns < 3 || (Math.abs(ns - c.start) < 0.05 && Math.abs(ne - c.end) < 0.05)) return;
+    cut += (ns - c.start) + (c.end - ne); c.start = ns; c.end = ne; delete c.url; delete c.state; n++; });
+  if (!n) { flash(S.words.length ? 'Os cortes já começam e terminam na fala.' : 'Ainda não há transcrição para achar onde a fala começa e termina.'); return; }
+  save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI(); flash('Aparei ' + n + ' corte(s): ' + cut.toFixed(1) + ' s de preparação e pausa removidos. Você ainda pode arrastar as bordas.');
+};
 $('#tlZp').onclick = () => tlZoom(S.tlz * 1.6); $('#tlZm').onclick = () => tlZoom(S.tlz / 1.6);
 const hnd = h => { const u = el('u', { className: 'h ' + h }); u.dataset.h = h; return u; };
 function drawTimeline() {
