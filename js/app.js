@@ -92,12 +92,16 @@ async function home() {
   const { data, error } = await S.sb.from('projects').select('id,title,duration,expires_at,created_at').order('created_at', { ascending: false });
   if (error) { flash('Não foi possível listar os projetos: ' + error.message); return; }
   const ul = $('#plist'); ul.replaceChildren(); $('#pempty').hidden = data.length > 0; $('#pempty').textContent = 'Nenhum projeto ainda.';
-  for (const p of data) {
+  for (const [i, p] of data.entries()) {
     const days = Math.max(0, Math.ceil((new Date(p.expires_at) - Date.now()) / 864e5));
     const th = ls.get('th_' + p.id);
-    ul.append(el('li', { className: 'item' }, ...(th ? [el('img', { className: 'th', src: th, alt: '' })] : []), el('div', { className: 'grow' }, el('b', { textContent: p.title || 'Sem título' }), el('div', { className: 'mut', textContent: (p.duration ? mmss(p.duration) + ' · ' : '') + 'expira em ' + days + (days === 1 ? ' dia' : ' dias') })),
-      el('button', { className: 'btn', textContent: 'Abrir', onclick: () => openProject(p.id) }),
-      el('button', { className: 'btn', textContent: 'Excluir', onclick: async () => { if (!confirm('Excluir este projeto?')) return; const r = await S.sb.from('projects').delete().eq('id', p.id); if (r.error) flash(r.error.message); else home(); } })));
+    const ico = el('span', { className: 'pic' }); ico.innerHTML = '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><use href="#fc-mark"/></svg>';
+    ul.append(el('li', { className: 'item pj' }, ...(th ? [el('img', { className: 'th', src: th, alt: '' })] : [ico]),
+      el('div', { className: 'grow' }, el('b', { textContent: p.title || 'Sem título' }), el('div', { className: 'mut pm' }, el('span', { textContent: p.duration ? mmss(p.duration) : 'Projeto' }), el('span', { className: 'exp' + (days <= 1 ? ' soon' : ''), textContent: 'expira em ' + days + (days === 1 ? ' dia' : ' dias') }))),
+      el('div', { className: 'pa' },
+        el('button', { className: 'btn pri', textContent: 'Abrir', onclick: () => openProject(p.id) }),
+        el('button', { className: 'btn', textContent: 'Excluir', onclick: async () => { if (!confirm('Excluir este projeto?')) return; const r = await S.sb.from('projects').delete().eq('id', p.id); if (r.error) flash(r.error.message); else home(); } })),
+      el('span', { className: 'pn', ariaHidden: 'true', textContent: String(i + 1).padStart(2, '0') })));
   }
   ads();
 }
