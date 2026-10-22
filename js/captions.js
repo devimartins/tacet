@@ -26,6 +26,7 @@ export async function loadFont(font, ...weights) {
 // Presets: free = true entram no plano gratuito. Nomes próprios, exceto "Iman", pedido expressamente.
 const B = { font: 'Montserrat', wLight: 800, wActive: 800, color: '#ffffff', activeColor: '#ffffff', stroke: 0, strokeColor: '#000000', bgOpacity: 0, bg: '#000000', case: 'none', n: 3, pop: 0, shadow: 1, fs: 50, mode: 'word' };
 export const PRESETS = {
+  classico: { ...B, name: 'Clássico', free: true, font: 'Inter', wLight: 600, wActive: 600, color: '#ffffff', activeColor: '#ffffff', stroke: 35, n: 6, fs: 44, shadow: 1, case: 'none' },
   iman: { ...B, name: 'Iman', free: true, wLight: 300, wActive: 600, case: 'lower', n: 4, fs: 40, shadow: 1, dim: 0.6 },
   impacto: { ...B, name: 'Impacto', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', activeColor: '#FFD500', stroke: 55, n: 3, pop: 1, fs: 50 },
   uma_palavra: { ...B, name: 'Uma palavra', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', stroke: 55, n: 1, pop: 1, fs: 72 },
@@ -43,7 +44,7 @@ export const PRESETS = {
   pulso: { ...B, name: 'Pulso', free: false, font: 'Sora', wLight: 700, wActive: 800, case: 'upper', color: '#ffffff', activeColor: '#B8FF3D', anim: 'pulse', emph: 1, stroke: 40, n: 3, fs: 48 },
   cascata: { ...B, name: 'Cascata', free: false, font: 'Montserrat', wLight: 700, wActive: 700, color: '#ffffff', activeColor: '#ffffff', n: 12, fs: 58, shadow: 1, mode: 'cascade' },
 };
-const CAT = { cascata: 'Cinético', digitacao: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
+const CAT = { classico: 'Elegante', cascata: 'Cinético', digitacao: 'Cinético', chama: 'Cinético', marca_texto: 'Cinético', onda: 'Cinético', preenchido: 'Cinético', tremor: 'Cinético', cinema: 'Cinético', pulso: 'Cinético', iman: 'Destaque', impacto: 'Viral', uma_palavra: 'Viral', minimal: 'Elegante', pilula: 'Elegante', neon: 'Divertido', manuscrito: 'Divertido' };
 Object.entries(CAT).forEach(([k, v]) => { PRESETS[k].cat = v; });
 export const CATS = ['Todos', 'Cinético', 'Destaque', 'Viral', 'Elegante', 'Divertido'];
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
