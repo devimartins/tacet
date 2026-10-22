@@ -87,10 +87,21 @@ export function openTeleprompter({ onUse, flash, ai }) {
     </div>
     <div class="ctl"><button id="zm" type="button">A−</button><button id="zp" type="button">A+</button><button id="pz" type="button">Pausar texto</button><button id="x" type="button">Cancelar</button></div>`);
     $('#x').onclick = () => { close(); };
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } } });
-    } catch { flash('Não consegui abrir a câmera. Permita o acesso à câmera e ao microfone.'); editor(); return; }
-    const v = $('#v'); v.srcObject = stream;
+    const tries = [
+      { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } } },
+      { audio: true, video: { facingMode: 'user' } },
+      { audio: true, video: true }];
+    let err = null; stream = null;
+    for (const c of tries) { try { stream = await navigator.mediaDevices.getUserMedia(c); err = null; break; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
+    if (!stream) {
+      const n = err && err.name, msg = n === 'NotAllowedError' || n === 'SecurityError'
+        ? 'A câmera ou o microfone está bloqueado para este site. No iPhone: Ajustes > nome do navegador (Chrome ou Safari) > ative Câmera e Microfone. Se usa o Safari, toque em “aA” ao lado do endereço > Ajustes do Site > Permitir. No Android/Chrome: toque no ícone ao lado do endereço > Permissões. Depois toque em Iniciar TP de novo.'
+        : n === 'NotFoundError' ? 'Não encontrei câmera ou microfone neste aparelho.'
+        : n === 'NotReadableError' || n === 'AbortError' ? 'A câmera está sendo usada por outro app ou aba. Feche-o e tente de novo.'
+        : 'Não consegui abrir a câmera' + (n ? ' (' + n + ')' : '') + '. Feche outros apps que usam a câmera e tente de novo.';
+      editor(); const pm = document.createElement('p'); pm.setAttribute('role', 'alert'); pm.style.cssText = 'color:#ffb454;font-size:14px;line-height:1.45;margin:8px 0'; pm.textContent = msg; root.prepend(pm); flash('Não consegui abrir a câmera.'); return;
+    }
+    const v = $('#v'); v.srcObject = stream; v.play().catch(() => { /* autoplay */ });
     const tx = $('#tx'); tx.textContent = cfg.text; tx.style.fontSize = cfg.size + 'px'; tx.style.lineHeight = '1.35'; tx.style.transform = cfg.mirror ? 'scaleX(-1)' : '';
     const words = Math.max(1, cfg.text.trim().split(/\s+/).length);
     const win = $('.win');
