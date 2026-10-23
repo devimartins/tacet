@@ -487,16 +487,17 @@ function drawTimeline() {
   // faixas extras: áudios (arrastáveis), música e imagens/B-roll/títulos
   document.querySelectorAll('#tl .x').forEach(n => n.remove());
   const nc = document.querySelector('#tl .tnc'), tw = document.querySelector('#tl .tw'), ph = $('#ph2');
-  const addTrack = (name, fill) => { const t = el('div', { className: 'trk x' }); nc.append(el('span', { className: 'tn x', textContent: name })); tw.insertBefore(t, ph); fill(t); };
+  const addTrack = (name, fill, cls = '', first = false) => { const t = el('div', { className: 'trk x ' + cls }), lb = el('span', { className: 'tn x', textContent: name }); if (first) { nc.prepend(lb); tw.prepend(t); } else { nc.append(lb); tw.insertBefore(t, ph); } fill(t); };
+  addTrack('Vídeo', t => t.append(el('i', { style: 'left:0;width:100%', textContent: S.title || 'Vídeo principal' })), 'tv', true);
   if ((S.aud || []).length) addTrack('Áudio', t => S.aud.forEach(o => {
     const b = el('i', { className: 'drag', style: `left:${o.at / D * 100}%;width:${Math.max(1.5, o.buf.duration / D * 100)}%`, textContent: o.name, title: 'Arraste para mover o áudio' });
     b.onpointerdown = e => { e.stopPropagation(); b.setPointerCapture(e.pointerId); const r = t.getBoundingClientRect(), x0 = e.clientX, a0 = o.at;
       b.onpointermove = ev => { o.at = Math.max(0, Math.min(D - 0.2, a0 + (ev.clientX - x0) / r.width * D)); b.style.left = o.at / D * 100 + '%'; };
       b.onpointerup = () => { b.onpointermove = b.onpointerup = null; audUI(); }; };
-    b.onclick = e => e.stopPropagation(); t.append(b); }));
-  if (S.music) addTrack('Música', t => t.append(el('i', { style: 'left:0;width:100%;opacity:.55', textContent: S.music.name })));
+    b.onclick = e => e.stopPropagation(); t.append(b); }), 'ta');
+  if (S.music) addTrack('Música', t => t.append(el('i', { style: 'left:0;width:100%;opacity:.55', textContent: S.music.name })), 'tm');
   const ovs = (S.ov || []).filter(o => o.from != null);
-  if (ovs.length) addTrack('Imagens', t => ovs.forEach(o => { const b = el('i', { className: 'drag', style: `left:${o.from / D * 100}%;width:${Math.max(1.5, (o.to - o.from) / D * 100)}%`, title: (o.kind === 'broll' ? 'B-roll' : o.kind === 'title' ? 'Título' : 'Imagem') + ' · arraste para mover; as bordas ajustam o tempo' }, hnd('l'), el('span', { textContent: o.kind === 'title' ? o.text : o.name }), hnd('r')); t.append(b); tlDrag(b, t, o, 'from', 'to', 0.5, () => ovUI()); }));
+  if (ovs.length) addTrack('Imagens', t => ovs.forEach(o => { const b = el('i', { className: 'drag', style: `left:${o.from / D * 100}%;width:${Math.max(1.5, (o.to - o.from) / D * 100)}%`, title: (o.kind === 'broll' ? 'B-roll' : o.kind === 'title' ? 'Título' : 'Imagem') + ' · arraste para mover; as bordas ajustam o tempo' }, hnd('l'), el('span', { textContent: o.kind === 'title' ? o.text : o.name }), hnd('r')); t.append(b); tlDrag(b, t, o, 'from', 'to', 0.5, () => ovUI()); }), 'ti');
   // régua de tempo (no topo) e guia do ímã
   { const w = tw.getBoundingClientRect().width || 560, steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600], st = steps.find(x => x / D * w >= 58) || 600, rl = el('div', { className: 'trk x rl', ariaHidden: 'true' });
     for (let t0 = 0; t0 <= D + 0.01; t0 += st) rl.append(el('s', { style: `left:${t0 / D * 100}%`, textContent: mmss(t0) }));
@@ -1340,3 +1341,11 @@ async function bgSearch() {
   } catch { m.textContent = 'A busca falhou. Verifique a conexão ou escolha da galeria.'; }
 }
 $('#bgGo').onclick = bgSearch; $('#bgQ').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); bgSearch(); } };
+
+// barra de ferramentas do celular: cada botão abre o painel certo e rola até o assunto
+function goTo(t, text) {
+  tab(t); const root = $(t === 'style' ? '#pStyle' : t === 'text' ? '#pText' : '#pClips');
+  setTimeout(() => { const h = text && [...root.querySelectorAll('.grp > b, summary, h3, h2')].find(n => n.textContent.toLowerCase().includes(text)); (h || root).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
+}
+const MB = { mbStyle: ['style'], mbText: ['text'], mbBg: ['style', 'fundo do'], mbCuts: ['clips'], mbAud: ['clips', 'som'] };
+for (const [id, a] of Object.entries(MB)) { const b = $('#' + id); if (b) b.onclick = () => { document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); goTo(a[0], a[1]); }; }
