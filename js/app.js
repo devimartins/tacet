@@ -1219,14 +1219,14 @@ function autoEdit(fromRec) {
 // a edição automática é uma escolha do usuário e vale só para vídeo vertical
 const aeVertical = () => { const v = $('#vid'); return !(v && v.videoWidth && v.videoHeight) || v.videoHeight > v.videoWidth; };
 function aeSync() {
-  const b = $('#autoEdit'), m = $('#autoEditM'); if (!b) return; const ok = aeVertical(); b.disabled = !ok;
+  const b = $('#autoEdit'), m = $('#autoEditM'); if (!b) return; const ok = aeVertical(); b.disabled = !ok; $('#autoEdit2').disabled = !ok;
   if (!ok) m.textContent = 'A edição automática é feita para vídeos verticais (como os gravados no teleprompter). Este vídeo é horizontal.'; else if (m.textContent.startsWith('A edição automática é feita')) m.textContent = '';
 }
 $('#vid').addEventListener('loadedmetadata', aeSync);
 $('#aeYes').onclick = () => { $('#aeD').close(); autoEdit(true); };
 $('#aeNo').onclick = () => $('#aeD').close();
 
-$('#autoEdit').onclick = () => autoEdit(false);
+$('#autoEdit').onclick = $('#autoEdit2').onclick = () => autoEdit(false);
 // timeline sem silêncios em EDL (abre no Premiere e no DaVinci Resolve)
 $('#edlCutBtn').onclick = () => {
   if (!S.words.length) { flash('Gere a transcrição primeiro.'); return; }
