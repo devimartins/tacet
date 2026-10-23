@@ -155,7 +155,7 @@ function ads() {   // anúncios só no plano gratuito, com ID do AdSense configu
   box.dataset.on = '1'; box.hidden = false;
   const s = el('script', { async: true, src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(CFG.ADS_CLIENT), crossOrigin: 'anonymous' });
   const ins = el('ins', { className: 'adsbygoogle' }); ins.style.display = 'block'; Object.assign(ins.dataset, { adClient: CFG.ADS_CLIENT, adSlot: CFG.ADS_SLOT, adFormat: 'auto', fullWidthResponsive: 'true' });
-  box.append(s, ins); s.onload = () => { try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch { /* bloqueado */ } };
+  box.append(s, ins); s.onload = () => { try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch { /* bloqueado */ } }; setTimeout(() => { if (ins.dataset.adStatus !== 'filled' || ins.offsetHeight < 30) box.classList.add('empty'); }, 8000);
 }
 const fp = f => `${f.name}|${f.size}|${f.lastModified}`;
 async function newVideo(f, mode = 'clips') {
