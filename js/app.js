@@ -1347,5 +1347,5 @@ function goTo(t, text) {
   tab(t); const root = $(t === 'style' ? '#pStyle' : t === 'text' ? '#pText' : '#pClips');
   setTimeout(() => { const h = text && [...root.querySelectorAll('.grp > b, summary, h3, h2')].find(n => n.textContent.toLowerCase().includes(text)); (h || root).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
 }
-const MB = { mbStyle: ['style'], mbText: ['text'], mbBg: ['style', 'fundo do'], mbCuts: ['clips'], mbAud: ['clips', 'som'] };
-for (const [id, a] of Object.entries(MB)) { const b = $('#' + id); if (b) b.onclick = () => { document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); goTo(a[0], a[1]); }; }
+const MBAR = { mbStyle: ['style'], mbText: ['text'], mbBg: ['style', 'fundo do'], mbCuts: ['clips'], mbAud: ['clips', 'som'] };
+for (const [id, a] of Object.entries(MBAR)) { const b = $('#' + id); if (b) b.onclick = () => { document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); goTo(a[0], a[1]); }; }
