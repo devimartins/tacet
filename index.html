@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=154"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=155"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -241,7 +241,7 @@ body:has(#edit:not([hidden])) #botp{right:auto;left:84px}
 @media(max-width:899px){#vidSet.sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;max-height:48dvh;overflow:auto;margin:0;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:var(--s1);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.28)}#vidSet.sheet .vsh{position:sticky;top:-12px;background:var(--s1);padding:4px 0 8px;z-index:1}#vidSet.sheet #vidClose{display:inline-flex}}
 .vrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.vrow .btn{min-height:36px;font-size:13px;padding:6px 12px}
 .alist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center}.alist .nm{grid-column:1/-1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.alist .rg{display:grid;grid-template-columns:auto minmax(80px,1fr) 64px;gap:8px;align-items:center;grid-column:1/-1;font-size:12px}.alist input[type=range]{width:100%;min-width:0}.alist output{text-align:right;font-variant-numeric:tabular-nums}
-.row:has(>.seg){grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0}.row:has(>.seg) .seg{width:128px}.row.btns{display:flex;flex-wrap:wrap;gap:8px}.row.btns .btn{flex:0 1 auto;min-height:40px}.grp .mut{overflow-wrap:anywhere}
+.row:has(>.seg){grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0}.row:has(>.seg) .seg{width:auto;max-width:100%}.row:has(>.seg) .seg button{padding:0 12px;white-space:nowrap}.row.btns{display:flex;flex-wrap:wrap;gap:8px}.row.btns .btn{flex:0 1 auto;min-height:40px}.grp .mut{overflow-wrap:anywhere}
 @media(max-width:480px){.row:has(>.seg){grid-template-columns:minmax(0,1fr) auto}}
 :root{--sh:74}@media(max-width:899px){:root{--sh:52}}
 
@@ -973,5 +973,5 @@ dialog>h2:first-of-type,dialog>.ch h2{padding-right:44px}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=154"></script>
+<script type="module" src="js/app.js?v=155"></script>
 </body></html>
