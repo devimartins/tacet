@@ -643,7 +643,7 @@ body:has(#edit:not([hidden])) footer.lf{display:none}
 }
 .insts{margin:0 0 16px;padding-left:22px;display:grid;gap:10px;font-size:15px;line-height:1.45}.insts svg{width:18px;height:18px;vertical-align:-4px;margin:0 2px}
 html,body{overflow-x:clip;max-width:100%}
-.lg-r{display:inline-flex;align-items:center;gap:14px}.lg-inst{background:none;border:0;color:var(--mut);font:500 13px var(--font-ui);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 0}.lg-inst:hover{color:var(--tx)}@media(max-width:420px){.lg-inst{font-size:12px}.lg-r{gap:10px}}
+.lg-r{display:inline-flex;align-items:center;gap:14px}.lg-inst{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:7px 14px 7px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,transparent);color:var(--tx);font:600 13px var(--font-ui);white-space:nowrap;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}.lg-inst svg{width:17px;height:17px;flex:none;color:var(--ac)}.lg-inst[hidden]{display:none}.lg-inst:hover{background:color-mix(in srgb,var(--ac) 22%,transparent);border-color:var(--ac);transform:translateY(-1px)}.lg-inst:focus-visible{outline:3px solid var(--ac);outline-offset:2px}@media(max-width:560px){.lg-inst .l{display:none}.lg-inst{padding:0;width:38px;justify-content:center}.lg-inst svg{width:19px;height:19px}.lg-r{gap:8px}}@media(max-width:380px){.lg-ghost{padding:8px 12px;font-size:13px}.lg-pill{padding:8px 14px;font-size:13px}}
 /* pré-visualização em tela cheia (funciona também no iPhone): legendas e efeitos aplicados */
 .fsbtn{min-width:40px;min-height:40px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;flex:none}
 .stage.fs{position:fixed!important;z-index:300;left:50%!important;top:50%!important;inset:auto;transform:translate(-50%,-50%)!important;width:min(100vw,calc(100dvh * var(--ar,.5625)))!important;height:auto;min-width:0!important;max-height:100dvh;border-radius:0!important;box-shadow:0 0 0 100vmax #000!important;margin:0}
@@ -805,7 +805,7 @@ dialog>h2:first-of-type,dialog>.ch h2{padding-right:44px}
 <main>
 <section id="landing" aria-labelledby="lh1">
  <div class="lg-orb" aria-hidden="true"><i class="lg-corona"></i><i class="lg-sphere"></i></div>
- <header class="lg-nav"><span class="lg-logo"><svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><use href="#fc-mark"/></svg>ForjaClip</span><span class="lg-r"><button type="button" class="lg-inst" id="lgInst" hidden>Adicionar à tela inicial</button><a class="lg-ghost" href="#login">Entrar</a><a class="lg-pill" href="#login">Cadastrar</a></span></header>
+ <header class="lg-nav"><span class="lg-logo"><svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><use href="#fc-mark"/></svg>ForjaClip</span><span class="lg-r"><button type="button" class="lg-inst" id="lgInst" hidden title="Adicionar à tela inicial" aria-label="Adicionar o ForjaClip à tela inicial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg><span class="l">Adicionar à tela inicial</span></button><a class="lg-ghost" href="#login">Entrar</a><a class="lg-pill" href="#login">Cadastrar</a></span></header>
  <div class="lg-hero">
   <div class="lg-copy">
    <p class="lg-badge"><i></i>SUA CRIAÇÃO COMEÇA AQUI</p>
