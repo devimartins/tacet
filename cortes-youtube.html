@@ -27,6 +27,9 @@ textarea{min-height:150px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:w
 .tm{font:600 12px/1.2 ui-monospace,Menlo,Consolas,monospace;color:var(--ac)}.card h2{font-size:16px;line-height:1.3;margin:0}.card p{margin:0;font-size:13px}
 .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}.acts .btn{min-height:40px;padding:6px 12px;font-size:13px}
 .cm{font-size:12px;color:var(--er);margin:0}
+.ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}.ov[hidden]{display:none}
+.spk{font-size:13px;margin:0}.spk b{color:var(--tx)}#spk{margin:14px 0}#spk input{width:200px;max-width:100%;border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--tx);padding:8px 10px;font:inherit}
+select{border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--tx);padding:8px 10px;font:inherit;min-height:44px}
 </style></head><body><main>
 <a class="back" href="/">← ForjaClip</a>
 <h1>Trechos sugeridos de um vídeo do YouTube</h1>
@@ -36,15 +39,18 @@ textarea{min-height:150px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:w
  <div><label for="t">Transcrição com tempos</label><textarea id="t" placeholder="Cole aqui a transcrição (do YouTube Studio ou do painel “Mostrar transcrição”) ou um arquivo SRT/VTT.&#10;Exemplo:&#10;0:00&#10;Olá, hoje eu vou falar de…&#10;0:05&#10;O primeiro erro é…"></textarea>
   <p class="mut" style="margin:6px 0 0;font-size:13px">Ou envie o arquivo: <input id="fl" type="file" accept=".srt,.vtt,.txt,text/plain,text/vtt"></p></div>
  <div class="row"><label style="margin:0;font-weight:400"><input type="checkbox" id="cr" checked> Enquadrar em 9:16 (recorta as laterais do player)</label>
+  <label style="margin:0;font-weight:400">Estilo da legenda <select id="sty" aria-label="Estilo da legenda para a prévia"></select></label>
   <button class="btn pri" id="go" type="submit">Sugerir trechos</button></div>
  <p id="st" class="mut" role="status" aria-live="polite"></p>
 </form>
 <div class="note mut" style="font-size:13px"><b>Como funciona:</b> o enquadramento 9:16 é só um recorte visual do player oficial do YouTube: o vídeo continua sendo reproduzido lá, com qualidade menor por causa do zoom. Use “Ver completo” em cada trecho para ver o vídeo inteiro. Para gerar o arquivo do corte com legenda, envie o seu vídeo no <a href="/">ForjaClip</a>. Só use vídeos seus ou que você tem permissão de usar.</div>
+<div id="spk" hidden><h2 style="font-size:16px;margin:0 0 6px">Quem fala neste vídeo</h2><p class="mut" id="spkInfo" style="font-size:13px;margin:0 0 8px"></p><div class="row" id="spkF"></div></div>
 <section id="out" aria-label="Trechos sugeridos"><div class="grid" id="g"></div></section>
 </main>
 <script defer src="config.js"></script><script defer src="vendor/supabase.js"></script>
 <script type="module">
 import { localClips, suggestClips, cutsWanted } from './js/clips.js?v=2';
+import { PRESETS, resolve, chunksOf, drawCaption, fontsUrl, loadFont } from './js/captions.js';
 const $ = s => document.querySelector(s), say = (m, er) => { const e = $('#st'); e.textContent = m; e.classList.toggle('er', !!er); };
 const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1).slice(0, 11) || null; if (/(^|\.)youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };
 const fmt = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
@@ -67,6 +73,27 @@ function parseCues(raw) {
   cues.forEach((c, i) => { c.e = cues[i + 1] ? cues[i + 1].s : 0; });
   return cues.filter(c => c.text);
 }
+// ---- quem fala: nomes na transcrição ("Ana:", "[Ana]"), marcas de troca (">>", "- ") ou locutor único
+const SOUND = /^(m[uú]sica|aplausos?|risos?|risadas?|ru[ií]do|music|applause|laughter|inaud[ií]vel|inaudible)$/i;
+const TAGS = /\[(?:m[uú]sica|aplausos?|risos?|risadas?|ru[ií]do|music|applause|laughter|inaud[ií]vel|inaudible)\]/gi;
+const LAB = /^(?:\[([^\]]{1,30})\]|\(([^)]{1,30})\)|([A-ZÀ-Ý][\p{L}\d .'’-]{0,28}?):)\s+/u;
+function labelCues(cues) {
+  cues = cues.map(c => ({ ...c, text: c.text.replace(TAGS, ' ').replace(/\s+/g, ' ').trim() })).filter(c => c.text);
+  const nm = c => { const m = LAB.exec(c.text), n = m && (m[1] || m[2] || m[3] || '').trim(); return n && !SOUND.test(n) && n.split(/\s+/).length <= 3 ? n : null; };
+  const cnt = new Map(); for (const c of cues) { const n = nm(c); if (n) cnt.set(n, (cnt.get(n) || 0) + 1); }
+  const named = [...cnt].filter(([, k]) => k >= 2).sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => x[0]);
+  if (named.length) { let cur = named[0]; const out = cues.map(c => { const n = nm(c); if (n && named.includes(n)) { cur = n; return { ...c, p: cur, text: c.text.replace(LAB, '') }; } return { ...c, p: cur }; }); return { cues: out, keys: named, mode: 'named' }; }
+  if (cues.some(c => />>/.test(c.text) || /^-\s/.test(c.text))) {
+    const out = []; let idx = 0, first = true;
+    for (const c of cues) {
+      const lead = /^-\s/.test(c.text), segs = c.text.replace(/^-\s+/, '').split(/\s*>>\s*/).map(x => x.trim()), real = segs.filter(Boolean), tot = real.join(' ').length || 1; let cum = 0;
+      segs.forEach((sg, i) => { if (!sg) return; if ((i > 0 || lead) && !first) idx ^= 1; first = false;
+        const a = c.s + (c.e - c.s) * cum / tot; cum += sg.length + 1; out.push({ s: a, e: c.e > c.s ? c.s + (c.e - c.s) * Math.min(1, cum / tot) : 0, text: sg, p: idx ? 'Voz B' : 'Voz A' }); });
+    }
+    return { cues: out, keys: ['Voz A', 'Voz B'], mode: 'marks' };
+  }
+  return { cues: cues.map(c => ({ ...c, p: 'solo' })), keys: ['solo'], mode: 'solo' };
+}
 function toWords(cues) {
   const out = [], END = /[.!?…]["')\]]*$/;
   // legendas automáticas vêm sem pontuação: cada bloco de legenda vira uma frase, para a seleção achar começo e fim
@@ -75,7 +102,7 @@ function toWords(cues) {
     const tk = c.text.split(/\s+/).filter(Boolean); if (!tk.length) continue;
     let e = c.e > c.s ? c.e : c.s + tk.length * .4; e = Math.min(e, c.s + tk.length * .7 + .5);
     const tot = tk.reduce((a, w) => a + w.length + 1, 0); let t = c.s;
-    for (const w of tk) { const d = (w.length + 1) / tot * (e - c.s); out.push({ w, s: +t.toFixed(2), e: +(t + d).toFixed(2) }); t += d; }
+    for (const w of tk) { const d = (w.length + 1) / tot * (e - c.s); out.push({ w, s: +t.toFixed(2), e: +(t + d).toFixed(2), p: c.p }); t += d; }
   }
   return out;
 }
@@ -85,6 +112,31 @@ async function ask(tk, lines) {
   const r = await fetch(CFG.AI + '/clips', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ lines }) });
   const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || 'Erro ' + r.status); e.fatal = [401, 402, 413, 429].includes(r.status); throw e; } return j.clips;
 }
+// ---- quem fala + prévia das legendas do ForjaClip sobre o player
+const spk = { keys: [], names: {} }, cards = []; let raf = 0, fontsOn = false;
+const dname = k => spk.names[k] || (k === 'solo' ? '' : k);
+const spkText = ps => { const n = ps.map(dname).filter(Boolean); return n.length ? '<b>Fala:</b> ' + n.map(x => x.replace(/[<>&]/g, '')).join(', ') : 'Quem fala não foi identificado na transcrição. Informe o nome em “Quem fala neste vídeo”.'; };
+const rsNow = () => resolve({ preset: $('#sty').value, x: .5, y: .66, o: {} });
+async function ensureFont() { if (!fontsOn) { fontsOn = true; document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: fontsUrl() })); } const r = rsNow(); await loadFont(r.font, r.wLight, r.wActive); }
+function draw(k, t) {
+  const ctx = k.ov.getContext('2d'), rs = rsNow(); ctx.clearRect(0, 0, 540, 960);
+  if (k.n !== rs.n) { k.chunks = chunksOf(k.cw, rs.n); k.n = rs.n; }
+  try { drawCaption(ctx, 540, 960, k.chunks, t, rs); } catch {}
+  const w = [...k.cw].reverse().find(x => x.s <= t + .05) || k.cw[0], n = dname(w.p); if (!n) return;
+  ctx.font = '600 26px system-ui,sans-serif'; ctx.textBaseline = 'middle'; const tw = ctx.measureText(n).width;
+  ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.beginPath(); (ctx.roundRect || ctx.rect).call(ctx, 20, 24, tw + 28, 42, 21); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(n, 34, 46);
+}
+function frame() {
+  raf = 0; let any = false;
+  for (const k of cards) {
+    if (!k.on) continue; any = true; let t = null;
+    if (active && active.k === k) { try { t = active.player.getCurrentTime(); } catch {} }
+    if (!(t >= 0)) t = k.c.start + (performance.now() / 1000) % Math.max(4, Math.min(8, k.c.end - k.c.start));
+    draw(k, t);
+  }
+  if (any) raf = requestAnimationFrame(frame);
+}
+const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
 // ---- player oficial do YouTube (um por vez, só após o toque)
 let apiP, active = null;
 const api = () => apiP || (apiP = new Promise((res, rej) => { if (window.YT && YT.Player) return res(); const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { prev && prev(); res(); }; const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.onerror = () => { apiP = null; rej(new Error('Não foi possível carregar o player do YouTube.')); }; document.head.append(s); }));
@@ -92,39 +144,51 @@ const facade = (id, label) => { const b = document.createElement('button'); b.ty
   const i = document.createElement('img'); i.alt = ''; i.loading = 'lazy'; i.src = 'https://i.ytimg.com/vi/' + id + '/maxresdefault.jpg'; i.onerror = () => { i.onerror = null; i.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg'; }; i.onload = () => { if (i.naturalWidth <= 120) i.onerror && i.onerror(); };
   const p = document.createElement('span'); p.className = 'pp'; p.setAttribute('aria-hidden', 'true'); p.textContent = '▶'; b.append(i, p); return b; };
 function stop() { if (!active) return; const a = active; active = null; try { a.player.destroy(); } catch {} a.slot.replaceChildren(a.make()); a.slot.firstChild.onclick = a.play; }
-function mount(card, id, c) {
+function mount(card, id, c, k) {
   const slot = card.querySelector('.slot'), msg = card.querySelector('.cm');
   const make = () => facade(id, c.title), play = async () => {
     stop(); msg.textContent = '';
     try { await api(); } catch (e) { msg.textContent = e.message; return; }
     const host = document.createElement('div'); slot.replaceChildren(host);
-    const me = { slot, make, play, player: null }; active = me;
+    const me = { slot, make, play, player: null, k }; active = me;
     me.player = new YT.Player(host, { videoId: id, playerVars: { start: Math.floor(c.start), end: Math.ceil(c.end), autoplay: 1, playsinline: 1, rel: 0, origin: location.origin }, events: {
       onStateChange: e => { if (e.data === 0 && active === me) stop(); },
       onError: e => { if (active === me) stop(); msg.textContent = [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo fora do YouTube. Use “Abrir no YouTube”.' : 'Não foi possível reproduzir este trecho. Use “Abrir no YouTube”.'; } } });
   };
   slot.replaceChildren(make()); slot.firstChild.onclick = play;
 }
-function render(id, clips) {
-  stop(); const g = $('#g'); g.replaceChildren();
+function render(id, clips, words) {
+  stop(); const g = $('#g'); g.replaceChildren(); cards.length = 0;
   for (const c of clips) {
     const a = document.createElement('article'); a.className = 'card';
-    a.innerHTML = '<div class="stage"><div class="slot"></div></div><div class="tm"></div><h2></h2><p class="mut"></p><p class="cm" role="status"></p><div class="acts"><a class="btn" target="_blank" rel="noopener noreferrer">Abrir no YouTube</a><button class="btn" type="button" data-z>Ver completo</button></div>';
+    a.innerHTML = '<div class="stage"><div class="slot"></div></div><div class="tm"></div><h2></h2><p class="mut"></p><p class="spk mut"></p><p class="cm" role="status"></p><div class="acts"><a class="btn" target="_blank" rel="noopener noreferrer">Abrir no YouTube</a><button class="btn" type="button" data-z>Ver completo</button><button class="btn" type="button" data-l aria-pressed="false">Ver legendas</button></div>';
+    const cw = words.filter(w => w.s >= c.start - .01 && w.s < c.end), ov = document.createElement('canvas'); ov.width = 540; ov.height = 960; ov.className = 'ov'; ov.hidden = true; ov.setAttribute('aria-hidden', 'true'); a.querySelector('.stage').append(ov);
+    const k = { c, cw, ov, on: false, n: 0, chunks: [], sp: a.querySelector('.spk'), ps: [...new Set(cw.map(w => w.p))] }; k.sp.innerHTML = spkText(k.ps); cards.push(k);
+    const lb = a.querySelector('[data-l]'); lb.onclick = async () => { k.on = !k.on; ov.hidden = !k.on; lb.setAttribute('aria-pressed', k.on); lb.textContent = k.on ? 'Ocultar legendas' : 'Ver legendas'; if (k.on) { await ensureFont(); kick(); } };
     const st = a.querySelector('.stage'); st.classList.toggle('crop', $('#cr').checked);
     a.querySelector('.tm').textContent = fmt(c.start) + ' – ' + fmt(c.end) + ' · ' + Math.round(c.end - c.start) + ' s' + (c.score ? ' · nota ' + c.score : '');
     a.querySelector('h2').textContent = c.title; a.querySelector('p').textContent = c.reason;
     a.querySelector('a').href = 'https://youtu.be/' + id + '?t=' + Math.floor(c.start);
     const z = a.querySelector('[data-z]'); z.onclick = () => { const on = st.classList.toggle('crop'); z.textContent = on ? 'Ver completo' : 'Enquadrar 9:16'; };
     z.textContent = st.classList.contains('crop') ? 'Ver completo' : 'Enquadrar 9:16';
-    mount(a, id, c); g.append(a);
+    mount(a, id, c, k); g.append(a);
   }
+}
+for (const [id, p] of Object.entries(PRESETS)) $('#sty').append(new Option(p.name + (p.free ? '' : ' (Pro)'), id)); $('#sty').value = 'iman';
+$('#sty').onchange = async () => { await ensureFont(); kick(); };
+function spkPanel(L) {
+  spk.keys = L.keys; spk.names = {}; if (L.mode === 'named') L.keys.forEach(k => { spk.names[k] = k; });
+  const box = $('#spkF'); box.replaceChildren(); $('#spk').hidden = false;
+  $('#spkInfo').textContent = L.mode === 'named' ? 'Identifiquei os falantes pelos nomes que aparecem na transcrição. Você pode corrigir.' : L.mode === 'marks' ? 'A transcrição marca as trocas de fala (>>), mas não os nomes. Alternei entre Voz A e Voz B pela ordem das trocas: confira e informe os nomes.' : 'A transcrição não indica quem fala. Informe o nome para ele aparecer em cada trecho e nas legendas.';
+  for (const k of L.keys) { const i = document.createElement('input'); i.type = 'text'; i.maxLength = 30; i.value = spk.names[k] || ''; i.placeholder = k === 'solo' ? 'Nome de quem fala' : 'Nome de ' + k; i.setAttribute('aria-label', k === 'solo' ? 'Nome de quem fala' : 'Nome de ' + k);
+    i.oninput = () => { spk.names[k] = i.value.trim(); cards.forEach(c => { c.sp.innerHTML = spkText(c.ps); }); kick(); }; box.append(i); }
 }
 $('#cr').onchange = () => { document.querySelectorAll('.stage').forEach(s => { s.classList.toggle('crop', $('#cr').checked); const z = s.parentNode.querySelector('[data-z]'); z.textContent = $('#cr').checked ? 'Ver completo' : 'Enquadrar 9:16'; }); };
 $('#fl').onchange = async e => { const f = e.target.files[0]; if (f) $('#t').value = await f.text(); };
 $('#f').onsubmit = async e => {
   e.preventDefault(); const id = ytId($('#u').value.trim()), btn = $('#go');
   if (!id) return say('Cole um link válido do YouTube (youtube.com ou youtu.be).', 1);
-  const words = toWords(parseCues($('#t').value)); if (words.length < 40) return say('Não encontrei uma transcrição com tempos. Cole o texto com minutagem (ex.: 0:12) ou envie um arquivo SRT/VTT.', 1);
+  const L = labelCues(parseCues($('#t').value)), words = toWords(L.cues); if (words.length < 40) return say('Não encontrei uma transcrição com tempos. Cole o texto com minutagem (ex.: 0:12) ou envie um arquivo SRT/VTT.', 1);
   const dur = words[words.length - 1].e, want = cutsWanted(dur); btn.disabled = true; say('Analisando a transcrição…');
   try {
     let cl = [], note = ''; const tk = await token();
@@ -132,7 +196,7 @@ $('#f').onsubmit = async e => {
     let all = cl.slice(); if (all.length < want) all = all.concat(localClips(words, dur, all, want - all.length));
     all.sort((x, y) => x.start - y.start);
     if (!all.length) { $('#g').replaceChildren(); return say('Transcrição curta demais para sugerir trechos de 20 a 60 s.', 1); }
-    render(id, all); say(all.length + (all.length === 1 ? ' trecho sugerido.' : ' trechos sugeridos.') + note); $('#g').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    spkPanel(L); render(id, all, words); say(all.length + (all.length === 1 ? ' trecho sugerido.' : ' trechos sugeridos.') + note); $('#g').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (x) { say('Falha ao analisar: ' + x.message, 1); } finally { btn.disabled = false; }
 };
 </script></body></html>
