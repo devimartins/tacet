@@ -1381,3 +1381,16 @@ function audPrev(on) {
 // botões "Adicionar" da linha do tempo: abrem direto o que o usuário quer, sem levar a outro painel
 var imgMode = 'bg';
 function imgSearchOpen(mode) { imgMode = mode; $('#bgDT').textContent = mode === 'ov' ? 'Adicionar imagem' : 'Buscar imagem de fundo'; $('#bgFile').hidden = mode !== 'ov'; $('#bgG').replaceChildren(); $('#bgM').textContent = 'Imagens livres (CC0 e domínio público) do Openverse.'; $('#bgD').showModal(); $('#bgQ').focus(); }
+
+// computador: o player ocupa a altura livre acima da timeline, mantendo a proporção nativa do vídeo
+{ const left = document.querySelector('.edit .left'), st = $('#stage'), mq = matchMedia('(min-width:900px)');
+  const fitStage = () => {
+    if (!mq.matches || !left || left.offsetParent === null) { document.documentElement.style.removeProperty('--stw'); return; }
+    const cs = getComputedStyle(left), pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom), gap = parseFloat(cs.rowGap) || 12;
+    const others = [...left.children].filter(c => c !== st && c.offsetParent !== null && getComputedStyle(c).position !== 'absolute');
+    const used = others.reduce((n, c) => n + c.offsetHeight + gap, 0), h = left.clientHeight - pad - used, ar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ar')) || 0.5625;
+    document.documentElement.style.setProperty('--stw', Math.max(140, Math.floor(h * ar)) + 'px');
+  };
+  const ro = new ResizeObserver(fitStage); ro.observe(left); const pan = $('#tlpan'); if (pan) ro.observe(pan); for (const c of left.children) if (c !== st) ro.observe(c);
+  mq.addEventListener('change', fitStage); addEventListener('resize', fitStage); setInterval(fitStage, 700);
+}
