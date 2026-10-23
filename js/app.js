@@ -718,11 +718,11 @@ async function renderOne(c) {
 // ---------- reprodução e prévia ----------
 const vid = $('#vid');
 const hasVid = () => !!S.file;
-function play(on) { S.playing = on; if (hasVid()) { on ? vid.play().catch(() => { S.playing = false; $('#pp').textContent = 'Reproduzir'; $('#stPlay').hidden = false; }) : vid.pause(); } $('#pp').textContent = on ? 'Pausar' : 'Reproduzir'; $('#stPlay').hidden = on; }
+function play(on) { S.playing = on; audPrev(on); if (hasVid()) { on ? vid.play().catch(() => { S.playing = false; $('#pp').textContent = 'Reproduzir'; $('#stPlay').hidden = false; }) : vid.pause(); } $('#pp').textContent = on ? 'Pausar' : 'Reproduzir'; $('#stPlay').hidden = on; }
 $('#stPlay').onclick = () => { S.prev = null; play(true); };
 $('#stage').addEventListener('click', e => { if (e.target.closest('label,button,input,a')) return; S.prev = null; play(!S.playing); });
 const stopPlay = () => { if (!$('#edit').hidden || S.playing) { S.playing = false; try { vid.pause(); } catch { /* sem vídeo */ } } };
-function seek(t) { S.cur = t; if (hasVid()) vid.currentTime = t; }
+function seek(t) { S.cur = t; if (hasVid()) vid.currentTime = t; if (S.playing) audPrev(true); }
 $('#pp').onclick = () => { if (S.playing) play(false); else { if (!S.prev) S.prev = null; play(true); } };
 $('#scrub').oninput = e => { S.prev = null; e.target.style.setProperty('--p', (+e.target.value / Math.max(S.dur, 1) * 100).toFixed(2) + '%'); seek(+e.target.value); };
 let last = performance.now();
@@ -857,7 +857,7 @@ function audUI() {
     if (o.db == null) o.db = Math.round(20 * Math.log10(o.vol || 1));
     const at = el('input', { type: 'number', min: 0, step: 0.5, value: +o.at.toFixed(1), ariaLabel: 'Início do áudio (s)' }); at.style.width = '64px'; at.onchange = () => { o.at = Math.max(0, +at.value || 0); drawTimeline(); };
     const out = el('output', { textContent: dbFmt(o.db) });
-    const vol = el('input', { type: 'range', min: -30, max: 12, step: 1, value: o.db, ariaLabel: 'Volume do áudio em decibéis' }); vol.oninput = () => { o.db = +vol.value; o.vol = dbLin(o.db); out.textContent = dbFmt(o.db); };
+    const vol = el('input', { type: 'range', min: -30, max: 12, step: 1, value: o.db, ariaLabel: 'Volume do áudio em decibéis' }); vol.oninput = () => { o.db = +vol.value; o.vol = dbLin(o.db); out.textContent = dbFmt(o.db); if (o._g) o._g.gain.value = o.vol; };
     ul.append(el('li', {}, el('span', { className: 'nm', textContent: o.name + ' (' + o.buf.duration.toFixed(1) + ' s)', title: o.name }),
       el('div', { className: 'rg' }, el('span', { textContent: 'Início (s)' }), at, el('span')),
       el('div', { className: 'rg' }, el('span', { textContent: 'Volume' }), vol, out),
@@ -1331,13 +1331,13 @@ function offerBg() { if (!S.offerBg) return; S.offerBg = false; if (!canPro()) r
 const pickBg = id => { $('#bgO').close(); setBg({ id }); tab('style'); setTimeout(() => $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); };
 $('#bgLight').onclick = () => pickBg('white'); $('#bgDark').onclick = () => pickBg('dark'); $('#bgNo').onclick = () => $('#bgO').close();
 $('#bgMore').onclick = () => { $('#bgO').close(); tab('style'); setTimeout(() => $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); };
-function bgSearchOpen() { $('#bgD').showModal(); $('#bgQ').focus(); }
+function bgSearchOpen() { imgSearchOpen('bg'); }
 async function bgSearch() {
   const q = $('#bgQ').value.trim(), g = $('#bgG'), m = $('#bgM'); if (!q) return; g.replaceChildren(); m.textContent = 'Buscando...';
   try {
     const r = await fetch('https://api.openverse.org/v1/images/?q=' + encodeURIComponent(q) + '&license=cc0,pdm&page_size=18&mature=false'); if (!r.ok) throw 0; const j = await r.json(); const list = (j.results || []).filter(x => x.thumbnail);
     m.textContent = list.length ? 'Toque numa imagem para usar de fundo.' : 'Nada encontrado. Tente outra palavra (em inglês acha mais, ex.: office, library, studio).';
-    for (const x of list) { const im = el('img', { src: x.thumbnail, alt: x.title || 'Imagem', loading: 'lazy', crossOrigin: 'anonymous', referrerPolicy: 'no-referrer' }); const b = el('button', { type: 'button', title: x.title || '' }, im); b.onclick = async () => { try { m.textContent = 'Carregando...'; const bl = await (await fetch(x.thumbnail)).blob(); setBg({ img: await createImageBitmap(bl), name: x.title || 'Imagem' }); $('#bgD').close(); tab('style'); } catch { m.textContent = 'Não consegui usar essa imagem. Escolha outra.'; } }; g.append(b); }
+    for (const x of list) { const im = el('img', { src: x.thumbnail, alt: x.title || 'Imagem', loading: 'lazy', crossOrigin: 'anonymous', referrerPolicy: 'no-referrer' }); const b = el('button', { type: 'button', title: x.title || '' }, im); b.onclick = async () => { try { m.textContent = 'Carregando...'; const bl = await (await fetch(x.thumbnail)).blob(); const bm = await createImageBitmap(bl); if (imgMode === 'ov') { const t0 = Math.max(0, +S.cur.toFixed(1)); S.ov.push({ kind: 'image', img: bm, name: x.title || 'Imagem', from: t0, to: t0 + 3 }); ovUI(); flash('Imagem adicionada em ' + t0 + ' s.'); $('#bgD').close(); } else { setBg({ img: bm, name: x.title || 'Imagem' }); $('#bgD').close(); tab('style'); } } catch { m.textContent = 'Não consegui usar essa imagem. Escolha outra.'; } }; g.append(b); }
   } catch { m.textContent = 'A busca falhou. Verifique a conexão ou escolha da galeria.'; }
 }
 $('#bgGo').onclick = bgSearch; $('#bgQ').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); bgSearch(); } };
@@ -1360,5 +1360,24 @@ for (const [id, a] of Object.entries(MBAR)) { const b = $('#' + id); if (b) b.on
     drawTimeline();
   };
   mq.addEventListener('change', place); place();
-  $('#tlAddImg').onclick = () => goTo('clips', 'títulos e imagens'); $('#tlAddMus').onclick = () => goTo('clips', 'música'); $('#tlAddAud').onclick = () => goTo('clips', 'áudios');
+  $('#tlAddImg').onclick = () => imgSearchOpen('ov'); $('#tlAddMus').onclick = () => $('#musD').showModal(); $('#tlAddAud').onclick = () => $('#audIn').click();
+  $('#bgFile').onclick = () => { $('#bgD').close(); $('#ovImg').click(); }; $('#musPick').onclick = () => { $('#musD').close(); $('#musFile').click(); }; $('#musMake').onclick = () => { $('#musD').close(); $('#musGen').click(); }; $('#musX').onclick = () => $('#musD').close();
 }
+
+// ouvir os áudios extras na prévia (antes só entravam na exportação)
+var paCtx = null, paSrc = [];
+function audPrev(on) {
+  for (const x of paSrc) { try { x.stop(); } catch { /* já parou */ } } paSrc = [];
+  if (!on || !(S.aud || []).length) return;
+  try {
+    paCtx = paCtx || new (window.AudioContext || window.webkitAudioContext)(); paCtx.resume?.(); const t0 = paCtx.currentTime;
+    for (const o of S.aud) {
+      const end = o.at + o.buf.duration; if (end <= S.cur) continue;
+      const src = paCtx.createBufferSource(), g = paCtx.createGain(); g.gain.value = o.vol ?? 1; o._g = g; src.buffer = o.buf; src.connect(g).connect(paCtx.destination);
+      if (o.at >= S.cur) src.start(t0 + (o.at - S.cur)); else src.start(t0, S.cur - o.at); paSrc.push(src);
+    }
+  } catch { /* sem áudio na prévia */ }
+}
+// botões "Adicionar" da linha do tempo: abrem direto o que o usuário quer, sem levar a outro painel
+var imgMode = 'bg';
+function imgSearchOpen(mode) { imgMode = mode; $('#bgDT').textContent = mode === 'ov' ? 'Adicionar imagem' : 'Buscar imagem de fundo'; $('#bgFile').hidden = mode !== 'ov'; $('#bgG').replaceChildren(); $('#bgM').textContent = 'Imagens livres (CC0 e domínio público) do Openverse.'; $('#bgD').showModal(); $('#bgQ').focus(); }
