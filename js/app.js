@@ -267,7 +267,7 @@ async function pipeline() {
     if (!words.length) throw new Error('Não encontrei fala neste vídeo.');
     words = fixCase(words); S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
     await save({ transcript: { words }, duration: S.media.duration });
-    if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); if (S.autoEdit) { S.autoEdit = false; if (canPro() && aeVertical()) $('#aeD').showModal(); } return; }
+    if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); if (S.autoEdit) { S.autoEdit = false; S.offerBg = true; if (canPro() && aeVertical()) $('#aeD').showModal(); else offerBg(); } return; }
     const fill = (cl = []) => { const w = cutsWanted(S.media.duration); let all = cl.slice(); if (all.length < w) all = all.concat(localClips(words, S.media.duration, all, w - all.length).map((c, k) => ({ ...c, id: 'l' + (k + 1) }))); return all.sort((x, y) => x.start - y.start); };
     if (!LIVE) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
     status('Transcrição pronta. Procurando os melhores cortes…'); prog(0);
@@ -360,6 +360,7 @@ function buildControls() {
   const snap = el('input', { type: 'checkbox', id: 'c_snap', checked: true, onchange: () => { S.snapOn = snap.checked; } });
   const safe = el('input', { type: 'checkbox', id: 'c_safe', checked: false, onchange: () => { S.safeOn = safe.checked; } });
   ctl.append(
+    bgControls(grp),
     grp('Texto', el('div', { className: 'row' }, el('label', { htmlFor: 'c_font', textContent: 'Fonte' }), font), mkRange('fs', 'Tamanho da fonte', 0, 100), mkSeg('case', 'Caixa', [['none', 'Aa'], ['upper', 'AA'], ['lower', 'aa']]), mkWeight('wLight', 'Peso das palavras'), mkWeight('wActive', 'Peso da palavra falada'), mkRange('n', 'Palavras por linha', 1, 5, 1, ''), mkSeg('letter', 'Destaque por', [[false, 'Palavra'], [true, 'Letra']])),
     grp('Cores', mkColor('color', 'Texto'), mkColor('activeColor', 'Palavra falada'), mkColor('strokeColor', 'Contorno'), mkRange('stroke', 'Espessura do contorno', 0, 100), mkColor('bg', 'Fundo'), mkRange('bgOpacity', 'Opacidade do fundo', 0, 100)),
     grp('Efeitos', mkSeg('pop', 'Entrada com pulo', [[0, 'Não'], [1, 'Sim']]), mkSeg('shadow', 'Sombra', [[0, 'Não'], [1, 'Sim']])),
@@ -708,7 +709,7 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -733,7 +734,7 @@ function frame(now) {
     if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (S.prev && S.prevRem && S.prevRem.length && S.prevRem.some(([a, b]) => S.cur >= a && S.cur < b)) seek(S.prevRem.find(([a, b]) => S.cur >= a && S.cur < b)[1]); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur, ZL[S.fx.zoomL || 2]).toFixed(3) + ')' : '';
     if (S.faceOn && S.track && hasVid() && !S.blurOn) { const fx = trackAt(S.track, S.cur), vw = vid.videoWidth, vh = vid.videoHeight, st = $('#stage').getBoundingClientRect(); if (fx != null && vw && st.height) { const sw = vh * st.width / st.height; vid.style.objectPosition = (vw > sw ? Math.min(1, Math.max(0, (fx * vw - sw / 2) / (vw - sw))) * 100 : 50) + '% 50%'; } }
-    if (colorUI) colorUI.preview(); drawBg();
+    if (colorUI) colorUI.preview(); drawBg(); segPrev();
     $('#scrub').value = S.cur; $('#scrub').style.setProperty('--p', (S.cur / Math.max(S.dur, 1) * 100).toFixed(2) + '%'); $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; if (S.tlz > 1 && S.playing) { const sc = $('#twS'), x = S.cur / Math.max(S.dur, 1) * sc.scrollWidth; if (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth * 0.9) sc.scrollLeft = x - sc.clientWidth * 0.2; } $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
     const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length || S.logo) drawOverlays(ctx, W, H, ovAll(), S.cur, r.font);
@@ -1237,8 +1238,8 @@ function aeSync() {
   if (!ok) m.textContent = 'A edição automática é feita para vídeos verticais (como os gravados no teleprompter). Este vídeo é horizontal.'; else if (m.textContent.startsWith('A edição automática é feita')) m.textContent = '';
 }
 $('#vid').addEventListener('loadedmetadata', aeSync);
-$('#aeYes').onclick = () => { $('#aeD').close(); autoEdit(true); };
-$('#aeNo').onclick = () => $('#aeD').close();
+$('#aeYes').onclick = () => { $('#aeD').close(); autoEdit(true); offerBg(); };
+$('#aeNo').onclick = () => { $('#aeD').close(); offerBg(); };
 
 $('#autoEdit').onclick = $('#autoEdit2').onclick = () => autoEdit(false);
 // timeline sem silêncios em EDL (abre no Premiere e no DaVinci Resolve)
@@ -1288,3 +1289,54 @@ $('#srtIn').onchange = async ev => {
   clipsUI(); m.textContent = words.length + ' palavras importadas. Os tempos de cada palavra foram estimados a partir de cada trecho da legenda.'; flash('Legenda importada.');
 };
 $('#srtInL').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#srtIn').click(); } };
+
+// ---- Trocar o fundo do vídeo (recorte no aparelho + cenários de estúdio + imagem da galeria ou da busca) ----
+var BGM = null, bgReady = false; async function bgMod() { return BGM || (BGM = await import('./bgswap.js?v=1')); }
+function setBg(sc) {
+  S.bgScene = sc || null; S.style.bgId = sc && sc.id ? sc.id : undefined; saveSoon('style', { style: S.style });
+  const on = $('#c_bgon'); if (on) on.checked = !!sc; document.querySelectorAll('.bgch button').forEach(b => b.setAttribute('aria-pressed', String(!!sc && sc.id === b.dataset.id)));
+  if (!sc) { const c = $('#segc'); c.style.display = 'none'; $('#vid').style.visibility = ''; return; }
+  if (!bgReady) { flash('Preparando o recorte do fundo (só na primeira vez)...'); bgMod().then(m => m.loadSeg().then(() => { bgReady = true; })).catch(() => { flash('Não consegui carregar o recorte de fundo neste aparelho.'); setBg(null); }); }
+}
+function bgControls(grp) {
+  const mod = () => bgMod();
+  const on = el('input', { type: 'checkbox', id: 'c_bgon', onchange: () => { if (on.checked) setBg(S.bgScene || { id: 'light' }); else setBg(null); } });
+  const ch = el('div', { className: 'bgch' }); mod().then(m => m.SCENES.forEach(o => ch.append(Object.assign(el('button', { type: 'button', title: o.n, onclick: () => setBg({ id: o.id }) }), { style: 'background:radial-gradient(circle at 50% 35%,' + o.c[0] + ',' + o.c[1] + ')' }))), () => {});
+  const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async () => { const f = file.files[0]; file.value = ''; if (!f) return; try { setBg({ img: await createImageBitmap(f), name: f.name }); } catch { flash('Não consegui abrir essa imagem.'); } } });
+  return grp('Fundo do vídeo', el('div', { className: 'row' }, el('label', { htmlFor: 'c_bgon', textContent: 'Trocar o fundo' }), on), ch,
+    el('div', { className: 'row btns' }, el('button', { className: 'btn', type: 'button', textContent: 'Escolher da galeria', onclick: () => file.click() }), el('button', { className: 'btn', type: 'button', textContent: 'Buscar imagem', onclick: () => bgSearchOpen() }), file),
+    el('p', { className: 'mut', textContent: 'O recorte acontece no seu aparelho, o vídeo não é enviado. Funciona melhor com boa luz e sem outras pessoas atrás. A exportação fica mais lenta com o fundo trocado.' }));
+  // os botões dos cenários são criados depois que o módulo carrega
+}
+var segBusy = false, segT = 0, fb = document.createElement('canvas'), pc = document.createElement('canvas');
+function segPrev() {
+  const c = $('#segc'), v = $('#vid'); if (!c) return;
+  if (!S.bgScene || !hasVid() || !v.videoWidth || $('#edit').hidden) { if (c.style.display === 'block') { c.style.display = 'none'; v.style.visibility = ''; } return; }
+  if (!bgReady) return;
+  c.style.display = 'block'; v.style.visibility = 'hidden'; c.style.transform = v.style.transform; c.style.filter = v.style.filter;
+  const n = performance.now(); if (segBusy || n - segT < 70) return; segBusy = true; segT = n;
+  (async () => {
+    try {
+      const st = $('#stage').getBoundingClientRect(), W = Math.max(2, Math.round(Math.min(540, st.width * Math.min(2, devicePixelRatio || 1)))), H = Math.max(2, Math.round(W * st.height / Math.max(1, st.width)));
+      if (fb.width !== W || fb.height !== H) { fb.width = W; fb.height = H; }
+      const x = fb.getContext('2d'), iw = v.videoWidth, ih = v.videoHeight, k = S.blurOn ? Math.min(W / iw, H / ih) : Math.max(W / iw, H / ih), dx = S.blurOn ? (W - iw * k) / 2 : (W - iw * k) * rs().cropX;
+      x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.drawImage(v, dx, (H - ih * k) / 2, iw * k, ih * k);
+      const p = await BGM.cutout(fb, W, H, pc); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+      const g = c.getContext('2d'); g.drawImage(BGM.sceneCanvas(S.bgScene, W, H), 0, 0); g.drawImage(p, 0, 0);
+    } catch { /* tenta no próximo quadro */ } finally { segBusy = false; }
+  })();
+}
+function offerBg() { if (!S.offerBg) return; S.offerBg = false; if (!canPro()) return; try { $('#bgO').showModal(); } catch { /* já aberto */ } }
+const pickBg = id => { $('#bgO').close(); setBg({ id }); tab('style'); setTimeout(() => $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); };
+$('#bgLight').onclick = () => pickBg('white'); $('#bgDark').onclick = () => pickBg('dark'); $('#bgNo').onclick = () => $('#bgO').close();
+$('#bgMore').onclick = () => { $('#bgO').close(); tab('style'); setTimeout(() => $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); };
+function bgSearchOpen() { $('#bgD').showModal(); $('#bgQ').focus(); }
+async function bgSearch() {
+  const q = $('#bgQ').value.trim(), g = $('#bgG'), m = $('#bgM'); if (!q) return; g.replaceChildren(); m.textContent = 'Buscando...';
+  try {
+    const r = await fetch('https://api.openverse.org/v1/images/?q=' + encodeURIComponent(q) + '&license=cc0,pdm&page_size=18&mature=false'); if (!r.ok) throw 0; const j = await r.json(); const list = (j.results || []).filter(x => x.thumbnail);
+    m.textContent = list.length ? 'Toque numa imagem para usar de fundo.' : 'Nada encontrado. Tente outra palavra (em inglês acha mais, ex.: office, library, studio).';
+    for (const x of list) { const im = el('img', { src: x.thumbnail, alt: x.title || 'Imagem', loading: 'lazy', crossOrigin: 'anonymous', referrerPolicy: 'no-referrer' }); const b = el('button', { type: 'button', title: x.title || '' }, im); b.onclick = async () => { try { m.textContent = 'Carregando...'; const bl = await (await fetch(x.thumbnail)).blob(); setBg({ img: await createImageBitmap(bl), name: x.title || 'Imagem' }); $('#bgD').close(); tab('style'); } catch { m.textContent = 'Não consegui usar essa imagem. Escolha outra.'; } }; g.append(b); }
+  } catch { m.textContent = 'A busca falhou. Verifique a conexão ou escolha da galeria.'; }
+}
+$('#bgGo').onclick = bgSearch; $('#bgQ').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); bgSearch(); } };

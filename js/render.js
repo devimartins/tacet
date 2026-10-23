@@ -31,7 +31,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const chunks = chunksOf(opts.emoji ? addEmojis(cw, 2.5, opts.tone) : cw, Math.max(1, rs.n | 0));
   const rot = V.rotation, swap = rot === 90 || rot === 270, dw = swap ? V.height : V.width, dh = swap ? V.width : V.height;
   const blur = useBlur(style.fit || 'auto', dw, dh, W, H), sc = blur ? Math.min(W / dw, H / dh) : Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * (blur ? 0.5 : rs.cropX), sy = (dh - sh) / 2;
-  const scB = Math.max(W / dw, H / dh), bgc = blur ? document.createElement('canvas') : null; if (bgc) { bgc.width = Math.ceil(W / 14); bgc.height = Math.ceil(H / 14); }
+  const scB = Math.max(W / dw, H / dh), bgc = blur && !opts.bgScene ? document.createElement('canvas') : null; if (bgc) { bgc.width = Math.ceil(W / 14); bgc.height = Math.ceil(H / 14); }
   const rotate = (c, k) => { if (rot === 90) { c.translate(V.height, 0); c.rotate(Math.PI / 2); } else if (rot === 180) { c.translate(V.width, V.height); c.rotate(Math.PI); } else if (rot === 270) { c.translate(0, V.width); c.rotate(-Math.PI / 2); } };
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
 
@@ -45,6 +45,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { eerr = e; } });
   enc.configure(cfg);
 
+  let bgM = null, bgWarned = false;
   const q = []; let nextT = 0, n = 0, lastT = 0;
   const dec = new VideoDecoder({ output: f => q.push(f), error: e => { derr = e; } });
   const dcfg = { codec: V.codec, codedWidth: V.width, codedHeight: V.height }; if (V.description) dcfg.description = V.description;
@@ -69,6 +70,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (cssF && 'filter' in ctx) ctx.filter = cssF;
     ctx.drawImage(f, 0, 0); f.close();
     ctx.setTransform(1, 0, 0, 1, 0, 0); if (cssF && 'filter' in ctx) ctx.filter = 'none';
+    if (opts.bgScene) { try { await (bgM = bgM || await import('./bgswap.js?v=1')).swapOn(ctx, cv, W, H, opts.bgScene); } catch (e) { if (!bgWarned) { bgWarned = true; console.warn('fundo', e); } } }
     if (grader) { try { ctx.drawImage(grader.apply(cv, gP.g, gP.lut), 0, 0); } catch { /* segue sem cor */ } }
     if (opts.overlays && opts.overlays.length) drawBroll(ctx, W, H, opts.overlays, ta);
     drawCaption(ctx, W, H, chunks, t, rs);
