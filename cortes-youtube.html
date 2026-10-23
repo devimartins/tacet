@@ -47,7 +47,7 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
 .lk{position:absolute;right:6px;top:6px;font:600 9px/1 var(--font-ui);letter-spacing:.1em;color:var(--amber);background:rgba(0,0,0,.62);padding:4px 6px;border-radius:5px}.lk.fr{color:#fff}
 .opt{display:flex;gap:var(--sp-3);align-items:flex-start;min-height:44px;cursor:pointer}.opt input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--ac);flex:none}.opt b{display:block;font-weight:600}.opt small{display:block;color:var(--mut);font-size:13px}
 .cta{display:flex;gap:var(--sp-4);align-items:center;flex-wrap:wrap;margin-top:var(--sp-8);padding-top:var(--sp-6);border-top:1px solid var(--bd)}
-#st{margin:0;min-height:1.5em;color:var(--mut);font-size:14px;flex:1;min-width:200px}#st.er{color:var(--er);font-weight:500}
+#st{margin:0;min-height:1.5em;color:var(--mut);font-size:14px;flex:1;min-width:200px}#st.er{color:var(--er);font-weight:500}.hint.er{color:var(--er);font-weight:500}textarea[aria-invalid=true]{border-color:var(--er)}
 .ph{margin:0 0 var(--sp-1);font:600 12px var(--font-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ac)}.panel h2{font:600 22px/1.2 var(--font-display);letter-spacing:-.02em;margin:0 0 var(--sp-2)}
 #spk input[type=text]{max-width:220px}#spk input[type=range]{width:100%;accent-color:var(--ac)}
 .pv{position:relative;aspect-ratio:16/9;max-width:520px;width:100%;overflow:hidden;border-radius:var(--r-md);background:#000;margin:var(--sp-2) 0}.pv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -78,7 +78,8 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
   <li class="step"><span class="n" aria-hidden="true">1</span><div class="sb"><label class="lbl" for="u">Link do vídeo</label><input id="u" type="url" required placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"><p class="hint">Use só vídeos seus ou que você tem permissão de usar.</p></div></li>
   <li class="step"><span class="n" aria-hidden="true">2</span><div class="sb"><label class="lbl" for="t">Transcrição com tempos</label>
    <textarea id="t" placeholder="Cole aqui a transcrição com a minutagem. Exemplo:&#10;0:00&#10;Olá, hoje eu vou falar de…&#10;0:05&#10;O primeiro erro é…"></textarea>
-   <div class="row"><label class="btn" for="fl">Enviar arquivo SRT ou VTT</label><input id="fl" type="file" accept=".srt,.vtt,.txt,text/plain,text/vtt" hidden><span class="hint" id="fn"></span></div>
+   <p class="hint er" id="tErr" role="alert" hidden></p>
+   <div class="row"><button class="btn" id="pst" type="button">Colar da área de transferência</button><label class="btn" for="fl">Enviar arquivo SRT ou VTT</label><input id="fl" type="file" accept=".srt,.vtt,.txt,text/plain,text/vtt" hidden><span class="hint" id="fn"></span></div>
    <details class="how"><summary>Como conseguir a transcrição</summary><ol><li>No YouTube, abra o vídeo, toque em “…mais” na descrição e em “Mostrar transcrição”. Selecione o texto e cole aqui.</li><li>Se o vídeo é seu: YouTube Studio, Legendas, e baixe o arquivo SRT ou VTT.</li><li>Dica: quando a transcrição indica quem fala (“Ana:” ou “>>”), os trechos mostram o falante.</li></ol></details></div></li>
   <li class="step"><span class="n" aria-hidden="true">3</span><div class="sb"><span class="lbl">Estilo da legenda <small>· prévia do que o ForjaClip aplica no vídeo</small></span>
    <div class="chips" role="group" aria-label="Filtrar estilos"><button type="button" data-gc="Todos" aria-pressed="true">Todos</button><button type="button" data-gc="Grátis" aria-pressed="false">Grátis</button><button type="button" data-gc="Pro" aria-pressed="false">Pro</button></div>
@@ -258,7 +259,7 @@ function animG(now) {
     lastG = now; const t = still ? 1.4 : (now / 1000) % 3.2, rail = GAL.getBoundingClientRect();
     for (const g of galCards) {
       const bb = g.cv.getBoundingClientRect(); if (bb.right < rail.left - 10 || bb.left > rail.right + 10 || bb.bottom < 0 || bb.top > innerHeight) continue;
-      const c = g.cv.getContext('2d'), r = resolve({ preset: g.id }), im = UI.thumb;
+      const c = g.cv.getContext('2d'), r = resolve({ preset: g.id }), im = null;
       if (im && im.complete && im.naturalWidth) { const k = Math.max(270 / im.naturalWidth, 480 / im.naturalHeight); c.drawImage(im, (270 - im.naturalWidth * k) / 2, (480 - im.naturalHeight * k) / 2, im.naturalWidth * k, im.naturalHeight * k); }
       else { const gr = c.createLinearGradient(0, 0, 0, 480); gr.addColorStop(0, '#3a2a22'); gr.addColorStop(1, '#0d0e10'); c.fillStyle = gr; c.fillRect(0, 0, 270, 480); }
       const sh = c.createLinearGradient(0, 200, 0, 480); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.6)'); c.fillStyle = sh; c.fillRect(0, 0, 270, 480);
@@ -268,9 +269,6 @@ function animG(now) {
   requestAnimationFrame(animG);
 }
 (async () => { if (!fontsOn) { fontsOn = true; document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: fontsUrl() })); } buildGallery(); requestAnimationFrame(animG); await Promise.all(Object.values(PRESETS).map(p => loadFont(p.font, p.wLight, p.wActive))); })();
-// miniatura do vídeo como fundo das prévias (só para contexto; nada é lido da imagem)
-let thId = ''; const thumbFor = () => { const id = ytId($('#u').value.trim()); if (id && id !== thId) { thId = id; const i = new Image(); i.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg'; UI.thumb = i; } if (!id) { thId = ''; UI.thumb = null; } };
-$('#u').addEventListener('input', thumbFor);
 function spkPanel(L, id) {
   spk.keys = L.keys; spk.names = {}; spk.pos = {}; L.keys.forEach((k, i) => { spk.pos[k] = L.keys.length === 1 ? 50 : Math.round(24 + 52 * i / (L.keys.length - 1)); });
   const frames = ['hq2', 'hq1', 'hq3', 'maxresdefault']; let fi = 0; const setF = () => { $('#pvI').src = 'https://i.ytimg.com/vi/' + id + '/' + frames[fi] + '.jpg'; }; setF(); $('#pvN').onclick = () => { fi = (fi + 1) % frames.length; setF(); };
@@ -292,13 +290,16 @@ function drawPos() {
     l.append(t, r); pf.append(l);
   });
 }
-{ const q = new URLSearchParams(location.search).get('u'); if (q) { $('#u').value = q; thumbFor(); } }
+{ const q = new URLSearchParams(location.search).get('u'); if (q) $('#u').value = q; }
+const clearT = () => { $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); };
+$('#t').addEventListener('input', clearT);
+$('#pst').onclick = async () => { try { const x = await navigator.clipboard.readText(); if (x && x.trim()) { $('#t').value = x; clearT(); say('Transcrição colada.'); } else say('A área de transferência está vazia. Copie a transcrição primeiro.', 1); } catch { say('O navegador não permitiu ler a área de transferência. Cole no campo com Ctrl+V.', 1); } };
 $('#cr').onchange = () => { document.querySelectorAll('.stage').forEach(s => { s.classList.toggle('crop', $('#cr').checked); const z = s.parentNode.querySelector('[data-z]'); z.textContent = $('#cr').checked ? 'Ver completo' : 'Enquadrar 9:16'; }); };
 $('#fl').onchange = async e => { const f = e.target.files[0]; if (f) { $('#t').value = await f.text(); $('#fn').textContent = f.name; } };
 $('#f').onsubmit = async e => {
-  e.preventDefault(); const id = ytId($('#u').value.trim()), btn = $('#go');
+  e.preventDefault(); $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); const id = ytId($('#u').value.trim()), btn = $('#go');
   if (!id) return say('Cole um link válido do YouTube (youtube.com ou youtu.be).', 1);
-  const L = labelCues(parseCues($('#t').value)), words = toWords(L.cues); if (words.length < 40) return say('Não encontrei uma transcrição com tempos. Cole o texto com minutagem (ex.: 0:12) ou envie um arquivo SRT/VTT.', 1);
+  const L = labelCues(parseCues($('#t').value)), words = toWords(L.cues); if (words.length < 40) { const te = $('#tErr'), empty = !$('#t').value.trim(); te.textContent = empty ? 'Falta a transcrição. No YouTube, abra o vídeo, toque em “…mais” e em “Mostrar transcrição”, copie o texto e cole aqui. O ForjaClip não consegue buscá-la sozinho.' : 'Não encontrei tempos nesse texto. Cole a transcrição com a minutagem (ex.: 0:12) ou envie um arquivo SRT ou VTT.'; te.hidden = false; $('#t').setAttribute('aria-invalid', 'true'); document.querySelector('.how').open = true; $('#t').focus(); return say('', 0); }
   const dur = words[words.length - 1].e, want = cutsWanted(dur); btn.disabled = true; say('Analisando a transcrição…');
   try {
     let cl = [], note = ''; const tk = await token();
