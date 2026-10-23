@@ -215,6 +215,7 @@ function drawPos() {
     l.append(t, r); pf.append(l);
   });
 }
+{ const q = new URLSearchParams(location.search).get('u'); if (q) $('#u').value = q; }
 $('#cr').onchange = () => { document.querySelectorAll('.stage').forEach(s => { s.classList.toggle('crop', $('#cr').checked); const z = s.parentNode.querySelector('[data-z]'); z.textContent = $('#cr').checked ? 'Ver completo' : 'Enquadrar 9:16'; }); };
 $('#fl').onchange = async e => { const f = e.target.files[0]; if (f) $('#t').value = await f.text(); };
 $('#f').onsubmit = async e => {

@@ -7,7 +7,8 @@ import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
 import { findBroll } from './broll.js';
-import { ytId, ytStart, ytSupported, mountPlayer, record, flatten } from './yt.js';
+// link do YouTube: só valida e abre a página de trechos sugeridos (sem baixar nem gravar o vídeo)
+const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1, 12) || null; if (/(^|\.)youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };
 import { initGuide } from './guide.js';
 import { trackFaces, trackAt } from './facetrack.js';
 import { avatarSvg, parseAv, AV_COUNT, BG_COUNT } from './avatar.js';
@@ -186,36 +187,15 @@ async function openProject(id) {
 }
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
-if (!ytSupported()) { const f = $('#ytForm'); f.querySelector('label').textContent = 'Link do YouTube (disponível só no computador)'; $('#ytUrl').disabled = true; $('#ytUrl').placeholder = 'Abra no Chrome ou Edge do computador'; f.querySelector('button').disabled = true; $('#ytMsg').textContent = 'Celulares e o Safari não permitem gravar a aba do navegador. Aqui, use o arquivo do vídeo: no iPhone, grave a tela (Central de Controle) ou salve o vídeo na Galeria e envie em “Novo vídeo”. Se o vídeo é seu, o YouTube Studio tem a opção de baixar o arquivo original (Conteúdo › ⋮ › Baixar).'; }
 // tempo digitado como 1759, 29:19 ou 1:02:03 (também aceita 29m19s) -> segundos
 const tsec = v => { v = String(v || '').trim().toLowerCase(); if (!v) return 0; const hms = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(v); if (hms && /[hms]/.test(v)) return (+hms[1] || 0) * 3600 + (+hms[2] || 0) * 60 + (+hms[3] || 0); const p = v.split(':').map(Number); if (p.some(n => !Number.isFinite(n) || n < 0) || p.length > 3) return 0; return p.reduce((t, n) => t * 60 + n, 0); };
 const tfmt = t => { t = Math.max(0, Math.round(t)); const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
 // Registro da declaração de direitos (quem aceitou, quando e sobre qual vídeo). Falha de rede não bloqueia o uso.
 async function logRights(kind, ref, s, e) { try { if (!S.sb || !S.user) return; await S.sb.from('rights_log').insert({ kind, video_ref: ref, start_s: s, end_s: e, termo: 'v1', ua: navigator.userAgent.slice(0, 200) }); } catch { /* sem registro */ } }
-$('#ytForm').onsubmit = async e => {
-  e.preventDefault(); const id = ytId($('#ytUrl').value.trim()), m = $('#ytMsg'), say = (t, bad) => { m.textContent = t; m.style.color = bad ? '#ff6a6a' : ''; m.style.fontWeight = bad ? '600' : ''; };
-  if (!id) { say('Cole um link do YouTube válido (youtube.com ou youtu.be).', 1); return; }
-  if (!ytSupported()) { say('Gravar do YouTube funciona no Chrome ou Edge no computador. No celular ou no Safari, envie o arquivo do vídeo.', 1); return; }
-  const btn = e.submitter || $('#ytForm button'); btn.disabled = true; say('Abrindo o vídeo no player oficial do YouTube…');
-  try {
-    const box = $('#ytbox'), player = await mountPlayer(box, id); say('');
-    const st = $('#ytSt'), bar = $('#ytBar'), step = (t, v) => { st.textContent = t; if (v == null) bar.hidden = true; else { bar.hidden = false; bar.value = v; } };
-    $('#ytd').showModal(); $('#ytOk').checked = false; $('#ytS').value = tfmt(ytStart($('#ytUrl').value) || 0); { const o = $('#ytOpen'), up = () => { o.href = 'https://youtu.be/' + id + '?t=' + (Math.floor(tsec($('#ytS').value)) || 0); }; up(); $('#ytS').oninput = up; } let pv = 0; const stopPv = () => { clearInterval(pv); pv = 0; }; $('#ytPrev').onclick = () => { stopPv(); const s0 = tsec($('#ytS').value) || 0, e0 = tsec($('#ytE').value) || 0; try { player.seekTo(s0, true); player.playVideo(); } catch { return; } pv = setInterval(() => { try { if (e0 && player.getCurrentTime() >= e0) { player.pauseVideo(); stopPv(); } } catch { stopPv(); } }, 250); }; box._stopPv = stopPv; const dur0 = Math.floor(player.getDuration() || 0); S.ytRef = dur0 ? { dur: dur0, t: Date.now() } : null; $('#ytFile').onclick = () => { $('#ytX').onclick(); $('#newfile').click(); }; const st0 = tsec($('#ytS').value) || 0; $('#ytE').value = tfmt(dur0 ? Math.min(dur0, st0 + 600) : st0 + 600); const est = () => { const len = Math.max(0, (tsec($('#ytE').value) || dur0) - (tsec($('#ytS').value) || 0)), m = Math.ceil(len / 60), e = $('#ytEst'); e.textContent = 'A gravação acontece em tempo real: este trecho leva cerca de ' + (m < 1 ? 'menos de 1 minuto' : m + (m === 1 ? ' minuto' : ' minutos')) + '.' + (len > 1200 ? ' É longo. Para vídeos longos, escolha só o trecho que interessa ou envie o arquivo do vídeo (do YouTube Studio, se for seu canal).' : ''); e.style.color = len > 1200 ? '#ffb454' : ''; }; $('#ytS').addEventListener('input', est); $('#ytE').addEventListener('input', est); const fix = () => { if (dur0) { if (tsec($('#ytE').value) > dur0) $('#ytE').value = tfmt(dur0); if (tsec($('#ytS').value) >= dur0) $('#ytS').value = tfmt(Math.max(0, dur0 - 60)); } est(); }; $('#ytS').addEventListener('change', fix); $('#ytE').addEventListener('change', fix); est(); $('#ytRec').disabled = false; $('#ytStop').hidden = true;
-    step('Passo 1: escolha o trecho. Passo 2: marque que tem os direitos. Passo 3: clique em “Gravar e transcrever” e, na janela do navegador, escolha ESTA ABA e marque “Compartilhar áudio”.', null);
-    $('#ytX').onclick = () => { box._stopPv?.(); try { player.destroy(); } catch {} $('#ytd').close(); };
-    $('#ytStop').onclick = () => box._stop?.();
-    $('#ytRec').onclick = async () => {
-      if (!$('#ytOk').checked) { step('Marque a caixa de direitos sobre o vídeo para continuar.', null); return; }
-      logRights('youtube', id, tsec($('#ytS').value) || 0, tsec($('#ytE').value) || 0);
-      $('#ytRec').disabled = true; $('#ytStop').hidden = false; step('Aguardando você escolher “Esta aba” e ativar o áudio na janela do navegador…', 0);
-      try {
-        const f = await record(player, box, { start: tsec($('#ytS').value) || 0, end: tsec($('#ytE').value) || 0, onStatus: (a, b2) => step(`Gravando o trecho… ${mmss(a)} / ${mmss(b2)} — não feche nem troque de aba.`, b2 ? a / b2 : 0) });
-        step('Gravação concluída. Preparando o vídeo…', null); $('#ytStop').hidden = true;
-        const flat = await flatten(f); $('#ytd').close(); try { player.destroy(); } catch {} flash('Trecho do YouTube gravado. Abrindo no editor…'); await newVideo(flat, 'clips');
-      } catch (err) { step((err && err.message) || 'Falha na gravação. Tente de novo.', null); $('#ytRec').disabled = false; $('#ytStop').hidden = true; return; }
-    };
-  } catch (err) { say((err && err.message) || 'Não foi possível abrir o vídeo.', 1); }
-  btn.disabled = false;
+$('#ytForm').onsubmit = e => {
+  e.preventDefault(); const u = $('#ytUrl').value.trim(), id = ytId(u), m = $('#ytMsg');
+  if (!id) { m.textContent = 'Cole um link do YouTube válido (youtube.com ou youtu.be).'; m.style.color = '#ff6a6a'; m.style.fontWeight = '600'; return; }
+  location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
 $('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=9');
@@ -692,7 +672,7 @@ $('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c
   const addX = d => {
     if (d.querySelector(':scope > .dx')) return;
     const b = document.createElement('button'); b.type = 'button'; b.className = 'dx'; b.innerHTML = X; b.setAttribute('aria-label', 'Fechar janela'); b.title = 'Fechar';
-    b.onclick = () => { if (d.id === 'ytd' && document.getElementById('ytX')) document.getElementById('ytX').click(); else d.close(); };
+    b.onclick = () => { d.close(); };
     d.prepend(b);
   };
   document.querySelectorAll('dialog').forEach(addX);
