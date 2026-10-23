@@ -267,7 +267,7 @@ async function pipeline() {
     if (!words.length) throw new Error('Não encontrei fala neste vídeo.');
     words = fixCase(words); S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
     await save({ transcript: { words }, duration: S.media.duration });
-    if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); if (S.autoEdit) { S.autoEdit = false; if (canPro()) autoEdit(true); } return; }
+    if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); if (S.autoEdit) { S.autoEdit = false; if (canPro() && aeVertical()) $('#aeD').showModal(); } return; }
     const fill = (cl = []) => { const w = cutsWanted(S.media.duration); let all = cl.slice(); if (all.length < w) all = all.concat(localClips(words, S.media.duration, all, w - all.length).map((c, k) => ({ ...c, id: 'l' + (k + 1) }))); return all.sort((x, y) => x.start - y.start); };
     if (!LIVE) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
     status('Transcrição pronta. Procurando os melhores cortes…'); prog(0);
@@ -1216,6 +1216,16 @@ function autoEdit(fromRec) {
   if (msg) msg.textContent = txt; status(txt);
   if (rem >= 1) { S.prev = { s: 0, e: S.dur }; S.prevRem = r; seek(0); flash('Edição automática aplicada: ' + Math.round(rem) + ' s removidos.', { label: 'Desfazer', fn: () => { S.fx.cut = before.cut || 0; S.fx.acut = before.acut || 0; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); rebuild(); S.prev = null; S.prevRem = null; if (msg) msg.textContent = 'Edição automática desfeita.'; } }); }
 }
+// a edição automática é uma escolha do usuário e vale só para vídeo vertical
+const aeVertical = () => { const v = $('#vid'); return !(v && v.videoWidth && v.videoHeight) || v.videoHeight > v.videoWidth; };
+function aeSync() {
+  const b = $('#autoEdit'), m = $('#autoEditM'); if (!b) return; const ok = aeVertical(); b.disabled = !ok;
+  if (!ok) m.textContent = 'A edição automática é feita para vídeos verticais (como os gravados no teleprompter). Este vídeo é horizontal.'; else if (m.textContent.startsWith('A edição automática é feita')) m.textContent = '';
+}
+$('#vid').addEventListener('loadedmetadata', aeSync);
+$('#aeYes').onclick = () => { $('#aeD').close(); autoEdit(true); };
+$('#aeNo').onclick = () => $('#aeD').close();
+
 $('#autoEdit').onclick = () => autoEdit(false);
 // timeline sem silêncios em EDL (abre no Premiere e no DaVinci Resolve)
 $('#edlCutBtn').onclick = () => {
