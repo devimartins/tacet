@@ -8,6 +8,6 @@ window.CFG = {
   GATE: true,        // true = estilos pagos bloqueados para o plano gratuito (ligue quando houver cobrança)
   CONTACT: "contato@forjaclip.com.br",     // e-mail de contato exibido nos Termos e na Política (opcional)
   ADS_CLIENT: "ca-pub-8154134382569744",    // ca-pub-XXXXXXXXXXXXXXXX (AdSense); vazio = sem anúncios
-  ADS_SLOT: "",
+  ADS_SLOT: "6129140013",
   TURNSTILE: "0x4AAAAAAFfbeo7dQ0abdh-1",   // site key pública do Cloudflare Turnstile (captcha no login por e-mail)
 };
