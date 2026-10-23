@@ -1349,3 +1349,16 @@ function goTo(t, text) {
 }
 const MBAR = { mbStyle: ['style'], mbText: ['text'], mbBg: ['style', 'fundo do'], mbCuts: ['clips'], mbAud: ['clips', 'som'] };
 for (const [id, a] of Object.entries(MBAR)) { const b = $('#' + id); if (b) b.onclick = () => { document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); goTo(a[0], a[1]); }; }
+
+// horizontal (largura >= 900 px): a linha do tempo vira um painel de largura total embaixo, com faixas nomeadas;
+// na vertical (celular): fica compacta logo abaixo dos controles do vídeo
+{ const mq = matchMedia('(min-width:900px)'), tl = $('#tl'), z = document.querySelector('.tlz'), pan = $('#tlpan'), left = document.querySelector('.edit .left'), anchor = document.querySelector('.edit .flrow');
+  const place = () => {
+    if (!tl || !pan) return;
+    if (mq.matches) { pan.hidden = false; pan.append(tl); const h = pan.querySelector('.tlh'); if (z) { h.append(z); } }
+    else { pan.hidden = true; anchor.after(tl); if (z) tl.after(z); }
+    drawTimeline();
+  };
+  mq.addEventListener('change', place); place();
+  $('#tlAddImg').onclick = () => goTo('clips', 'títulos e imagens'); $('#tlAddMus').onclick = () => goTo('clips', 'música'); $('#tlAddAud').onclick = () => goTo('clips', 'áudios');
+}
