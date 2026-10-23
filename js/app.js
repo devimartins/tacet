@@ -223,7 +223,7 @@ $('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); ret
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
   } : null;
-  m.openTeleprompter({ flash, ai, onUse: f => newVideo(f, 'captions') }); };
+  m.openTeleprompter({ flash, ai, onUse: f => { S.autoEdit = true; newVideo(f, 'captions'); } }); };
 $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('on'); }; $('#drop').ondragleave = () => $('#drop').classList.remove('on');
 $('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'clips'); };
 $('#drop2').ondragover = e => { e.preventDefault(); $('#drop2').classList.add('on'); }; $('#drop2').ondragleave = () => $('#drop2').classList.remove('on');
@@ -267,7 +267,7 @@ async function pipeline() {
     if (!words.length) throw new Error('Não encontrei fala neste vídeo.');
     words = fixCase(words); S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
     await save({ transcript: { words }, duration: S.media.duration });
-    if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); return; }
+    if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); if (S.autoEdit) { S.autoEdit = false; if (canPro()) autoEdit(true); } return; }
     const fill = (cl = []) => { const w = cutsWanted(S.media.duration); let all = cl.slice(); if (all.length < w) all = all.concat(localClips(words, S.media.duration, all, w - all.length).map((c, k) => ({ ...c, id: 'l' + (k + 1) }))); return all.sort((x, y) => x.start - y.start); };
     if (!LIVE) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
     status('Transcrição pronta. Procurando os melhores cortes…'); prog(0);
@@ -1205,6 +1205,33 @@ function kwFind() {
 }
 $('#kwGo').onclick = kwFind; $('#kwQ').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); kwFind(); } };
 // ---------- lista de cortes para editores (EDL CMX3600, 30 fps) ----------
+// ---------- edição automática: tira pausas e hesitações do vídeo (usa a transcrição, no próprio aparelho) ----------
+function autoEdit(fromRec) {
+  if (!S.words.length) { flash('Gere a transcrição primeiro.'); return; }
+  if (!canPro()) { $('#pay').showModal(); return; }
+  const before = { cut: S.fx.cut, acut: S.fx.acut };
+  S.fx.cut = 1; S.fx.acut = 1; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); rebuild();
+  const r = cutRanges(visible(), 0, S.dur, S.fx, S.words), rem = r.reduce((n, [x, y]) => n + y - x, 0), msg = $('#autoEditM');
+  const txt = rem >= 1 ? (fromRec ? 'Edição automática aplicada à sua gravação: ' : 'Edição automática aplicada: ') + Math.round(rem) + ' s de pausas e hesitações removidos (' + Math.round(rem / Math.max(1, S.dur) * 100) + '% do vídeo). Toque em Reproduzir para ver o resultado e ajuste em Ferramentas > Som.' : 'Não achei pausas ou hesitações para cortar.';
+  if (msg) msg.textContent = txt; status(txt);
+  if (rem >= 1) { S.prev = { s: 0, e: S.dur }; S.prevRem = r; seek(0); flash('Edição automática aplicada: ' + Math.round(rem) + ' s removidos.', { label: 'Desfazer', fn: () => { S.fx.cut = before.cut || 0; S.fx.acut = before.acut || 0; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); rebuild(); S.prev = null; S.prevRem = null; if (msg) msg.textContent = 'Edição automática desfeita.'; } }); }
+}
+$('#autoEdit').onclick = () => autoEdit(false);
+// timeline sem silêncios em EDL (abre no Premiere e no DaVinci Resolve)
+$('#edlCutBtn').onclick = () => {
+  if (!S.words.length) { flash('Gere a transcrição primeiro.'); return; }
+  if (!S.fx.cut && !S.fx.acut) { flash('Ative a edição automática ou “Remover silêncios” antes de exportar.'); return; }
+  const base = S.mode !== 'captions' && S.clips.some(c => c.id !== 'full') ? [...S.clips].filter(c => c.id !== 'full').sort((a, b) => a.start - b.start) : [{ start: 0, end: S.dur, title: 'Vídeo' }];
+  const segs = [];
+  for (const c of base) { let t = c.start; for (const [x, y] of cutRanges(visible(), c.start, c.end, S.fx, S.words)) { if (x - t > 0.1) segs.push([t, x, c.title]); t = Math.max(t, y); } if (c.end - t > 0.1) segs.push([t, c.end, c.title]); }
+  if (!segs.length) { flash('Nada para exportar.'); return; }
+  const FPS = 30, tc = t => { const f = Math.round(t * FPS), h = Math.floor(f / (FPS * 3600)), m = Math.floor(f / (FPS * 60)) % 60, sec = Math.floor(f / FPS) % 60; return [h, m, sec, f % FPS].map(n => String(n).padStart(2, '0')).join(':'); };
+  const name = (S.title || 'video').replace(/[^\w. -]/g, '_'); let rec = 0, out = 'TITLE: ' + name + ' (sem silêncios)\nFCM: NON-DROP FRAME\n\n';
+  segs.forEach(([a, b, t], i) => { out += String(i + 1).padStart(3, '0') + '  AX       AA/V  C        ' + tc(a) + ' ' + tc(b) + ' ' + tc(rec) + ' ' + tc(rec + b - a) + '\n* FROM CLIP NAME: ' + name + '\n\n'; rec += b - a; });
+  const el0 = document.createElement('a'); el0.href = URL.createObjectURL(new Blob([out], { type: 'text/plain' })); el0.download = 'forjaclip-sem-silencios.edl'; el0.click(); setTimeout(() => URL.revokeObjectURL(el0.href), 4000);
+  flash('Timeline com ' + segs.length + ' trechos baixada. Importe o vídeo original no editor e depois o arquivo EDL.');
+};
+
 $('#edlBtn').onclick = () => {
   const cl = [...S.clips].sort((a, b) => a.start - b.start); if (!cl.length) { flash('Crie ou gere cortes primeiro.'); return; }
   const FPS = 30, tc = t => { const f = Math.round(t * FPS), h = Math.floor(f / (FPS * 3600)), m = Math.floor(f / (FPS * 60)) % 60, s = Math.floor(f / FPS) % 60; return [h, m, s, f % FPS].map(n => String(n).padStart(2, '0')).join(':'); };

@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=147"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=148"><link rel="modulepreload" href="js/render.js"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -919,10 +919,10 @@ dialog>h2:first-of-type,dialog>.ch h2{padding-right:44px}
     <div class="row btns"><button class="btn" id="musGen" type="button">Gerar música deste tom</button><label class="btn" style="cursor:pointer">Escolher áudio<input id="musFile" type="file" accept="audio/*" hidden></label></div>
     <p class="mut" style="font-size:12px">A música gerada é original, criada no seu navegador, sem direitos autorais. O tom também ajusta os emojis das legendas.</p>
     <div class="alist" id="musRow" hidden><ul class="list" style="margin:0"><li><span class="nm" id="musName"></span><div class="rg"><span>Volume</span><input id="musVol" type="range" min="-40" max="0" step="1" value="-12" aria-label="Volume da música em decibéis"><output id="musDb">-12 dB</output></div><button class="btn" id="musOff" type="button">Remover</button></li></ul></div></div>
-   <div class="grp"><b>Som</b><div id="fxCut"></div></div>
+   <div class="grp"><b>Som</b><p class="mut" style="font-size:12px">Um toque tira pausas longas, contagem regressiva e hesitações. Tudo é feito no seu aparelho e você pode desfazer ou ajustar abaixo.</p><button class="btn pri" id="autoEdit" type="button">Edição automática (tirar pausas e hesitações)</button><p class="mut" id="autoEditM" role="status" style="font-size:12px;margin:8px 0 0"></p><div id="fxCut" style="margin-top:8px"></div></div>
    <div class="grp"><b>Cortes</b><p class="mut" id="cmsg"></p><button class="btn pri" id="cutsOpen" type="button">Abrir cortes sugeridos</button><ul class="list" id="clips"></ul>
    <h2>Buscar momento por palavra</h2><p class="mut" style="font-size:12px">Digite um tema e veja onde ele aparece na fala. Um toque cria o corte, começando no início da frase.</p><div class="row"><input id="kwQ" type="search" placeholder="Ex.: preço, resultado, erro" aria-label="Palavra ou tema" style="flex:1;min-width:0"><button class="btn" id="kwGo" type="button">Buscar</button></div><div class="kwc" id="kwSug"></div><p class="mut" id="kwMsg" role="status"></p><ul class="list" id="kwRes"></ul>
-   <h2>Exportar cortes</h2><p class="mut" style="font-size:12px">Gera uma lista de cortes (EDL, 30 fps) para abrir no Premiere, DaVinci Resolve e outros editores.</p><button class="btn" id="edlBtn" type="button">Baixar lista de cortes (EDL)</button>
+   <h2>Exportar cortes</h2><p class="mut" style="font-size:12px">Gera uma lista de cortes (EDL, 30 fps) para abrir no Premiere, DaVinci Resolve e outros editores.</p><div class="row btns"><button class="btn" id="edlBtn" type="button">Baixar lista de cortes (EDL)</button><button class="btn" id="edlCutBtn" type="button">Baixar timeline sem silêncios (EDL)</button></div>
    <h2>Corte manual</h2><div class="row"><label for="ms">Início (segundos)</label><input id="ms" type="number" min="0" step="0.1" value="0"></div><div class="row"><label for="me">Fim (segundos)</label><input id="me" type="number" min="0" step="0.1" value="30"></div><button class="btn" id="addManual" type="button">Adicionar corte</button></div></div>
  </div></div></section>
 </main>
@@ -941,5 +941,5 @@ dialog>h2:first-of-type,dialog>.ch h2{padding-right:44px}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=147"></script>
+<script type="module" src="js/app.js?v=148"></script>
 </body></html>
