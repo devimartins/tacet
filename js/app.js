@@ -794,8 +794,8 @@ async function boot() {
   draw(1.2); new IntersectionObserver(es => es[0].isIntersecting ? play() : stop(), { threshold: .25 }).observe(box);
 })();
 if ('serviceWorker' in navigator) {   // atualiza sozinho: busca versão nova ao abrir/voltar ao app e recarrega uma vez quando ela assume
-  const had = !!navigator.serviceWorker.controller; let rl = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !rl) { rl = true; location.reload(); } });
+  
+  // sem recarregar a página: o service worker busca tudo na rede primeiro, então a página já abriu com os arquivos novos (recarregar só fazia a tela piscar)
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { const up = () => r.update().catch(() => { }); document.addEventListener('visibilitychange', () => { if (!document.hidden) up(); }); setInterval(up, 30 * 60e3); }).catch(() => { });
 }
 boot();
