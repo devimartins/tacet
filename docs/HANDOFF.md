@@ -27,7 +27,7 @@ Atualize este arquivo ao terminar cada sessão. Nunca escreva valores de chaves,
 
 ## Captura — atualização Codex (24/10/2026)
 
-**Estado: protótipo em rascunho, não hospedado, sem integração ativa.** A `main` e as páginas existentes não foram modificadas por este trabalho. O PR inicial em `feature/server-clip-capture` será substituído pela branch `codex/captura-cortes` para cumprir AGENTS.md.
+**Estado: protótipo em rascunho, não hospedado, sem integração ativa.** A `main` e as páginas existentes não foram modificadas por este trabalho. PR ativo: https://github.com/devimartins/tacet/pull/2 — branch `codex/captura-cortes`. O PR #1 foi fechado sem merge e substituído por este.
 
 ### Escopo e divisão
 
@@ -35,9 +35,9 @@ O ForjaClip continua responsável por transcrição, análise e prévias. O serv
 
 Codex implementou o serviço, módulos novos e `docs/integration-proposal.patch`. Claude deve revisar/aplicar o patch nas páginas sob sua responsabilidade; ele não foi aplicado nesta branch. O renderer usa o mesmo motor de legendas existente. A referência de execução/limitações é `capture-service/README.md`.
 
-### Exceção de escopo registrada
+### Escopo confirmado
 
-AGENTS.md regra 7 descreve o comportamento atual sem captura de YouTube. A usuária solicitou explicitamente nesta conversa o serviço externo de gravação do miniplayer. Este PR documenta essa exceção experimental; não muda a política geral nem habilita gravação em produção. Validar uso autorizado, compatibilidade com o provedor e mensagens de privacidade antes de ativar.
+A usuária solicitou explicitamente o serviço externo de gravação do miniplayer. A revisão bb62754 da main removeu a antiga regra 7 de AGENTS.md. Este protótipo permanece desativado até validação de uso autorizado, compatibilidade com o provedor e mensagens de privacidade.
 
 ### Configuração (nomes, nunca valores)
 
@@ -46,7 +46,7 @@ Site: `CFG.CAPTURE_API`, vazio até validação. Serviço: `PUBLIC_BASE_URL`, `A
 ### Testes e limites
 
 - 6 testes locais passaram: validação, fila, isolamento, cancelamento, expiração e MP4 vertical sintético com áudio.
-- Syntax checks passaram. A aplicação do patch deve ser conferida contra a revisão atual das páginas.
+- Syntax checks passaram. `git apply --check docs/integration-proposal.patch` passou; revalidar caso as páginas mudem.
 - Não foi executada captura real do embed: ambiente desta sessão sem Docker/Xvfb/PulseAudio. Não foi feito QA visual em 390/1280 px.
 - Relógios navegador/FFmpeg precisam de calibração; falta confirmar início/fim e A/V com vídeo real.
 - Anúncios/UI do YouTube podem entrar na captura. Não há detecção automática confiável implementada.
@@ -63,3 +63,5 @@ Site: `CFG.CAPTURE_API`, vazio até validação. Serviço: `PUBLIC_BASE_URL`, `A
 ### Comunicação
 
 Cada agente lê este arquivo antes de editar e registra alterações ao terminar. Não editar simultaneamente os mesmos arquivos; sem force push. Discussões pontuais no PR; nenhuma mesclagem/publicação automática.
+
+- 24/10/2026 — Codex: PR #2 aberto em rascunho; PR #1 substituído. Atualizações da main até bb62754 incorporadas à branch sem modificar páginas do Claude. Próxima validação: Docker + captura real.

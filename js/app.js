@@ -36,6 +36,11 @@ let EG = null, HG = null;
 S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
 const DIMS = { '9:16': [1080, 1920], '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1920, 1080] };
 const canPro = () => !CFG.GATE || S.plan === 'pro';
+// teleprompter: 1 gravação grátis por conta (roda no aparelho, sem custo de servidor); o uso é marcado na conta e no navegador
+const tpUsed = () => { try { if (localStorage.getItem('forjaclip.tptrial')) return true; } catch { /* ok */ } return !!S.user?.user_metadata?.tp_trial; };
+const tpTrial = () => !canPro() && !tpUsed();
+const tpLabel = () => { const f = $('#tpOpen .fb'); if (f) f.textContent = tpTrial() ? '1 TESTE GRÁTIS' : 'PRO · EXCLUSIVO'; };
+const tpMark = () => { if (canPro()) return; try { localStorage.setItem('forjaclip.tptrial', '1'); } catch { /* ok */ } try { S.sb?.auth.updateUser({ data: { tp_trial: 1 } }).catch(() => { }); } catch { /* ok */ } if (S.user) S.user.user_metadata = { ...S.user.user_metadata, tp_trial: 1 }; tpLabel(); };
 const flash = (m, cta) => { const f = $('#flash'); f.textContent = m; if (cta) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = cta.label; b.style.marginLeft = '10px'; b.onclick = () => { f.hidden = true; cta.fn(); }; f.append(b); } f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
 
 // ---------- tema ----------
@@ -45,7 +50,7 @@ if (ls.get('theme')) document.documentElement.dataset.theme = ls.get('theme');
 theme();
 
 // ---------- navegação ----------
-function view(v) { for (const id of ['login', 'home', 'edit']) $('#' + id).hidden = id !== v; $('#rail').hidden = v === 'login'; $('#nHome').setAttribute('aria-current', v === 'home' ? 'page' : 'false'); window.scrollTo(0, 0); }
+function view(v) { tpLabel();  for (const id of ['login', 'home', 'edit']) $('#' + id).hidden = id !== v; $('#rail').hidden = v === 'login'; $('#nHome').setAttribute('aria-current', v === 'home' ? 'page' : 'false'); window.scrollTo(0, 0); }
 $('#nHome').onclick = () => home();
 $('#nLogo').onclick = e => { e.preventDefault(); home(); };
 $('#nNew').onclick = () => { if (!$('#home').hidden) $('#newfile').click(); else home().then(() => $('#newfile').click()); };
@@ -198,12 +203,12 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro()) { $('#pay').showModal(); return; } const m = await import('./teleprompter.js?v=9');
+$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=12');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
   } : null;
-  m.openTeleprompter({ flash, ai, onUse: f => { S.autoEdit = true; newVideo(f, 'captions'); } }); };
+  m.openTeleprompter({ flash, ai, onStart: tpMark, onUse: f => { S.autoEdit = true; newVideo(f, 'captions'); } }); };
 $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('on'); }; $('#drop').ondragleave = () => $('#drop').classList.remove('on');
 $('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'clips'); };
 $('#drop2').ondragover = e => { e.preventDefault(); $('#drop2').classList.add('on'); }; $('#drop2').ondragleave = () => $('#drop2').classList.remove('on');
@@ -770,7 +775,7 @@ async function boot() {
   const apply = async s => {
     if (!s) { S.user = null; forget(); view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
-    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
+    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; setTimeout(tpLabel, 0); try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
@@ -1060,6 +1065,10 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
 { const fsB = $('#nFs'), root = document.documentElement, standalone = matchMedia('(display-mode:standalone),(display-mode:fullscreen)').matches || navigator.standalone;
   if (!standalone && root.requestFullscreen && document.fullscreenEnabled) {   // iPhone não oferece esta API: lá o caminho é instalar na tela de início
     fsB.hidden = false;
+    const tip = $('#fsTip'), seen = () => { try { return sessionStorage.getItem('fc.fstip'); } catch { return null; } };
+    const upd = () => { tip.hidden = !!document.fullscreenElement || !!seen() || $('#home').hidden; };
+    $('#fsTipGo').onclick = () => fsB.click(); $('#fsTipX').onclick = () => { try { sessionStorage.setItem('fc.fstip', '1'); } catch { /* ok */ } upd(); };
+    document.addEventListener('fullscreenchange', upd); new MutationObserver(upd).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] }); upd();
     fsB.onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen({ navigationUI: 'hide' }).catch(() => flash('Seu navegador não liberou a tela cheia.')); };
     document.addEventListener('fullscreenchange', () => { $('#fsL').textContent = document.fullscreenElement ? 'Sair da tela cheia' : 'Tela cheia'; });
   }
