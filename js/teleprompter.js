@@ -5,6 +5,7 @@ const KEY = 'fc_tp';
 const load = () => { try { const o = JSON.parse(localStorage.getItem(KEY)) || {}; delete o.text; return o; } catch { return {}; } };
 const save = o => { try { const { text, ...rest } = o; localStorage.setItem(KEY, JSON.stringify(rest)); } catch { /* sem armazenamento */ } };
 
+import { startShotCheck, MSG } from './shotcheck.js?v=2';
 const CSS = `
 #tp{position:fixed;inset:0;z-index:90;background:#0b0b0f;color:#fff;display:flex;flex-direction:column;font:16px/1.4 system-ui,sans-serif}
 #tp *{box-sizing:border-box}
@@ -20,6 +21,7 @@ const CSS = `
 #tp .win{position:absolute;left:8%;right:8%;top:0;height:46%;overflow:hidden;background:linear-gradient(#000b,#0008 80%,#0000);-webkit-mask-image:linear-gradient(#000 70%,#0000);mask-image:linear-gradient(#000 70%,#0000)}
 #tp .txt{position:absolute;left:0;right:0;top:0;padding:0 8px;font-weight:700;text-align:center;text-shadow:0 1px 3px #000;white-space:pre-wrap;will-change:transform}
 #tp .line{position:absolute;left:4%;right:4%;top:16%;height:3px;background:#ff5a1f99;border-radius:2px;pointer-events:none}
+#tp .chk{position:absolute;left:10px;top:10px;z-index:3;max-width:min(72%,420px);padding:7px 11px;border-radius:10px;font-size:13px;line-height:1.35;font-weight:600;background:#000a;border:1px solid #fff3}#tp .chk.ok{color:#5be08f}#tp .chk.bad{color:#ffb454}#tp .chk:empty{display:none}
 #tp .cnt{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:30vmin;font-weight:800;text-shadow:0 2px 12px #000}
 #tp .rec{position:absolute;top:10px;right:12px;display:none;gap:6px;align-items:center;font-weight:700}
 #tp .rec i{width:10px;height:10px;border-radius:50%;background:#f33;animation:tpb 1s infinite}
@@ -44,10 +46,10 @@ export function openTeleprompter({ onUse, flash, ai }) {
   const st = document.createElement('style'); st.textContent = CSS;
   const root = document.createElement('div'); root.id = 'tp'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Teleprompter');
   document.body.append(st, root);
-  let stream = null, rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
+  let sc = null, stream = null, rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
   const close = () => {
-    cancelAnimationFrame(raf); stopMeter(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
+    cancelAnimationFrame(raf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
     stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* sem wake lock */ }
     if (url) URL.revokeObjectURL(url); root.remove(); st.remove();
   };
@@ -138,10 +140,18 @@ export function openTeleprompter({ onUse, flash, ai }) {
     d.querySelector('#tppX').onclick = () => d.close(); d.querySelector('#tppRetry').onclick = () => { d.close(); retry(); };
     d.showModal();
   }
+  function shotDialog(iss) {
+    return new Promise(res => {
+      const d = document.createElement('dialog'); d.className = 'tpperm'; d.setAttribute('aria-labelledby', 'shT');
+      d.innerHTML = `<h2 id="shT" style="margin:0 0 6px">Antes de gravar</h2><p class="mut" style="margin:0 0 10px">Estes ajustes deixam o vídeo melhor:</p><ul style="margin:0 0 14px;padding-left:20px;line-height:1.6">${iss.slice(0, 3).map(k => '<li>' + MSG[k] + '</li>').join('')}</ul><div class="row btns"><button class="btn pri" id="shFix" type="button">Ajustar</button><button class="btn" id="shGo" type="button">Gravar assim mesmo</button></div>`;
+      let out = 'fix'; document.body.append(d); d.addEventListener('close', () => { d.remove(); res(out); });
+      d.querySelector('#shFix').onclick = () => d.close(); d.querySelector('#shGo').onclick = () => { out = 'go'; d.close(); }; d.showModal();
+    });
+  }
   async function camera() {
     h(`<div class="cam"><video id="v" playsinline muted autoplay></video>
       <div class="win"><div class="txt" id="tx"></div></div><div class="line"></div>
-      <div class="cnt" id="c"></div><div class="rec" id="r"><i></i><span id="rt">0:00</span></div></div>
+      <div class="chk" id="chk" role="status"></div><div class="cnt" id="c"></div><div class="rec" id="r"><i></i><span id="rt">0:00</span></div></div>
     <div class="ctl">
       <button id="sm" type="button" aria-label="Diminuir velocidade">Mais lento</button>
       <button class="recb" id="rb" type="button" aria-label="Gravar"></button>
@@ -152,6 +162,8 @@ export function openTeleprompter({ onUse, flash, ai }) {
     stopMeter(); const err = await acquire();
     if (!live()) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
     const v = $('#v'); v.srcObject = stream; v.play().catch(() => { /* autoplay */ });
+    let lastChk = '';
+    startShotCheck(v, iss => { const c = $('#chk'); if (!c || !iss) return; const t = iss.length ? MSG[iss[0]] : 'Enquadramento e luz ok'; if (t !== lastChk) { lastChk = t; c.textContent = t; c.className = 'chk ' + (iss.length ? 'bad' : 'ok'); } }).then(x => { if ($('#v')) sc = x; else x && x.stop(); }).catch(() => { });
     const tx = $('#tx'); tx.textContent = cfg.text; tx.style.fontSize = cfg.size + 'px'; tx.style.lineHeight = '1.35'; tx.style.transform = cfg.mirror ? 'scaleX(-1)' : '';
     const words = Math.max(1, cfg.text.trim().split(/\s+/).length);
     const win = $('.win');
@@ -179,6 +191,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
     const rb = $('#rb');
     rb.onclick = async () => {
       if (rec && rec.state === 'recording') { rec.stop(); return; }
+      if (sc) { const iss = sc.issues(); if (iss && iss.length) { rb.disabled = true; const r = await shotDialog(iss); rb.disabled = false; if (r === 'fix') return; } }
       // contagem regressiva 3-2-1
       rb.disabled = true; const c = $('#c'); c.style.display = 'flex';
       for (let n = 3; n > 0; n--) { c.textContent = n; await new Promise(r => setTimeout(r, 1000)); }
@@ -187,7 +200,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
       chunks = [];
       try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined); } catch { flash('Não foi possível iniciar a gravação.'); return; }
       rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-      rec.onstop = () => { clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
+      rec.onstop = () => { sc && sc.stop(); sc = null; clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
       rec.start(1000); resetY(); play();
       rb.classList.add('on'); rb.setAttribute('aria-label', 'Parar gravação'); $('#r').style.display = 'flex';
       const t0 = Date.now(); const tm = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('#rt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 500);
