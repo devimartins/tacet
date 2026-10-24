@@ -243,7 +243,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     rawDialog(file, () => { close(); flash('Gravação aberta no editor. Escolha o estilo e gere as legendas.'); onUse(file); }); return;
     h(`<div class="bar"><b>Gravação pronta</b></div>
     <div class="res"><video id="pv" src="${url}" controls playsinline></video>
-    <p class="tip" id="wm" style="font-size:14px;color:#fff">Atenção: a gravação ainda não está no editor. Toque em <b>Usar no ForjaClip</b> para legendar agora, ou toque em <b>Salvar no aparelho</b> e depois envie esse arquivo ao ForjaClip em <b>Só legendas</b>.</p>
+    <p class="tip" id="wm" style="font-size:14px;color:#fff">Atenção: a gravação ainda não está no editor. Toque em <b>Usar no ForjaClip</b> para legendar agora, ou toque em <b>Salvar no aparelho</b> e depois envie esse arquivo ao ForjaClip em <b>Legende seu vídeo</b>.</p>
     <div class="ctl"><button id="sv" type="button">Salvar no aparelho</button><button class="pri" id="us" type="button">Usar no ForjaClip</button><button id="again" type="button">Gravar de novo</button><button id="x" type="button">Fechar</button></div></div>`);
     if (ext === 'webm') $('#wm').append(document.createElement('br'), 'Este navegador gravou em WebM. Se o editor não aceitar, grave em um navegador que salve MP4 (Safari ou Chrome recente).');
     $('#sv').onclick = async () => {

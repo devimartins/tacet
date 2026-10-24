@@ -1,6 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe } from './captions.js';
 import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
+import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
 import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
@@ -25,16 +26,26 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } } };
 // Retoma o trabalho após recarregar: guarda o id do projeto e o arquivo de vídeo (IndexedDB) neste aparelho.
 const vstore = (() => {
+  // um arquivo por projeto (chave = id), guardados os 3 mais recentes; assim voltar pela lista de projetos recupera o vídeo
   const open = () => new Promise((ok, no) => { const r = indexedDB.open('forjaclip', 1); r.onupgradeneeded = () => r.result.createObjectStore('v'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
   const run = async (mode, fn) => { try { const db = await open(); return await new Promise(ok => { const q = fn(db.transaction('v', mode).objectStore('v')); q.onsuccess = () => ok(q.result); q.onerror = () => ok(null); }); } catch { return null; } };
-  return { put: (pid, file) => run('readwrite', st => st.put({ pid, file }, 'cur')), get: () => run('readonly', st => st.get('cur')), del: () => run('readwrite', st => st.delete('cur')) };
+  const idx = () => { try { return JSON.parse(localStorage.getItem('forjaclip.vids') || '[]'); } catch { return []; } };
+  const setIdx = a => { try { localStorage.setItem('forjaclip.vids', JSON.stringify(a)); } catch { /* ok */ } };
+  return {
+    put: async (pid, file) => { if (!pid || !file) return; const a = [pid, ...idx().filter(x => x !== pid)]; setIdx(a.slice(0, 3)); await run('readwrite', st => st.put({ pid, file }, 'p:' + pid)); for (const old of a.slice(3)) run('readwrite', st => st.delete('p:' + old)); },
+    get: async pid => { const r = await run('readonly', st => st.get('p:' + pid)); if (r?.file) return r; const o = await run('readonly', st => st.get('cur')); return o && o.pid === pid ? o : null; },
+    del: pid => { setIdx(idx().filter(x => x !== pid)); return run('readwrite', st => st.delete('p:' + pid)); },
+    clear: async () => { for (const x of idx()) await run('readwrite', st => st.delete('p:' + x)); setIdx([]); await run('readwrite', st => st.delete('cur')); }
+  };
 })();
 const keep = pid => { if (pid) ls.set('forjaclip.cur', pid); };
-const forget = () => { try { localStorage.removeItem('forjaclip.cur'); } catch { /* ok */ } vstore.del(); };
+const forget = () => { try { localStorage.removeItem('forjaclip.cur'); } catch { /* ok */ } };   // só esquece o projeto aberto; o vídeo de cada projeto continua guardado
 const S = { ov: [], sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
 let EG = null, HG = null;
 S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
-const DIMS = { '9:16': [1080, 1920], '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1920, 1080] };
+const DIMS = { '9:16': [1080, 1920], '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1920, 1080],
+  // 'native' = proporção original do vídeo (lado maior em 1920 px, medidas pares)
+  get native() { const v = document.getElementById('vid'), w = v?.videoWidth || S.media?.videoWidth || S.media?.width, h = v?.videoHeight || S.media?.videoHeight || S.media?.height; if (!w || !h) return [1080, 1920]; const k = 1920 / Math.max(w, h); return [Math.max(2, Math.round(w * k / 2) * 2), Math.max(2, Math.round(h * k / 2) * 2)]; } };
 const canPro = () => !CFG.GATE || S.plan === 'pro';
 // teleprompter: 1 gravação grátis por conta (roda no aparelho, sem custo de servidor); o uso é marcado na conta e no navegador
 const tpUsed = () => { try { if (localStorage.getItem('forjaclip.tptrial')) return true; } catch { /* ok */ } return !!S.user?.user_metadata?.tp_trial; };
@@ -50,7 +61,8 @@ if (ls.get('theme')) document.documentElement.dataset.theme = ls.get('theme');
 theme();
 
 // ---------- navegação ----------
-function view(v) { tpLabel();  for (const id of ['login', 'home', 'edit']) $('#' + id).hidden = id !== v; $('#rail').hidden = v === 'login'; $('#nHome').setAttribute('aria-current', v === 'home' ? 'page' : 'false'); window.scrollTo(0, 0); }
+let tourMod = null;
+function view(v) { tpLabel(); tourMod?.stopTour();  for (const id of ['login', 'home', 'edit']) $('#' + id).hidden = id !== v; $('#rail').hidden = v === 'login'; $('#nHome').setAttribute('aria-current', v === 'home' ? 'page' : 'false'); window.scrollTo(0, 0); }
 $('#nHome').onclick = () => home();
 $('#nLogo').onclick = e => { e.preventDefault(); home(); };
 $('#nNew').onclick = () => { if (!$('#home').hidden) $('#newfile').click(); else home().then(() => $('#newfile').click()); };
@@ -189,6 +201,8 @@ async function openProject(id) {
   enterEdit(); rebuild(); sync(); clipsUI(); $('#txt').value = S.words.map(w => w.w).join(' ');
   $('#phTxt').textContent = 'Selecione de novo o vídeo deste projeto para pré-visualizar e gerar.';
   status(S.words.length ? 'Projeto carregado. A transcrição e os cortes estão salvos.' : 'Este projeto ainda não tem transcrição. Selecione o vídeo para continuar.');
+  const r = await vstore.get(id);   // vídeo guardado neste aparelho: volta sozinho, sem pedir de novo
+  if (r?.file && S.pid === id && !S.file) { $('#phTxt').textContent = 'Carregando o vídeo do projeto…'; if (await attachFile(r.file)) status(S.words.length ? 'Projeto carregado com o vídeo.' : 'Projeto carregado.'); else $('#phTxt').textContent = 'Selecione de novo o vídeo deste projeto para pré-visualizar e gerar.'; }
 }
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
@@ -203,7 +217,7 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=12');
+$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=13');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -224,8 +238,7 @@ async function resume() {
   const pid = ls.get('forjaclip.cur'); if (!pid || !LIVE) { home(); return; }
   await openProject(pid);
   if (S.pid !== pid) { home(); return; }
-  const r = await vstore.get(); if (r && r.pid === pid && r.file) { await attachFile(r.file); }
-}
+  }
 
 // ---------- transcrição automática e cortes ----------
 async function token() { const { data } = await S.sb.auth.getSession(); return data.session?.access_token; }
@@ -291,9 +304,8 @@ function saveSoon(key, patch, ms = 900) { clearTimeout(pend[key]); pend[key] = s
 
 // ---------- editor ----------
 // Formato inicial = proporção nativa do vídeo (projetos salvos mantêm o formato escolhido)
-const nativeRatio = () => { const v = $('#vid'), w = v.videoWidth || S.media?.videoWidth || S.media?.width, h = v.videoHeight || S.media?.videoHeight || S.media?.height; if (!w || !h) return '9:16'; const a = w / h; return a >= 1.1 ? '16:9' : a >= 0.9 ? '1:1' : a >= 0.65 ? '4:5' : '9:16'; };
-function enterEdit() { view('edit'); tab('style'); S.ratioAuto = !DIMS[S.style.ratio]; setRatio(S.ratioAuto ? nativeRatio() : S.style.ratio); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
-$('#vid').addEventListener('loadedmetadata', () => { if (S.ratioAuto && !$('#edit').hidden) { const r = nativeRatio(); if (r !== S.ratio) setRatio(r); } });
+function enterEdit() { view('edit'); tab('style'); S.ratioAuto = !DIMS[S.style.ratio]; setRatio(S.ratioAuto ? 'native' : S.style.ratio); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
+$('#vid').addEventListener('loadedmetadata', () => { if ((S.ratioAuto || S.ratio === 'native') && !$('#edit').hidden) setRatio('native'); });
 function setVideo(f) {
   const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { if (v.currentTime === 0) v.currentTime = 0.05; $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); applyFit(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
 }
@@ -527,7 +539,7 @@ function phrasesUI() {
   });
 }
 function setRatio(r) {
-  S.ratio = r; S.style.ratio = r; const [w, h] = DIMS[r], ar = w / h; $('#ratio').value = r;
+  S.ratio = r; S.style.ratio = r; const [w, h] = DIMS[r], ar = w / h; $('#ratio').value = r; $('#ratio2').value = r;
   $('#stage').style.aspectRatio = w + '/' + h; const sw = `min(100%,calc(var(--sh,74) * ${ar.toFixed(4)} * 1dvh))`; document.documentElement.style.setProperty('--ar', ar.toFixed(4)); applyFit(); $('#stage').style.width = sw; document.querySelector('.transport').style.width = sw;
   saveSoon('style', { style: S.style });
 }
@@ -773,7 +785,7 @@ async function boot() {
   };
   $('#nAv').onclick = avOpen;
   const apply = async s => {
-    if (!s) { S.user = null; forget(); view('login'); return; }
+    if (!s) { S.user = null; forget(); vstore.clear(); view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
     const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; setTimeout(tpLabel, 0); try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
@@ -827,7 +839,7 @@ $('#fpsSel').onchange = e => { S.fps = +e.target.value; };
 const vidSheet = on => { const mob = matchMedia('(max-width:899px)').matches; if (!on || !mob) { $('#vidSet').classList.remove('sheet'); document.documentElement.style.removeProperty('--sh'); if (on) $('#vidSet').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; } $('#vidSet').classList.add('sheet'); document.documentElement.style.setProperty('--sh', '36'); $('#stage').scrollIntoView({ block: 'start' }); window.scrollBy(0, -8); };
 $('#vidCfg').onclick = () => { tab('clips'); vidSheet(!$('#vidSet').classList.contains('sheet')); };
 $('#vidClose').onclick = () => vidSheet(false);
-async function dropProject() { forget(); if (LIVE && S.pid) { const r = await S.sb.from('projects').delete().eq('id', S.pid); if (r.error) { flash('Não foi possível apagar: ' + r.error.message); return false; } } return true; }
+async function dropProject() { forget(); if (S.pid) vstore.del(S.pid); if (LIVE && S.pid) { const r = await S.sb.from('projects').delete().eq('id', S.pid); if (r.error) { flash('Não foi possível apagar: ' + r.error.message); return false; } } return true; }
 async function swapVideo(e) {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   if (!confirm('Trocar o vídeo apaga a transcrição e os cortes deste projeto. Continuar?')) return;
@@ -1111,8 +1123,8 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
 // editor em tela estreita: reduzir/ampliar o vídeo flutuante e mostrar opções do vídeo
 {
   const ed = document.querySelector('#edit .edit'), sz = document.querySelector('#flSize'), mo = document.querySelector('#flMore');
-  sz?.addEventListener('click', () => { const m = ed.classList.toggle('shrunk'); sz.textContent = m ? 'Ampliar vídeo' : 'Reduzir vídeo'; });
-  mo?.addEventListener('click', () => { const m = ed.classList.toggle('more'); mo.textContent = m ? 'Ocultar opções' : 'Opções do vídeo'; });
+  sz?.addEventListener('click', () => { const m = ed.classList.toggle('shrunk'); sz.textContent = m ? 'Ampliar player' : 'Reduzir player'; });
+  mo?.addEventListener('click', () => { const m = ed.classList.toggle('more'); mo.textContent = m ? 'Menos opções' : 'Mais opções'; });
 }
 
 // ---------- painel do criador (só aparece para quem está na tabela admins; o servidor confere de novo em cada chamada) ----------
@@ -1147,7 +1159,7 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
 // ---------- tour guiado: abre sozinho na primeira vez e pode ser refeito pelo botão "Tour" ----------
 const tourSeen = k => { try { return !!localStorage.getItem('forjaclip.tour.' + k); } catch { return true; } };
 const tourMark = k => { try { localStorage.setItem('forjaclip.tour.' + k, '1'); } catch { /* ok */ } };
-async function tourRun(k) { const m = await import('./tour.js?v=3'); tourMark(k); return m.startTour(k, k === 'edit' ? m.EDIT : m.HOME); }
+async function tourRun(k) { const m = tourMod = await import('./tour.js?v=4'); tourMark(k); return m.startTour(k, k === 'edit' ? m.EDIT : m.HOME); }
 function tourAuto(k, view) { if (tourSeen(k)) return; setTimeout(() => { if ($('#' + view).hidden || document.querySelector('dialog[open]')) return; tourRun(k); }, 1600); }
 $('#nTour').onclick = () => tourRun($('#edit').hidden ? 'home' : 'edit');
 new MutationObserver(() => { if (!$('#home').hidden) tourAuto('home', 'home'); else if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] });
@@ -1293,7 +1305,7 @@ function bgControls(grp) {
   const on = el('input', { type: 'checkbox', id: 'c_bgon', onchange: () => { if (on.checked) setBg(S.bgScene || { id: 'light' }); else setBg(null); } });
   const ch = el('div', { className: 'bgch' }); mod().then(m => m.SCENES.forEach(o => ch.append(Object.assign(el('button', { type: 'button', title: o.n, onclick: () => setBg({ id: o.id }) }), { style: 'background:radial-gradient(circle at 50% 35%,' + o.c[0] + ',' + o.c[1] + ')' }))), () => {});
   const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async () => { const f = file.files[0]; file.value = ''; if (!f) return; try { setBg({ img: await createImageBitmap(f), name: f.name }); } catch { flash('Não consegui abrir essa imagem.'); } } });
-  return grp('Fundo do vídeo', el('div', { className: 'row' }, el('label', { htmlFor: 'c_bgon', textContent: 'Trocar o fundo' }), on), ch,
+  return grp('Fundo do vídeo', el('div', { className: 'row' }, el('label', { htmlFor: 'c_bgon', textContent: 'Trocar o fundo ' }, helpBtn('bg')), on), ch,
     el('div', { className: 'row btns' }, el('button', { className: 'btn', type: 'button', textContent: 'Escolher da galeria', onclick: () => file.click() }), el('button', { className: 'btn', type: 'button', textContent: 'Buscar imagem', onclick: () => bgSearchOpen() }), file),
     el('p', { className: 'mut', textContent: 'O recorte acontece no seu aparelho, o vídeo não é enviado. Funciona melhor com boa luz e sem outras pessoas atrás. A exportação fica mais lenta com o fundo trocado.' }));
   // os botões dos cenários são criados depois que o módulo carrega

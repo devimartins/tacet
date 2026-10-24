@@ -7,7 +7,7 @@ export function stopTour() { cur?.end(false); }
 
 export function startTour(id, steps, { onEnd } = {}) {
   stopTour();
-  const list = steps.map(s => ({ ...s, el: typeof s.sel === 'string' ? $(s.sel) : s.sel })).filter(s => vis(s.el));
+  const list = steps.map(s => ({ ...s, el: typeof s.sel === 'string' ? $(s.sel) : s.sel })).filter(s => vis(s.el) && (!s.when || s.when()));
   if (!list.length) return false;
   const block = document.createElement('div'), hole = document.createElement('div'), tip = document.createElement('div');
   block.className = 'tr-block'; hole.className = 'tr-hole'; tip.className = 'tr-tip';
@@ -32,7 +32,7 @@ export function startTour(id, steps, { onEnd } = {}) {
   const show = () => {
     const s = list[i]; tip.replaceChildren();
     const n = document.createElement('span'), t = document.createElement('b'), p = document.createElement('p'), row = document.createElement('div');
-    n.className = 'tr-n'; n.textContent = `${i + 1} de ${list.length}`; t.textContent = s.title; p.textContent = s.text; row.className = 'tr-row';
+    n.className = 'tr-n'; n.textContent = `${i + 1} de ${list.length}`; t.textContent = s.title; p.textContent = typeof s.text === 'function' ? s.text() : s.text; row.className = 'tr-row';
     const mk = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.className = cls; b.onclick = fn; return b; };
     row.append(mk('Pular', 'tr-skip', () => end(true)));
     if (i > 0) row.append(mk('Voltar', 'tr-b', () => go(-1)));
@@ -54,19 +54,22 @@ export function startTour(id, steps, { onEnd } = {}) {
   cur = { end }; show(); return true;
 }
 
+const hasProj = () => !!document.querySelector('#plist li');
+const isCaps = () => document.querySelector('#edit .edit') && !document.querySelector('#clips li');
 export const HOME = [
-  { sel: '#drop', title: 'Cortes de vídeo longo', text: 'Envie um vídeo de podcast, aula ou palestra. A IA acha os melhores momentos e já aplica as legendas animadas.' },
-  { sel: '#drop2', title: 'Legende seu vídeo', text: 'Quer só legendar o vídeo inteiro? Use esta opção: a transcrição é automática e você escolhe o estilo.' },
-  { sel: '#tpOpen', title: 'Teleprompter (Pro)', text: 'Grave lendo o roteiro olhando para a câmera. Ao parar, a gravação abre direto no editor.' },
-  { sel: '#ytForm', title: 'Link do YouTube (Beta)', text: 'No computador, grava o trecho do player oficial para transcrever. Use só vídeos sobre os quais você tem direitos.' },
-  { sel: '#gal', title: 'Estilos de legenda', text: 'Veja como cada estilo fica. Os com selo Pro são exclusivos do plano pago.' },
-  { sel: '#plist', title: 'Seus projetos', text: 'Seus vídeos ficam salvos aqui. No plano gratuito, os projetos são mantidos por 3 dias.' },
-  { sel: '#nPro', title: 'Plano Pro', text: 'Todos os estilos, cortes por IA, teleprompter, vídeos até 1 GB e sem anúncios.' },
+  { sel: '#tpOpen', title: 'Gravar com teleprompter', text: 'Leia o roteiro olhando para a câmera e grave. Ao parar, a gravação abre direto no editor. Você tem uma gravação grátis; depois é do plano Pro.' },
+  { sel: '#drop2', title: 'Legende seu vídeo', text: 'Envie um vídeo e receba a fala em legendas animadas, sem cortar nada. Você escolhe o estilo.' },
+  { sel: '#drop', title: 'Cortes com IA', text: 'Envie um vídeo longo (podcast, aula, palestra). A IA acha os melhores momentos e já aplica as legendas.' },
+  { sel: '#ytForm', title: 'Cortes do YouTube (Beta)', text: 'Cole o link de um vídeo do YouTube e veja os melhores trechos em mini players verticais. O vídeo continua no player oficial.' },
+  { sel: '#gal', title: 'Estilos de legenda', text: 'Veja como cada estilo fica. Os com selo Pro são do plano pago.' },
+  { sel: '#plist', when: hasProj, title: 'Seus projetos', text: 'Seus vídeos em andamento ficam aqui. No plano gratuito, os projetos são mantidos por 3 dias.' },
+  { sel: '#nPro', title: 'Plano Pro', text: 'Todos os estilos, cortes por IA, teleprompter sem limite, vídeos até 1 GB e sem anúncios.' },
   { sel: '#nTour', title: 'Rever o tour', text: 'Este botão abre o tour de novo sempre que você quiser.' },
 ];
 export const EDIT = [
   { sel: '#stage', title: 'Prévia do vídeo', text: 'Aqui você vê o vídeo com as legendas em tempo real. Toque para dar play e arraste a barra para navegar.' },
-  { sel: '#tl', title: 'Linha do tempo', text: 'Arraste as pontas do trecho para tirar a preparação do começo e o fim. Os cortes sugeridos pela IA também aparecem aqui.' },
-  { sel: '#tabS', title: 'Estilo, Legendas e Ferramentas', text: 'Estilo muda a aparência. Legendas permite corrigir o texto e traduzir. Ferramentas reúne cortes por IA, zoom, B-roll, cor e áudio.' },
+  { sel: '#ratio', title: 'Formato', text: 'Por padrão o vídeo mantém a proporção original. Escolha 9:16, 4:5, 1:1 ou 16:9 se for publicar em outra rede.' },
+  { sel: '#tl', title: 'Linha do tempo', text: () => isCaps() ? 'Mostra as legendas ao longo do vídeo. Toque num ponto para ir até ele.' : 'Arraste as pontas do trecho para ajustar o começo e o fim. Os cortes sugeridos pela IA aparecem aqui.' },
+  { sel: '#tabS', title: 'Estilo, Legendas e Ferramentas', text: 'Estilo muda a aparência. Legendas permite corrigir o texto e traduzir. Ferramentas reúne zoom, cortar pausas, B-roll, cor e áudio.' },
   { sel: '#presets', title: 'Escolha o estilo', text: 'Toque em um estilo para aplicar na hora. A prévia acima atualiza com a sua fala.' },
 ];
