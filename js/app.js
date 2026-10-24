@@ -11,7 +11,7 @@ import { findBroll } from './broll.js';
 const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1, 12) || null; if (/(^|\.)youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };
 import { initGuide } from './guide.js';
 import { trackFaces, trackAt } from './facetrack.js';
-import { avatarSvg, parseAv, AV_COUNT, BG_COUNT } from './avatar.js';
+import { avatarSvg, parseAv, AV_COUNT, BG_COUNT } from './avatar.js?v=2';
 import { assist, translateWords, toLines } from './ai.js';
 import { addEmojis } from './extras.js';
 import { detectTone, TONES } from './musicgen.js';
