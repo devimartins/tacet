@@ -1,7 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe } from './captions.js';
 import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
-import { helpBtn } from './help.js?v=1';
+import { helpBtn } from './help.js?v=2';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
 import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
@@ -557,7 +557,7 @@ function mkFx(k, label, hint) {
 }
 const syncFx = () => { fadeUI && fadeUI(); fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v))); if (colorUI) colorUI.sync(); };
 let colorUI = null;   // painel de cor: módulo carregado sob demanda, só quando o usuário abre a seção
-const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=3'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
+const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=4'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
 $('#fxColorD').addEventListener('toggle', e => { if (e.target.open) ensureColor(); });
 const ZL = { 1: 1.05, 2: 1.1, 3: 1.16 };
 const FILLERS = new Set(['hum', 'ahn', 'ãh', 'ah', 'éh', 'hm', 'hmm', 'uh', 'um', 'né', 'tipo', 'então', 'ééé', 'eh']);
@@ -594,7 +594,7 @@ function clipsUI() {
     const acts = el('div', { className: 'acts' }, el('button', { className: 'btn', textContent: 'Pré-visualizar', onclick: () => previewClip(c) }));
     if (c.state === 'rendering') { const p = el('progress', { max: 1, value: c.p || 0 }); p.style.maxWidth = '160px'; const eta = el('span', { className: 'mut eta', role: 'status', textContent: 'Preparando…' }); acts.append(p, eta, el('button', { className: 'btn', textContent: 'Cancelar', onclick: () => S.abort && S.abort.abort() })); }
     else acts.append(el('button', { className: 'btn pri', textContent: c.url ? 'Gerar de novo' : 'Gerar vídeo', disabled: S.busy, onclick: () => renderOne(c) }));
-    if (c.url) acts.append(el('a', { className: 'btn', textContent: 'Baixar', href: c.url, download: `forjaclip-corte-${i + 1}.mp4` }));
+    if (c.url) acts.append(el('button', { className: 'btn', type: 'button', textContent: 'Salvar', onclick: () => saveVideo(c.url, clipName(c)) }));
     { const d = el('button', { className: 'btn', textContent: 'Descrição e hashtags', onclick: () => describeClip(c, d) }); acts.append(d); }
     if (c.state === 'error') acts.append(el('span', { className: 'warn', textContent: c.err }));
     const mp = miniClip(c); ul.append(el('li', { className: 'clip' + (mp ? ' hm' : '') }, ...(mp ? [mp] : []), el('div', {}, el('b', { textContent: c.title || 'Corte ' + (i + 1) }), ' ', el('span', { className: 'score', textContent: c.score != null ? 'nota ' + c.score : 'manual' })), el('div', { className: 'mut', textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }), acts));
@@ -606,8 +606,8 @@ const cutSave = () => save({ clips: S.clips.map(({ url, state, p, err, t0, ...c 
 function cutsOpen() { if (!S.clips.length) { flash('Ainda não há cortes. Crie um manual.'); return; } cutsUI(); if (!$('#cuts').open) $('#cuts').showModal(); }
 function cutsClose() { if (miniOn) miniStop(miniOn); $('#cuts').close(); }
 async function cutDl(c) {
-  if (!c.url) await renderOne(c);
-  if (c.url) { const a = el('a', { href: c.url, download: `forjaclip-corte-${S.clips.indexOf(c) + 1}.mp4` }); document.body.append(a); a.click(); a.remove(); }
+  if (!c.url) { await renderOne(c); if (c.url) flash('Corte pronto. Toque em ⬇ de novo para salvar.'); return; }
+  saveVideo(c.url, clipName(c));
 }
 function cutCard(c, i) {
   const src = $('#vid').src, card = el('div', { className: 'cc' + (c.status === 'no' ? ' no' : '') }); card.dataset.id = c.id;
@@ -657,15 +657,27 @@ $('#cutsOpen').onclick = cutsOpen;
 $('#cutsMan').onclick = () => { cutsClose(); tab('clips'); try { $('#ms').scrollIntoView({ block: 'center' }); $('#ms').focus(); } catch { /* ok */ } };
 
 // ---------- exportar (botão sempre visível no editor) ----------
+const MOB = () => /iPhone|iPad|Android/.test(navigator.userAgent);
+const saveMode = () => MOB() && navigator.canShare ? 'share' : window.showSaveFilePicker ? 'pick' : 'dl';
+const saveLabel = () => ({ share: 'Salvar na galeria ou compartilhar', pick: 'Escolher onde salvar', dl: 'Baixar vídeo' })[saveMode()];
+const saveWhere = () => ({
+  share: 'Ao tocar em Salvar, o celular abre as opções: escolha “Salvar vídeo” para guardar na galeria (iPhone) ou “Fotos”/“Arquivos” (Android).',
+  pick: 'Ao tocar em Salvar, você escolhe a pasta e o nome do arquivo.',
+  dl: 'Este navegador baixa o arquivo direto para a pasta Downloads.'
+})[saveMode()];
 async function saveVideo(url, name) {
-  try { const b = await (await fetch(url)).blob(), f = new File([b], name, { type: b.type || 'video/mp4' }); if (/iPhone|iPad|Android/.test(navigator.userAgent) && navigator.canShare?.({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
-  const a = el('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove();
+  let blob; try { blob = await (await fetch(url)).blob(); } catch { blob = null; }
+  const mode = saveMode();
+  if (blob && mode === 'share') { try { const f = new File([blob], name, { type: blob.type || 'video/mp4' }); if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); flash('Pronto. Se escolheu “Salvar vídeo”, ele está na galeria.'); return; } } catch (e) { if (e && e.name === 'AbortError') return; } }
+  if (blob && mode === 'pick') { try { const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Vídeo MP4', accept: { 'video/mp4': ['.mp4'] } }] }); const w = await h.createWritable(); await w.write(blob); await w.close(); flash('Vídeo salvo em ' + h.name + '.'); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  const a = el('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove(); flash(MOB() ? 'Vídeo baixado. Procure em Arquivos/Downloads.' : 'Vídeo baixado na pasta Downloads.');
 }
+const clipName = c => 'forjaclip-' + (c.id === 'full' ? (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) : 'corte-' + (S.clips.indexOf(c) + 1)) + '.mp4';
 function expOpen() {
   if (!S.file && !S.words.length) { flash('Abra um vídeo primeiro.'); return; }
   const d = $('#expD'), real = S.clips.filter(c => c.id !== 'full');
   $('#expCuts').hidden = !real.length; $('#expCuts').textContent = 'Escolher entre os cortes sugeridos (' + real.length + ')';
-  $('#expSave').hidden = !(S.expClip && S.expClip.url); $('#expMsg').textContent = ''; $('#expPg').hidden = true; $('#expFull').disabled = !!S.busy;
+  $('#expSave').hidden = !(S.expClip && S.expClip.url); $('#expSave').textContent = saveLabel(); $('#expWhere').textContent = saveWhere(); $('#expMsg').textContent = ''; $('#expPg').hidden = true; $('#expFull').disabled = !!S.busy;
   if (!d.open) d.showModal();
 }
 $('#expBtn').onclick = $('#expBtn2').onclick = expOpen; $('#expX').onclick = () => $('#expD').close();
@@ -679,9 +691,9 @@ $('#expFull').onclick = async () => {
   S.expClip = c; $('#expSave').hidden = true; $('#expPg').hidden = false; $('#expPg').value = 0; $('#expMsg').textContent = 'Gerando…'; $('#expFull').disabled = true;
   await renderOne(c);
   $('#expFull').disabled = false; $('#expPg').hidden = true;
-  if (c.url) { $('#expMsg').textContent = 'Pronto! Toque em “Salvar vídeo pronto”.'; $('#expSave').hidden = false; } else $('#expMsg').textContent = c.state === 'error' ? (c.err || 'Falha ao gerar.') : 'Geração cancelada.';
+  if (c.url) { $('#expMsg').textContent = 'Pronto! Toque em “' + saveLabel() + '” para guardar o vídeo.'; $('#expSave').textContent = saveLabel(); $('#expSave').hidden = false; } else $('#expMsg').textContent = c.state === 'error' ? (c.err || 'Falha ao gerar.') : 'Geração cancelada.';
 };
-$('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) + '.mp4'); };
+$('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, clipName(c)); };
 
 // botão X (ícone) para fechar qualquer janela (dialog), inclusive as criadas depois
 {
@@ -707,8 +719,9 @@ async function renderOne(c) {
   unlockForja();
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
+  if (S.playing) play(false); if (typeof miniOn !== 'undefined' && miniOn) miniStop(miniOn); try { musEl && musEl.pause(); } catch { /* sem trilha */ }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Salvar para escolher onde guardar.'); beep(); }
   catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
@@ -716,7 +729,7 @@ async function renderOne(c) {
 // ---------- reprodução e prévia ----------
 const vid = $('#vid');
 const hasVid = () => !!S.file;
-function play(on) { S.playing = on; audPrev(on); if (hasVid()) { on ? vid.play().catch(() => { S.playing = false; $('#pp').textContent = 'Reproduzir'; $('#stPlay').hidden = false; }) : vid.pause(); } $('#pp').textContent = on ? 'Pausar' : 'Reproduzir'; $('#stPlay').hidden = on; }
+function play(on) { if (on && S.busy) { flash('Aguarde a exportação terminar para tocar o vídeo.'); return; } S.playing = on; audPrev(on); if (hasVid()) { on ? vid.play().catch(() => { S.playing = false; $('#pp').textContent = 'Reproduzir'; $('#stPlay').hidden = false; }) : vid.pause(); } $('#pp').textContent = on ? 'Pausar' : 'Reproduzir'; $('#stPlay').hidden = on; }
 $('#stPlay').onclick = () => { S.prev = null; play(true); };
 $('#stage').addEventListener('click', e => { if (e.target.closest('label,button,input,a')) return; S.prev = null; play(!S.playing); });
 const stopPlay = () => { if (!$('#edit').hidden || S.playing) { S.playing = false; try { vid.pause(); } catch { /* sem vídeo */ } } };
@@ -832,24 +845,32 @@ $('#fiR').oninput = e => { S.style.fi = +e.target.value; $('#fiO').textContent =
 $('#foR').oninput = e => { S.style.fo = +e.target.value; $('#foO').textContent = S.style.fo + ' s'; saveSoon('style', { style: S.style }); };
 let beepOn = true; try { beepOn = localStorage.getItem('fc_beep') !== '0'; } catch { /* sem armazenamento */ } $('#beepC').checked = beepOn;
 $('#beepC').onchange = e => { beepOn = e.target.checked; try { localStorage.setItem('fc_beep', beepOn ? '1' : '0'); } catch { /* ok */ } };
-// som de forja ao concluir a exportação (sounds/forja.m4a; sounds/forja.webm como reserva); se não tocar, usa dois tons curtos
-let forjaA = null;
+// som de forja ao concluir a exportação (sounds/forja.m4a; sounds/forja.webm como reserva). Sem o arquivo, não toca nada (só vibra no celular).
+let forjaA = null, acx = null, forjaBuf = null, forjaLoad = null;
 function forjaEl() {
   if (forjaA) return forjaA;
   const a = new Audio('sounds/forja.m4a'); a.preload = 'auto'; let tried = false;
   a.onerror = () => { if (!tried) { tried = true; a.src = 'sounds/forja.webm'; a.load(); } };
   return forjaA = a;
 }
-function unlockForja() {   // chamado no clique de "Gerar": libera o som para tocar depois, sem clique (iPhone e Safari exigem)
-  if (!beepOn) return;
-  try { const a = forjaEl(); a.muted = true; const p = a.play(); Promise.resolve(p).then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); } catch { /* sem áudio */ }
+async function loadForja() {
+  for (const u of ['sounds/forja.m4a', 'sounds/forja.webm']) {
+    try { const r = await fetch(u); if (!r.ok) continue; forjaBuf = await acx.decodeAudioData(await r.arrayBuffer()); return; } catch { /* tenta o próximo formato */ }
+  }
 }
-function tones() {
-  try { const ac = new AudioContext(), t = ac.currentTime; [[660, 0], [880, 0.16]].forEach(([f, d]) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18); o.connect(g).connect(ac.destination); o.start(t + d); o.stop(t + d + 0.2); }); setTimeout(() => ac.close(), 800); } catch { /* sem áudio */ }
+function unlockForja() {   // chamado no clique de "Gerar"/"Exportar": libera o som para tocar depois, sem novo clique (iPhone e Safari exigem)
+  if (!beepOn) return;
+  try {
+    acx = acx || new (window.AudioContext || window.webkitAudioContext)(); acx.resume?.();
+    const t = acx.createBufferSource(); t.buffer = acx.createBuffer(1, 1, 22050); t.connect(acx.destination); t.start(0);
+    if (!forjaBuf && !forjaLoad) forjaLoad = loadForja();
+  } catch { /* sem Web Audio */ }
+  try { const a = forjaEl(); a.muted = true; Promise.resolve(a.play()).then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); } catch { /* sem áudio */ }
 }
 function beep() {
   if (!beepOn) return;
-  try { const a = forjaEl(); a.muted = false; a.volume = 1; a.currentTime = 0; Promise.resolve(a.play()).catch(tones); } catch { tones(); }
+  try { if (acx && forjaBuf) { acx.resume?.(); const s = acx.createBufferSource(); s.buffer = forjaBuf; s.connect(acx.destination); s.start(); return; } } catch { /* usa o elemento */ }
+  try { const a = forjaEl(); a.muted = false; a.volume = 1; a.currentTime = 0; Promise.resolve(a.play()).catch(() => { try { navigator.vibrate?.([80, 40, 80]); } catch { /* sem vibração */ } }); } catch { /* sem áudio */ }
 }
 $('#resSel').onchange = e => { S.res = +e.target.value; };
 $('#fpsSel').onchange = e => { S.fps = +e.target.value; };
@@ -885,7 +906,7 @@ $('#audIn').onchange = async e => {
   catch { flash('Não consegui ler este áudio. Tente MP3, M4A ou WAV.'); }
 };
 S.music = null; let musEl = null;
-function musSync() { if (!musEl) return; musEl.volume = S.music.vol; if (S.playing) { if (musEl.paused) musEl.play().catch(() => { }); } else musEl.pause(); }
+function musSync() { if (!musEl) return; if (S.busy) { musEl.pause(); return; } musEl.volume = S.music.vol; if (S.playing) { if (musEl.paused) musEl.play().catch(() => { }); } else musEl.pause(); }
 async function loadMusic(f, label) {
   const m = $('#musMsg'); m.textContent = 'Lendo o áudio…';
   try {
@@ -907,7 +928,7 @@ $('#musGen').onclick = async () => {
 };
 $('#musVol').oninput = e => { $('#musDb').textContent = dbFmt(+e.target.value); if (S.music) { S.music.vol = dbLin(+e.target.value); musSync(); } };
 $('#musOff').onclick = () => { if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); musEl = null; } S.music = null; $('#musRow').hidden = true; $('#musFile').value = ''; drawTimeline(); $('#musMsg').textContent = 'Adicione uma trilha. Ela é misturada ao áudio ao gerar o corte.'; };
-setInterval(() => { if (musEl) { if (S.playing && musEl.paused) musEl.play().catch(() => { }); if (!S.playing && !musEl.paused) musEl.pause(); } }, 300);
+setInterval(() => { if (musEl) { if (S.busy) { if (!musEl.paused) musEl.pause(); return; } if (S.playing && musEl.paused) musEl.play().catch(() => { }); if (!S.playing && !musEl.paused) musEl.pause(); } }, 300);
 
 // ---------- assinatura (Mercado Pago: PIX, débito e crédito) ----------
 async function checkout(btn, msg, plan) {
