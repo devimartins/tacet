@@ -4,6 +4,8 @@ const HELP = {
   ratio: ['Formato do vídeo', '“Original do vídeo” mantém a proporção da gravação. 9:16 é vertical (Reels, TikTok, Shorts), 4:5 e 1:1 servem para feed e 16:9 é horizontal (YouTube).'],
   fit: ['Enquadramento', 'Define o que acontece quando o vídeo não tem a mesma proporção do formato. “Preencher o quadro” corta as bordas; “Inteiro, fundo desfocado” mostra tudo e desfoca as laterais.'],
   face: ['Seguir o rosto', 'Ao transformar um vídeo largo em vertical, o enquadramento acompanha o rosto em vez de ficar parado no centro. A análise acontece no seu aparelho. Recurso do plano Pro.'],
+  color: ['Cor do vídeo', 'Ajusta brilho, contraste, saturação e vinheta (escurecer as bordas) do vídeo. A prévia mostra o resultado e ele vai para o vídeo exportado. “Resetar cores” volta ao original.'],
+  filter: ['Filtros prontos', 'Aplicam um visual de cor completo ao vídeo com um toque, como Cinema, Preto e branco ou Pôr do sol. Use “Intensidade do filtro” para deixar mais leve. Recurso do plano pago.'],
   bg: ['Trocar o fundo', 'Tira o fundo da sua gravação e coloca no lugar um cenário de estúdio ou uma imagem sua. Funciona melhor com boa luz e sem pessoas atrás de você. A exportação fica mais lenta.']
 };
 let pop = null;

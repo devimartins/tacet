@@ -76,3 +76,13 @@ Variáveis: `--bg --s1 --in --bd --tx --mut --ac --amber --ember --ok --warn --e
 
 ## 9. Referências que inspiraram (técnicas, não cópia)
 midu.design (rolagem que acende texto, brilho granulado inferior), creativeartist.at (grade 2×2 com cartão destacado, selo + título centralizado), e as imagens Velocity, Mufi, Social Voice, opnr, Arounda (vidro escuro, brilho só no contorno, palavra de destaque em degradê, plano central elevado).
+
+## Diretrizes de plataforma aplicadas (Apple HIG e Google Material)
+- **Alvos de toque:** Apple 44×44 pt, Material 48 dp. Aqui: mínimo de 44 px; botões "?" têm 30 px visíveis e área de toque de 44 px.
+- **Contraste:** texto 4,5:1 e elementos gráficos 3:1 (WCAG AA, igual nas duas plataformas).
+- **Campos:** fonte de 16 px em telas de toque (abaixo disso o iPhone dá zoom ao focar).
+- **Nomes:** todo botão só com ícone tem `aria-label`; nomes descrevem o resultado ("Cor do vídeo", não "Look").
+- **Movimento:** respeitar `prefers-reduced-motion`; nada pisca.
+- **Salvar arquivos:** no celular usar a folha de compartilhar ("Salvar vídeo" vai à galeria); no computador deixar escolher a pasta; sempre dizer onde o arquivo foi parar.
+- **Feedback:** toda ação longa mostra progresso, e o fim é avisado com texto (e som, se o usuário deixou ligado).
+Fontes: developer.android.com/design/ui/mobile/guides/foundations/accessibility e developer.apple.com/design/human-interface-guidelines/accessibility.

@@ -1,4 +1,5 @@
-// Painel "Cor e look": controles, prévia em GPU e parâmetros para a exportação. Carregado sob demanda.
+// Painel "Cor do vídeo": controles, prévia em GPU e parâmetros para a exportação. Carregado sob demanda.
+import { helpBtn } from './help.js?v=2';
 import { NEUTRAL, LOOKS, isNeutral, lookLut, parseCube, createGrader } from './color.js?v=2';
 
 export function initColor({ S, $, el, canPro, saveSoon, flash }) {
@@ -20,9 +21,9 @@ export function initColor({ S, $, el, canPro, saveSoon, flash }) {
   };
   const lookBtns = [];
   const pick = id => { if (id && !canPro()) { $('#pay').showModal(); return; } S.style.grade = { ...NEUTRAL, curve: [0, 0, 0], look: id, lutAmt: 1 }; saveSoon('style', { style: S.style }); sync(); };
-  const looks = el('div', { className: 'seg', role: 'group', ariaLabel: 'Look' }, ...[{ id: '', name: 'Nenhum' }, ...LOOKS].map(l => { const b = el('button', { type: 'button', textContent: l.name, onclick: () => pick(l.id) }); lookBtns.push([l.id, b]); return b; }));
+  const looks = el('div', { className: 'seg', role: 'group', ariaLabel: 'Filtro de cor' }, ...[{ id: '', name: 'Nenhum' }, ...LOOKS].map(l => { const b = el('button', { type: 'button', textContent: l.name, onclick: () => pick(l.id) }); lookBtns.push([l.id, b]); return b; }));
   looks.style.flexWrap = 'wrap';
-  const amt = slider('lutAmt', 'Intensidade do look', 0, 100, false); const amtIn = amt.querySelector('input'); amtIn.oninput = e => set('lutAmt', +e.target.value / 100); ctrls.push(() => { amtIn.value = Math.round((G().lutAmt ?? 1) * 100); });
+  const amt = slider('lutAmt', 'Intensidade do filtro', 0, 100, false); const amtIn = amt.querySelector('input'); amtIn.oninput = e => set('lutAmt', +e.target.value / 100); ctrls.push(() => { amtIn.value = Math.round((G().lutAmt ?? 1) * 100); });
   const file = el('input', { type: 'file', accept: '.cube', hidden: true, onchange: async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (!canPro()) { $('#pay').showModal(); return; }
     if (f.size > 12e6) { flash('Arquivo grande demais para um .cube.'); return; }
@@ -36,7 +37,7 @@ export function initColor({ S, $, el, canPro, saveSoon, flash }) {
     el('div', { className: 'row' }, el('button', { className: 'btn', type: 'button', textContent: 'Resetar cores', onclick: () => reset.click() })),
     slider('bright', 'Brilho', -100, 100), slider('contrast', 'Contraste', -100, 100), slider('sat', 'Saturação', -100, 100), slider('vig', 'Vinheta', 0, 100),
     el('details', {}, el('summary', { textContent: 'Curvas (plano pago)' }), curve(0, 'Sombras'), curve(1, 'Meios-tons'), curve(2, 'Realces')),
-    el('div', { className: 'grp' }, el('b', { textContent: 'Looks (plano pago)' }), looks, amt, el('div', { className: 'row' }, imp, note)), el('div', { className: 'row' }, reset));
+    el('div', { className: 'grp' }, el('b', { textContent: 'Filtros prontos (plano pago) ' }, helpBtn('filter')), looks, amt, el('div', { className: 'row' }, imp, note)), el('div', { className: 'row' }, reset));
   function sync() {
     ctrls.forEach(f => f());
     const cur = G().look; lookBtns.forEach(([id, b]) => b.setAttribute('aria-pressed', String(id === cur)));
