@@ -2,7 +2,7 @@
 <meta name="theme-color" content="#0F0E0D" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#FBF6F1" media="(prefers-color-scheme: light)">
 <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>Trechos sugeridos de um vídeo do YouTube · ForjaClip</title>
-<meta name="description" content="Cole o link do YouTube e a transcrição: a IA sugere os trechos com mais potencial de corte e você assiste a cada um no player oficial, em mini players verticais.">
+<meta name="description" content="Cole o link do YouTube: a IA sugere os trechos com mais potencial de corte e você assiste a cada um no player oficial, em mini players verticais.">
 <meta name="robots" content="noindex,follow"><link rel="canonical" href="https://forjaclip.com.br/cortes-youtube.html"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
@@ -28,7 +28,7 @@ body{margin:0;background:radial-gradient(900px 380px at 50% -120px,var(--glow),t
 h1{font:600 clamp(32px,5vw,52px)/1.06 var(--font-display);letter-spacing:-.03em;margin:0 0 var(--sp-4);text-wrap:balance}h1 .hl{color:var(--amber);font-weight:650}
 .lead{color:var(--mut);font-size:16px;margin:0;max-width:60ch}
 .panel{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-xl);padding:var(--sp-5);box-shadow:var(--sh1);margin-bottom:var(--sp-6)}@media(min-width:700px){.panel{padding:var(--sp-8)}}
-.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8)}.step{display:grid;grid-template-columns:32px minmax(0,1fr);gap:var(--sp-4);align-items:start}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8)}.step{display:block}
 .n{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font:600 14px var(--font-mono);color:var(--ac);border:1px solid color-mix(in srgb,var(--ac) 50%,transparent);background:color-mix(in srgb,var(--ac) 10%,transparent)}
 .sb{min-width:0;display:grid;gap:var(--sp-2)}.lbl{font-weight:600;font-size:15px}.lbl small{font-weight:400;color:var(--mut)}.hint{margin:0;font-size:13px;color:var(--mut)}
 input[type=url],input[type=text],textarea{width:100%;min-height:44px;border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--in);color:var(--tx);padding:10px var(--sp-3);font:inherit;transition:border-color .14s var(--ease),box-shadow .14s var(--ease)}
@@ -87,17 +87,16 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
 </style></head><body><div class="wrap">
 <header class="top"><a class="brand" href="/"><img src="favicon.svg" alt="" width="28" height="28">ForjaClip</a><a class="back" href="/">← Voltar ao app</a></header>
 <main>
-<section class="hero rv"><p class="eyebrow">Trechos sugeridos</p><h1>Encontre os melhores <span class="hl">cortes</span> de um vídeo do YouTube</h1><p class="lead">Cole o link e a transcrição. A IA aponta os trechos com mais potencial e cada um aparece num mini player vertical, usando o player oficial do YouTube. Nada é baixado nem gravado.</p></section>
+<section class="hero rv"><p class="eyebrow">Trechos sugeridos</p><h1>Encontre os melhores <span class="hl">cortes</span> de um vídeo do YouTube</h1><p class="lead">A IA lê o vídeo pelo link e aponta os trechos com mais potencial e cada um aparece num mini player vertical, usando o player oficial do YouTube. Nada é baixado nem gravado.</p></section>
 <form id="f" class="panel rv rv2">
+ <input id="u" type="url" hidden>
  <ol class="steps">
-  <li class="step"><span class="n" aria-hidden="true">1</span><div class="sb"><label class="lbl" for="u">Link do vídeo</label><input id="u" type="url" required placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"><p class="hint">Use só vídeos seus ou que você tem permissão de usar.</p></div></li>
-  <li class="step"><span class="n" aria-hidden="true">2</span><div class="sb"><label class="lbl" for="t">Transcrição com tempos</label>
-   <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Cole a transcrição para ver quanto do vídeo ela cobre.</p></div></div>
-   <textarea id="t" placeholder="Cole aqui a transcrição com a minutagem. Exemplo:&#10;0:00&#10;Olá, hoje eu vou falar de…&#10;0:05&#10;O primeiro erro é…"></textarea>
-   <p class="hint er" id="tErr" role="alert" hidden></p>
-   <div class="row"><button class="btn" id="pst" type="button">Colar da área de transferência</button><label class="btn" for="fl">Enviar arquivo SRT ou VTT</label><input id="fl" type="file" accept=".srt,.vtt,.txt,text/plain,text/vtt" hidden><span class="hint" id="fn"></span></div>
-   <details class="how"><summary>Como conseguir a transcrição</summary><ol><li>No YouTube, abra o vídeo, toque em “…mais” na descrição e em “Mostrar transcrição”. Selecione o texto e cole aqui.</li><li>Se o vídeo é seu: YouTube Studio, Legendas, e baixe o arquivo SRT ou VTT.</li><li>Dica: quando a transcrição indica quem fala (“Ana:” ou “>>”), os trechos mostram o falante.</li></ol></details></div></li>
-  <li class="step"><span class="n" aria-hidden="true">3</span><div class="sb"><span class="lbl">Estilo da legenda <small>· prévia do que o ForjaClip aplica no vídeo</small></span>
+  <li class="step"><div class="sb">
+   <p class="hint er" id="noLink" role="alert" hidden>Nenhum link do YouTube foi recebido. <a href="/">Volte ao ForjaClip</a> e cole o link na página inicial.</p>
+   <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Preparando a transcrição…</p><div class="row"><button class="btn" id="srtB" type="button" disabled>Baixar arquivo SRT</button></div></div></div>
+   <textarea id="t" hidden></textarea>
+   <p class="hint er" id="tErr" role="alert" hidden></p></div></li>
+  <li class="step"><div class="sb"><span class="lbl">Estilo da legenda <small>· prévia do que o ForjaClip aplica no vídeo</small></span>
    <div class="chips" role="group" aria-label="Filtrar estilos"><button type="button" data-gc="Todos" aria-pressed="true">Todos</button><button type="button" data-gc="Grátis" aria-pressed="false">Grátis</button><button type="button" data-gc="Pro" aria-pressed="false">Pro</button></div>
    <div class="gal" id="gal" role="group" aria-label="Estilos de legenda"></div>
    <p class="hint">Selecionado: <b id="styN">Iman · grátis</b>. Os estilos marcados <b>PRO</b> aparecem aqui como prévia; para exportar com eles é preciso o plano Pro.</p>
@@ -344,32 +343,30 @@ function drawPos() {
     l.append(t, r); pf.append(l);
   });
 }
-{ const q = new URLSearchParams(location.search).get('u'); if (q) $('#u').value = q; }
+{ const q = new URLSearchParams(location.search).get('u'); if (q) $('#u').value = q; if (!ytId(q || '')) { $('#noLink').hidden = false; $('#go').disabled = true; } }
 const clearT = () => { $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); };
 $('#t').addEventListener('input', clearT);
-$('#pst').onclick = async () => { try { const x = await navigator.clipboard.readText(); if (x && x.trim()) { $('#t').value = x; clearT(); say('Transcrição colada.'); } else say('A área de transferência está vazia. Copie a transcrição primeiro.', 1); } catch { say('O navegador não permitiu ler a área de transferência. Cole no campo com Ctrl+V.', 1); } };
 $('#cr').onchange = () => { document.querySelectorAll('.stage').forEach(s => { s.classList.toggle('crop', $('#cr').checked); const z = s.parentNode.querySelector('[data-z]'); z.textContent = $('#cr').checked ? 'Ver completo' : 'Enquadrar 9:16'; }); };
-$('#fl').onchange = async e => { const f = e.target.files[0]; if (f) { $('#t').value = await f.text(); $('#fn').textContent = f.name; } };
 
 // ---- passo 2: player pequeno do link e barra de progresso (cobertura da transcrição e andamento da análise)
 let pvP = null, pvId = '', vDur = 0, pvT = 0;
 function prog(f, txt, ok) { const v = Math.max(0, Math.min(100, Math.round(f * 100))); $('#trkI').style.width = v + '%'; $('#trk').setAttribute('aria-valuenow', v); $('#trk').classList.toggle('ok', !!ok); if (txt) $('#pgS').textContent = txt; }
 function coverage() {
-  const raw = $('#t').value; if (!raw.trim()) return prog(0, 'Cole a transcrição para ver quanto do vídeo ela cobre.');
-  const ws = toWords(labelCues(parseCues(raw)).cues); if (!ws.length) return prog(0, 'Ainda não encontrei tempos no texto colado. Ele precisa ter minutagem (ex.: 0:12).');
+  const raw = $('#t').value; $('#srtB').disabled = !parseCues(raw).length; if (!raw.trim()) return prog(0, 'Preparando a transcrição…');
+  const ws = toWords(labelCues(parseCues(raw)).cues); if (!ws.length) return prog(0, 'Não foi possível ler a transcrição.');
   const end = ws[ws.length - 1].e, f = vDur > 30 ? Math.min(1, end / vDur) : 0;
   if (vDur > 30) prog(f, 'Transcrição lida até ' + fmt(end) + ' de ' + fmt(vDur) + ' (' + Math.round(f * 100) + '%). ' + (f < .9 ? 'Faltou parte do vídeo: os cortes só saem do trecho coberto.' : 'Cobre quase todo o vídeo.'), f >= .9);
   else prog(1, ws.length + ' palavras lidas, até ' + fmt(end) + '. Aguardando a duração do vídeo.', false);
 }
 async function showPreview() {
-  const id = ytId($('#u').value.trim()); if (id === pvId) return; pvId = id || ''; vDur = 0; autoRun++; autoFor = ''; $('#go').disabled = false;
+  const id = ytId($('#u').value.trim()); if (id === pvId) return; pvId = id || ''; vDur = 0; autoRun++; autoFor = ''; $('#go').disabled = !id;
   if (!id) { $('#pvw').hidden = true; if (pvP) { try { pvP.destroy(); } catch {} pvP = null; $('#pbox').innerHTML = '<div id="pbh"></div>'; } return coverage(); }
   $('#pvw').hidden = false;
   try { await api(); } catch (e) { return prog(0, 'Não foi possível carregar o player do YouTube. A análise continua funcionando.'); }
   if (pvId !== id) return;
   const ready = () => { try { vDur = pvP.getDuration() || 0; } catch {} coverage(); if (vDur > 30) autoT(id); };
   if (pvP && pvP.cueVideoById) { pvP.cueVideoById(id); setTimeout(ready, 1200); return; }
-  pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, cc_load_policy: 0, hl: 'pt', origin: location.origin }, events: { onReady: e => { noCc(e && e.target); setTimeout(ready, 600); }, onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui. Você ainda pode colar a transcrição e analisar.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
+  pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, cc_load_policy: 0, hl: 'pt', origin: location.origin }, events: { onReady: e => { noCc(e && e.target); setTimeout(ready, 600); }, onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
 }
 
 // ---- transcrição automática pelo link (Worker + Gemini), em blocos de 10 min com progresso real
@@ -378,7 +375,7 @@ async function autoT(id) {
   if (autoFor === id) return; autoFor = id;
   if ($('#t').value.trim() && !autoFilled) return;
   if (!window.CFG?.AI) return;
-  const tk = await token(); if (!tk) return prog(0, 'Entre no ForjaClip para a transcrição automática, ou cole o texto abaixo.');
+  const tk = await token(); if (!tk) return prog(0, 'Entre no ForjaClip para usar a transcrição automática.');
   const run = ++autoRun, n = Math.min(24, Math.ceil(vDur / 600)), url = 'https://www.youtube.com/watch?v=' + id, lines = []; let ok = true;
   $('#t').value = ''; autoFilled = true; $('#go').disabled = true;
   for (let i = 0; i < n; i++) {
@@ -387,21 +384,27 @@ async function autoT(id) {
     prog(i / n, 'Transcrevendo automaticamente… bloco ' + (i + 1) + ' de ' + n + ' (' + Math.round(i / n * 100) + '%)');
     try {
       const r = await fetch(CFG.AI + '/transcript', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ url, from, len }) }), d = await r.json().catch(() => ({}));
-      if (r.status === 404) { ok = false; $('#t').value = ''; autoFilled = false; $('#go').disabled = false; return prog(0, 'A transcrição automática ainda não está disponível. Cole o texto abaixo.'); }
+      if (r.status === 404) { ok = false; $('#t').value = ''; autoFilled = false; $('#go').disabled = false; return prog(0, 'A transcrição automática ainda não está disponível. Tente de novo mais tarde.'); }
       if (!r.ok) throw new Error(d.error || 'erro ' + r.status);
       for (const g of d.segments || []) lines.push(fmt(g.s) + '\n' + g.text);
       $('#t').value = lines.join('\n');
-    } catch (e) { ok = false; prog(i / n, 'A transcrição automática parou: ' + e.message + ' Você pode colar o texto para completar.'); break; }
+    } catch (e) { ok = false; prog(i / n, 'A transcrição automática parou: ' + e.message + ' Tente de novo mais tarde.'); break; }
   }
-  if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) prog(0, 'Não encontrei fala neste vídeo. Cole a transcrição manualmente.'); else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + (lines.length === 1 ? ' linha' : ' linhas') + '). Revise o texto, se quiser, e clique em Sugerir trechos.', true); } } }
+  if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) prog(0, 'Não encontrei fala neste vídeo.'); else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + (lines.length === 1 ? ' linha' : ' linhas') + '). Clique em Sugerir trechos.', true); } } }
 }
+const srtT = x => { const ms = Math.round(x * 1000), p = (n, l = 2) => String(n).padStart(l, '0'); return p(Math.floor(ms / 36e5)) + ':' + p(Math.floor(ms / 6e4) % 60) + ':' + p(Math.floor(ms / 1000) % 60) + ',' + p(ms % 1000, 3); };
+$('#srtB').onclick = () => {
+  const cues = parseCues($('#t').value); if (!cues.length) return;
+  const out = cues.map((c, i) => { const e = c.e > c.s ? c.e : (cues[i + 1] ? cues[i + 1].s : c.s + 5); return (i + 1) + '\n' + srtT(c.s) + ' --> ' + srtT(Math.max(e, c.s + .5)) + '\n' + c.text + '\n'; }).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'application/x-subrip' })); a.download = 'transcricao-' + (pvId || 'video') + '.srt'; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
 let dbT = 0; const later = fn => { clearTimeout(dbT); dbT = setTimeout(fn, 450); };
-$('#u').addEventListener('input', () => later(showPreview)); $('#t').addEventListener('input', e => { if (e.isTrusted) autoFilled = false; later(coverage); }); $('#fl').addEventListener('change', () => setTimeout(coverage, 400)); $('#pst').addEventListener('click', () => setTimeout(coverage, 400));
+$('#u').addEventListener('input', () => later(showPreview)); $('#t').addEventListener('input', e => { if (e.isTrusted) autoFilled = false; later(coverage); });
 setTimeout(showPreview, 300);
 $('#f').onsubmit = async e => {
   e.preventDefault(); $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); const id = ytId($('#u').value.trim()), btn = $('#go');
   if (!id) return say('Cole um link válido do YouTube (youtube.com ou youtu.be).', 1);
-  const L = labelCues(parseCues($('#t').value)), words = toWords(L.cues); if (words.length < 40) { const te = $('#tErr'), empty = !$('#t').value.trim(); te.textContent = empty ? 'Falta a transcrição. No YouTube, abra o vídeo, toque em “…mais” e em “Mostrar transcrição”, copie o texto e cole aqui. O ForjaClip não consegue buscá-la sozinho.' : 'Não encontrei tempos nesse texto. Cole a transcrição com a minutagem (ex.: 0:12) ou envie um arquivo SRT ou VTT.'; te.hidden = false; $('#t').setAttribute('aria-invalid', 'true'); document.querySelector('.how').open = true; $('#t').focus(); return say('', 0); }
+  const L = labelCues(parseCues($('#t').value)), words = toWords(L.cues); if (words.length < 40) { const te = $('#tErr'), empty = !$('#t').value.trim(); te.textContent = empty ? 'A transcrição ainda não está pronta. Aguarde a barra de progresso terminar. Se ela não começar, entre no ForjaClip e tente de novo.' : 'A transcrição ficou curta demais para sugerir trechos.'; te.hidden = false; return say('', 0); }
   const dur = words[words.length - 1].e, want = cutsWanted(dur); btn.disabled = true; say('Analisando a transcrição…'); prog(.03, 'Analisando a transcrição…');
   try {
     let cl = [], note = ''; const tk = await token();
