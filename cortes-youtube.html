@@ -136,7 +136,7 @@ body{padding-left:calc(64px + env(safe-area-inset-left,0px))}
  <ol class="steps">
   <li class="step"><div class="sb">
    <p class="hint er" id="noLink" role="alert" hidden>Nenhum link do YouTube foi recebido. <a href="/">Volte ao ForjaClip</a> e cole o link na página inicial.</p>
-   <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Preparando a transcrição…</p><p class="hint" id="limH">Limite diário de transcrição por link: <b>1 hora de vídeo</b> no plano grátis e <b>4 horas</b> no Pro. <a href="/">Quer mais? Assine o Pro</a>.</p><div class="row"><button class="btn pri" id="retryB" type="button" hidden>Tentar a transcrição de novo</button><button class="btn" id="srtB" type="button" disabled>Baixar arquivo SRT</button></div></div></div>
+   <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Preparando a transcrição…</p><p class="hint" id="limH">Limite diário de transcrição por link: <b>1 hora de vídeo</b> no plano grátis e <b>3 horas</b> no Pro. <a href="/">Quer mais? Assine o Pro</a>.</p><div class="row"><button class="btn pri" id="retryB" type="button" hidden>Tentar a transcrição de novo</button><button class="btn" id="srtB" type="button" disabled>Baixar arquivo SRT</button></div></div></div>
    <details class="man" id="manual" hidden><summary>Colar a transcrição manualmente</summary><textarea id="t" aria-label="Transcrição com tempos" placeholder="Cole a transcrição com a minutagem. Exemplo:&#10;0:00&#10;Olá, hoje eu vou falar de…&#10;0:05&#10;O primeiro erro é…"></textarea></details>
    <p class="hint er" id="tErr" role="alert" hidden></p></div></li>
   <li class="step"><div class="sb"><span class="lbl">Escolha o estilo da legenda <small>· veja a prévia de como ela aparece no seu vídeo</small></span>
@@ -482,7 +482,7 @@ const showManual = () => { $('#manual').hidden = false; };
 let A = { id: '', lines: [], i: 0 };
 function failT(i, n, msg, retry) {
   showManual(); const quota = /limite|amanh/i.test(msg); $('#retryB').hidden = quota || !retry; if (quota) $('#manual').open = true;
-  prog(i / n, 'A transcrição automática parou: ' + msg.replace(/\.?$/, '.') + (quota ? ' Para transcrever mais vídeos por dia, assine o Pro (4 horas por dia, em vez de 1). Enquanto isso, você pode colar a transcrição manualmente.' : retry ? ' Toque em “Tentar a transcrição de novo” para continuar de onde parou, ou cole a transcrição manualmente.' : ' Você pode colar a transcrição manualmente.'));
+  prog(i / n, 'A transcrição automática parou: ' + msg.replace(/\.?$/, '.') + (quota ? ' Para transcrever mais vídeos por dia, assine o Pro (3 horas por dia, em vez de 1). Enquanto isso, você pode colar a transcrição manualmente.' : retry ? ' Toque em “Tentar a transcrição de novo” para continuar de onde parou, ou cole a transcrição manualmente.' : ' Você pode colar a transcrição manualmente.'));
 }
 async function autoT(id, resume) {
   if (!resume && autoFor === id) return; autoFor = id;
