@@ -15,7 +15,6 @@ Leia também `docs/HANDOFF.md` (estado atual, decisões e tarefas de cada agente
 4. Toda mudança que vai ao ar aumenta o número do cache em `sw.js` (`forjaclip-vN`) e a versão em `js/app.js?v=N` no `index.html`. Leia o valor atual antes de aumentar. Ao importar um módulo alterado, atualize o `?v=` do import.
 5. Mantenha o app estático e leve: sem bundler, sem dependência nova sem necessidade. Bibliotecas externas ficam em `vendor/`.
 6. Textos para o usuário em português do Brasil, claros e curtos.
-7. Respeite direitos autorais: o app não baixa nem grava vídeo do YouTube; trechos do YouTube só são mostrados no player oficial.
 
 ## Divisão de áreas (evita conflito de arquivos)
 - Claude: páginas e funções já existentes (`index.html`, `cortes-youtube.html`, `js/clips.js`, `js/captions.js`, `js/app.js`).

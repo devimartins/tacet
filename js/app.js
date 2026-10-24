@@ -1060,6 +1060,10 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
 { const fsB = $('#nFs'), root = document.documentElement, standalone = matchMedia('(display-mode:standalone),(display-mode:fullscreen)').matches || navigator.standalone;
   if (!standalone && root.requestFullscreen && document.fullscreenEnabled) {   // iPhone não oferece esta API: lá o caminho é instalar na tela de início
     fsB.hidden = false;
+    const tip = $('#fsTip'), seen = () => { try { return sessionStorage.getItem('fc.fstip'); } catch { return null; } };
+    const upd = () => { tip.hidden = !!document.fullscreenElement || !!seen() || $('#home').hidden; };
+    $('#fsTipGo').onclick = () => fsB.click(); $('#fsTipX').onclick = () => { try { sessionStorage.setItem('fc.fstip', '1'); } catch { /* ok */ } upd(); };
+    document.addEventListener('fullscreenchange', upd); new MutationObserver(upd).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] }); upd();
     fsB.onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen({ navigationUI: 'hide' }).catch(() => flash('Seu navegador não liberou a tela cheia.')); };
     document.addEventListener('fullscreenchange', () => { $('#fsL').textContent = document.fullscreenElement ? 'Sair da tela cheia' : 'Tela cheia'; });
   }
