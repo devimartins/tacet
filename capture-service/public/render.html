@@ -1,0 +1,11 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ForjaClip Capture</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:720px;height:1280px;overflow:hidden;background:#000}
+.stage{position:relative;width:720px;height:1280px;overflow:hidden;background:#000}
+.slot{position:absolute;inset:0;width:100%;height:100%}
+.stage.crop iframe{position:absolute;top:-12.5%;left:0;height:125%;width:395.06%;transform:translateX(calc(var(--cx,.5) * -74.69%));transition:transform .45s ease;border:0}
+.stage:not(.crop) iframe{position:absolute;top:50%;left:0;width:100%;aspect-ratio:16/9;height:auto;transform:translateY(-50%);border:0}
+.slot.sp{display:grid;grid-template-rows:1fr 1fr;gap:2px;background:#000}.slot.sp .hf{position:relative;overflow:hidden;background:#000;min-height:0}
+.stage.crop .slot.sp iframe{position:absolute;top:-12.5%;left:0;height:125%;width:197.53%;transform:translateX(calc(var(--hx,.5) * -49.4%));transition:none;border:0}
+.ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}iframe{pointer-events:none}
+</style></head><body><div id="stage" class="stage"><div id="slot" class="slot"></div><canvas id="overlay" class="ov" width="540" height="960"></canvas></div><script type="module" src="/render.js"></script></body></html>
