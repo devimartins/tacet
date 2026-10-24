@@ -1120,6 +1120,19 @@ $('#bugF').onsubmit = async e => {
 };
 import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
 
+// controle de volume e atalho de edição de legendas dentro do player
+{
+  const v = $('#vid'), vb = $('#stVol'), vr = $('#stVolR'), eb = $('#stEd');
+  const paint = () => { const m = v.muted || v.volume === 0; vb.setAttribute('aria-pressed', m); vb.title = m ? 'Ativar o som' : 'Silenciar'; vr.value = m ? 0 : Math.round(v.volume * 100); };
+  const keepV = () => ls.set('forjaclip.vol', JSON.stringify({ v: v.volume, m: v.muted }));
+  try { const o = JSON.parse(ls.get('forjaclip.vol') || 'null'); if (o) { v.volume = Math.min(1, Math.max(0, +o.v)); v.muted = !!o.m; } } catch { /* padrão */ }
+  paint();
+  vb.onclick = () => { if (v.muted || v.volume === 0) { v.muted = false; if (v.volume === 0) v.volume = .8; } else v.muted = true; paint(); keepV(); };
+  vr.oninput = () => { v.volume = vr.value / 100; v.muted = v.volume === 0; paint(); keepV(); };
+  eb.onclick = () => { $('#tabT').click(); $('#pText').scrollIntoView({ block: 'nearest' }); flash('Edite o texto das legendas na aba Legendas.'); };
+  for (const b of [vb, vr, eb]) b.addEventListener('pointerdown', e => e.stopPropagation());
+}
+
 // editor em tela estreita: reduzir/ampliar o vídeo flutuante e mostrar opções do vídeo
 {
   const ed = document.querySelector('#edit .edit'), sz = document.querySelector('#flSize'), mo = document.querySelector('#flMore');
