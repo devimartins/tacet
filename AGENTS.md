@@ -16,6 +16,12 @@ Leia também `docs/HANDOFF.md` (estado atual, decisões e tarefas de cada agente
 5. Mantenha o app estático e leve: sem bundler, sem dependência nova sem necessidade. Bibliotecas externas ficam em `vendor/`.
 6. Textos para o usuário em português do Brasil, claros e curtos.
 
+## Assinatura entre agentes
+Como todos os commits e comentários saem na mesma conta do GitHub, cada agente se identifica por convenção (não é prova técnica de autoria):
+- Comentários em PR e issues começam com `**Codex:**` ou `**Claude:**`.
+- Mensagens de commit começam com `[Codex]` ou `[Claude]`.
+- No `docs/HANDOFF.md`, registre `Data — Codex` ou `Data — Claude`, com alterações, testes e pendências.
+
 ## Divisão de áreas (evita conflito de arquivos)
 - Claude: páginas e funções já existentes (`index.html`, `cortes-youtube.html`, `js/clips.js`, `js/captions.js`, `js/app.js`).
 - Codex: o sistema novo e o que for criado para ele (veja `docs/HANDOFF.md`). Para mexer em arquivo da área do outro, combine antes no handoff.
