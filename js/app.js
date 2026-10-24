@@ -704,6 +704,7 @@ $('#addManual').onclick = () => {
 function previewClip(c) { S.prev = { s: c.start, e: c.end }; S.prevRem = cutRanges(visible(), c.start, c.end, S.fx, S.words); seek(c.start); play(true); $('#stage').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 async function renderOne(c) {
   if (S.busy) return;
+  unlockForja();
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
@@ -831,8 +832,24 @@ $('#fiR').oninput = e => { S.style.fi = +e.target.value; $('#fiO').textContent =
 $('#foR').oninput = e => { S.style.fo = +e.target.value; $('#foO').textContent = S.style.fo + ' s'; saveSoon('style', { style: S.style }); };
 let beepOn = true; try { beepOn = localStorage.getItem('fc_beep') !== '0'; } catch { /* sem armazenamento */ } $('#beepC').checked = beepOn;
 $('#beepC').onchange = e => { beepOn = e.target.checked; try { localStorage.setItem('fc_beep', beepOn ? '1' : '0'); } catch { /* ok */ } };
-function beep() {   // dois tons curtos; usa o áudio do navegador (liberado pelo clique em "Gerar")
-  if (!beepOn) return; try { const ac = new AudioContext(), t = ac.currentTime; [[660, 0], [880, 0.16]].forEach(([f, d]) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18); o.connect(g).connect(ac.destination); o.start(t + d); o.stop(t + d + 0.2); }); setTimeout(() => ac.close(), 800); } catch { /* sem áudio */ }
+// som de forja ao concluir a exportação (sounds/forja.m4a; sounds/forja.webm como reserva); se não tocar, usa dois tons curtos
+let forjaA = null;
+function forjaEl() {
+  if (forjaA) return forjaA;
+  const a = new Audio('sounds/forja.m4a'); a.preload = 'auto'; let tried = false;
+  a.onerror = () => { if (!tried) { tried = true; a.src = 'sounds/forja.webm'; a.load(); } };
+  return forjaA = a;
+}
+function unlockForja() {   // chamado no clique de "Gerar": libera o som para tocar depois, sem clique (iPhone e Safari exigem)
+  if (!beepOn) return;
+  try { const a = forjaEl(); a.muted = true; const p = a.play(); Promise.resolve(p).then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); } catch { /* sem áudio */ }
+}
+function tones() {
+  try { const ac = new AudioContext(), t = ac.currentTime; [[660, 0], [880, 0.16]].forEach(([f, d]) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18); o.connect(g).connect(ac.destination); o.start(t + d); o.stop(t + d + 0.2); }); setTimeout(() => ac.close(), 800); } catch { /* sem áudio */ }
+}
+function beep() {
+  if (!beepOn) return;
+  try { const a = forjaEl(); a.muted = false; a.volume = 1; a.currentTime = 0; Promise.resolve(a.play()).catch(tones); } catch { tones(); }
 }
 $('#resSel').onchange = e => { S.res = +e.target.value; };
 $('#fpsSel').onchange = e => { S.fps = +e.target.value; };
