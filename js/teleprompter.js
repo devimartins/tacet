@@ -41,7 +41,7 @@ const CSS = `
 #tp .res video{position:static;transform:none;max-height:100%;width:auto;max-width:100%;flex:1;min-height:0;border-radius:10px;background:#000}
 `;
 
-export function openTeleprompter({ onUse, flash, ai }) {
+export function openTeleprompter({ onUse, flash, ai, onStart }) {
   if (document.getElementById('tp')) return;
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { flash('Seu navegador não permite gravar com a câmera. Grave pelo app de câmera do celular e envie o vídeo.'); return; }
   const cfg = Object.assign({ wpm: 130, size: 34, mirror: false, text: '' }, load());
@@ -210,7 +210,7 @@ export function openTeleprompter({ onUse, flash, ai }) {
       try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined); } catch { flash('Não foi possível iniciar a gravação.'); return; }
       rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       rec.onstop = () => { sc && sc.stop(); sc = null; clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
-      rec.start(1000); resetY(); play();
+      rec.start(1000); onStart && onStart(); resetY(); play();
       rb.classList.add('on'); rb.setAttribute('aria-label', 'Parar gravação'); $('#r').style.display = 'flex';
       const t0 = Date.now(); const tm = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('#rt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 500);
     };
