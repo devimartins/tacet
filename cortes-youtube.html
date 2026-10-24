@@ -77,6 +77,8 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
 .qa{position:absolute;left:8px;right:8px;top:8px;z-index:3;display:flex;gap:6px;justify-content:center;opacity:0;transform:translateY(-4px);transition:opacity .16s,transform .16s;pointer-events:none}.card:hover .qa,.card:focus-within .qa{opacity:1;transform:none;pointer-events:auto}@media(hover:none){.qa{opacity:1;transform:none;pointer-events:auto}}
 .qa button{min-width:44px;min-height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fff;font:600 16px var(--font-ui);cursor:pointer}.qa button:hover{background:var(--ac);color:var(--ink)}.qa button[aria-pressed=true].ap{background:var(--ok);color:#000}.qa button[aria-pressed=true].rj{background:var(--er);color:#000}
 .card.rej{opacity:.55}.card[hidden]{display:none}.empty{color:var(--mut);grid-column:1/-1;text-align:center;padding:var(--sp-8) 0}
+.pvw{display:flex;gap:var(--sp-4);align-items:center;flex-wrap:wrap;margin:0 0 var(--sp-3)}.pvw[hidden]{display:none}.pbox{position:relative;width:260px;max-width:100%;aspect-ratio:16/9;border-radius:var(--r-md);overflow:hidden;background:#000;border:1px solid var(--bd);flex:none}.pbox iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.pg{flex:1;min-width:220px;display:grid;gap:var(--sp-2)}.pg b{font:600 14px var(--font-ui)}.pgs{font-size:13px;color:var(--mut);margin:0}.track{height:8px;border-radius:var(--r-pill);background:var(--in);border:1px solid var(--bd);overflow:hidden}.track i{display:block;height:100%;width:0;background:var(--grad);border-radius:inherit;transition:width .35s var(--ease)}.track.ok i{background:var(--ok)}
 .foot{margin:var(--sp-16) 0 var(--sp-8);padding-top:var(--sp-6);border-top:1px solid var(--bd);display:flex;gap:var(--sp-5);flex-wrap:wrap;font-size:13px;color:var(--mut)}.foot a{color:var(--mut)}
 .rv{animation:rv .7s var(--ease) both}.rv2{animation-delay:.08s}.rv3{animation-delay:.16s}@keyframes rv{from{opacity:0;transform:translateY(18px)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -88,6 +90,7 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
  <ol class="steps">
   <li class="step"><span class="n" aria-hidden="true">1</span><div class="sb"><label class="lbl" for="u">Link do vídeo</label><input id="u" type="url" required placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"><p class="hint">Use só vídeos seus ou que você tem permissão de usar.</p></div></li>
   <li class="step"><span class="n" aria-hidden="true">2</span><div class="sb"><label class="lbl" for="t">Transcrição com tempos</label>
+   <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Cole a transcrição para ver quanto do vídeo ela cobre.</p></div></div>
    <textarea id="t" placeholder="Cole aqui a transcrição com a minutagem. Exemplo:&#10;0:00&#10;Olá, hoje eu vou falar de…&#10;0:05&#10;O primeiro erro é…"></textarea>
    <p class="hint er" id="tErr" role="alert" hidden></p>
    <div class="row"><button class="btn" id="pst" type="button">Colar da área de transferência</button><label class="btn" for="fl">Enviar arquivo SRT ou VTT</label><input id="fl" type="file" accept=".srt,.vtt,.txt,text/plain,text/vtt" hidden><span class="hint" id="fn"></span></div>
@@ -327,18 +330,42 @@ $('#t').addEventListener('input', clearT);
 $('#pst').onclick = async () => { try { const x = await navigator.clipboard.readText(); if (x && x.trim()) { $('#t').value = x; clearT(); say('Transcrição colada.'); } else say('A área de transferência está vazia. Copie a transcrição primeiro.', 1); } catch { say('O navegador não permitiu ler a área de transferência. Cole no campo com Ctrl+V.', 1); } };
 $('#cr').onchange = () => { document.querySelectorAll('.stage').forEach(s => { s.classList.toggle('crop', $('#cr').checked); const z = s.parentNode.querySelector('[data-z]'); z.textContent = $('#cr').checked ? 'Ver completo' : 'Enquadrar 9:16'; }); };
 $('#fl').onchange = async e => { const f = e.target.files[0]; if (f) { $('#t').value = await f.text(); $('#fn').textContent = f.name; } };
+
+// ---- passo 2: player pequeno do link e barra de progresso (cobertura da transcrição e andamento da análise)
+let pvP = null, pvId = '', vDur = 0, pvT = 0;
+function prog(f, txt, ok) { const v = Math.max(0, Math.min(100, Math.round(f * 100))); $('#trkI').style.width = v + '%'; $('#trk').setAttribute('aria-valuenow', v); $('#trk').classList.toggle('ok', !!ok); if (txt) $('#pgS').textContent = txt; }
+function coverage() {
+  const raw = $('#t').value; if (!raw.trim()) return prog(0, 'Cole a transcrição para ver quanto do vídeo ela cobre.');
+  const ws = toWords(labelCues(parseCues(raw)).cues); if (!ws.length) return prog(0, 'Ainda não encontrei tempos no texto colado. Ele precisa ter minutagem (ex.: 0:12).');
+  const end = ws[ws.length - 1].e, f = vDur > 30 ? Math.min(1, end / vDur) : 0;
+  if (vDur > 30) prog(f, 'Transcrição lida até ' + fmt(end) + ' de ' + fmt(vDur) + ' (' + Math.round(f * 100) + '%). ' + (f < .9 ? 'Faltou parte do vídeo: os cortes só saem do trecho coberto.' : 'Cobre quase todo o vídeo.'), f >= .9);
+  else prog(1, ws.length + ' palavras lidas, até ' + fmt(end) + '. Aguardando a duração do vídeo.', false);
+}
+async function showPreview() {
+  const id = ytId($('#u').value.trim()); if (id === pvId) return; pvId = id || ''; vDur = 0;
+  if (!id) { $('#pvw').hidden = true; if (pvP) { try { pvP.destroy(); } catch {} pvP = null; $('#pbox').innerHTML = '<div id="pbh"></div>'; } return coverage(); }
+  $('#pvw').hidden = false;
+  try { await api(); } catch (e) { return prog(0, 'Não foi possível carregar o player do YouTube. A análise continua funcionando.'); }
+  if (pvId !== id) return;
+  const ready = () => { try { vDur = pvP.getDuration() || 0; } catch {} coverage(); };
+  if (pvP && pvP.cueVideoById) { pvP.cueVideoById(id); setTimeout(ready, 1200); return; }
+  pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, origin: location.origin }, events: { onReady: () => setTimeout(ready, 600), onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui. Você ainda pode colar a transcrição e analisar.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
+}
+let dbT = 0; const later = fn => { clearTimeout(dbT); dbT = setTimeout(fn, 450); };
+$('#u').addEventListener('input', () => later(showPreview)); $('#t').addEventListener('input', () => later(coverage)); $('#fl').addEventListener('change', () => setTimeout(coverage, 400)); $('#pst').addEventListener('click', () => setTimeout(coverage, 400));
+setTimeout(showPreview, 300);
 $('#f').onsubmit = async e => {
   e.preventDefault(); $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); const id = ytId($('#u').value.trim()), btn = $('#go');
   if (!id) return say('Cole um link válido do YouTube (youtube.com ou youtu.be).', 1);
   const L = labelCues(parseCues($('#t').value)), words = toWords(L.cues); if (words.length < 40) { const te = $('#tErr'), empty = !$('#t').value.trim(); te.textContent = empty ? 'Falta a transcrição. No YouTube, abra o vídeo, toque em “…mais” e em “Mostrar transcrição”, copie o texto e cole aqui. O ForjaClip não consegue buscá-la sozinho.' : 'Não encontrei tempos nesse texto. Cole a transcrição com a minutagem (ex.: 0:12) ou envie um arquivo SRT ou VTT.'; te.hidden = false; $('#t').setAttribute('aria-invalid', 'true'); document.querySelector('.how').open = true; $('#t').focus(); return say('', 0); }
-  const dur = words[words.length - 1].e, want = cutsWanted(dur); btn.disabled = true; say('Analisando a transcrição…');
+  const dur = words[words.length - 1].e, want = cutsWanted(dur); btn.disabled = true; say('Analisando a transcrição…'); prog(.03, 'Analisando a transcrição…');
   try {
     let cl = [], note = ''; const tk = await token();
-    if (tk) { try { cl = await suggestClips(words, dur, lines => ask(tk, lines), p => say('A IA está escolhendo trechos… ' + Math.round(p * 100) + '%')); } catch (x) { note = ' A IA não respondeu (' + x.message + '); usei a seleção automática.'; } } else note = ' Seleção automática no aparelho. Entre no ForjaClip para a IA ranquear os trechos.';
+    if (tk) { try { cl = await suggestClips(words, dur, lines => ask(tk, lines), p => { say('A IA está escolhendo trechos… ' + Math.round(p * 100) + '%'); prog(.05 + p * .9, 'A IA está escolhendo trechos… ' + Math.round(p * 100) + '%'); }); } catch (x) { note = ' A IA não respondeu (' + x.message + '); usei a seleção automática.'; } } else note = ' Seleção automática no aparelho. Entre no ForjaClip para a IA ranquear os trechos.';
     let all = cl.slice(); if (all.length < want) all = all.concat(localClips(words, dur, all, want - all.length));
     all.sort((x, y) => x.start - y.start);
     if (!all.length) { $('#g').replaceChildren(); $('#outH').hidden = true; return say('Transcrição curta demais para sugerir trechos de 20 a 60 s.', 1); }
-    spkPanel(L, id); render(id, all, words); const nTxt = all.length + (all.length === 1 ? ' trecho sugerido' : ' trechos sugeridos'); $('#outT').textContent = nTxt; $('#outH').hidden = false; say(nTxt + '.' + note); $('#spk').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    prog(1, 'Análise concluída: ' + all.length + (all.length === 1 ? ' trecho' : ' trechos') + '.', true); spkPanel(L, id); render(id, all, words); const nTxt = all.length + (all.length === 1 ? ' trecho sugerido' : ' trechos sugeridos'); $('#outT').textContent = nTxt; $('#outH').hidden = false; say(nTxt + '.' + note); $('#spk').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (x) { say('Falha ao analisar: ' + x.message, 1); } finally { btn.disabled = false; }
 };
 </script></body></html>
