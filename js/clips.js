@@ -2,10 +2,10 @@
 export const WINDOW = 480, STEP = 450;
 // Frases: terminam em pontuação final ou numa pausa longa. Toda a seleção de limites usa frases inteiras.
 const END = /[.?!…]["”')\]]*$/;
-const CONN = /^(e|mas|ent[aã]o|a[ií]|isso|porque|pois|que|ou|tipo|tamb[eé]m|por isso|ali[aá]s|ent[aã]o)$/;
+const CONN = /^(e|mas|ent[aã]o|a[ií]|da[ií]|isso|isto|esse|essa|esses|essas|este|esta|aquilo|aquele|aquela|ele|ela|eles|elas|ali|l[aá]|assim|porque|pois|que|ou|tipo|tamb[eé]m|ali[aá]s|ent[aã]o|s[oó]|por)$/;
 export function sentences(words) {
   const out = []; let a = 0;
-  words.forEach((w, i) => { const last = i === words.length - 1; if (last || END.test(w.w) || words[i + 1].s - w.e > 1.2) { out.push({ a, b: i, s: words[a].s, e: w.e, w: words[a].w.toLowerCase().replace(/[^\p{L}]/gu, '') }); a = i + 1; } });
+  words.forEach((w, i) => { const last = i === words.length - 1; if (last || END.test(w.w) || words[i + 1].s - w.e > 1.2) { out.push({ a, b: i, n: i - a + 1, s: words[a].s, e: w.e, w: words[a].w.toLowerCase().replace(/[^\p{L}]/gu, '') }); a = i + 1; } });
   return out;
 }
 // Linhas para a IA: uma frase por linha (quebra em 28 palavras), cada uma com o tempo em que começa.
@@ -20,7 +20,7 @@ export const linesFor = (words, t0, win = WINDOW, S = sentences(words)) => {
 // Folga: começa um pouco antes da primeira palavra (pega a pausa) e termina logo depois do ponto final, sem invadir a fala vizinha.
 export const padEdges = (S, i, j) => {
   const prev = i > 0 ? S[i - 1].e : 0, next = j < S.length - 1 ? S[j + 1].s : Infinity;
-  const start = Math.max(Math.min(S[i].s, prev + 0.05), S[i].s - 0.6), end = Math.max(S[j].e, Math.min(next - 0.05, S[j].e + 0.5));
+  const start = Math.max(Math.min(S[i].s, prev + 0.05), S[i].s - 0.35), end = Math.max(S[j].e, Math.min(next - 0.05, S[j].e + 0.25));
   return { start: Math.round(start * 100) / 100, end: Math.round(end * 100) / 100 };
 };
 // Ajusta o corte sugerido: começa no início de uma frase (voltando se ela depender da anterior) e termina no ponto final.
@@ -28,7 +28,7 @@ export function snap(words, c, S = sentences(words)) {
   const s0 = Number(c.start), e0 = Number(c.end);
   if (!Number.isFinite(s0) || !Number.isFinite(e0) || !(e0 - s0 >= 12 && e0 - s0 <= 90) || !S.length) return null;
   let i = S.findIndex(x => x.e > s0 + 0.05); if (i < 0) return null;
-  for (let n = 0; n < 3 && i > 0 && CONN.test(S[i].w) && S[i].s - S[i - 1].s < 40; n++) i--;
+  for (let n = 0; n < 3 && i > 0 && (CONN.test(S[i].w) || S[i].n < 5) && S[i].s - S[i - 1].s < 40; n++) i--;
   let j = i; for (let k = i; k < S.length; k++) if (Math.abs(S[k].e - e0) < Math.abs(S[j].e - e0)) j = k;
   while (j > i && S[j].e - S[i].s > 75) j--;
   while (j < S.length - 1 && S[j].e - S[i].s < 15) j++;
@@ -59,7 +59,7 @@ export function localClips(words, dur, taken = [], want = 8) {
   const sent = sentences(words);
   const cands = [];
   for (let i = 0; i < sent.length; i++) {
-    if (CONN.test(sent[i].w)) continue;
+    if (CONN.test(sent[i].w) || sent[i].n < 5) continue;
     let j = i; while (j < sent.length - 1 && sent[j].e - sent[i].s < 25) j++;
     const len = sent[j].e - sent[i].s; if (len < 20 || len > 60) continue;
     const ws = words.slice(sent[i].a, sent[j].b + 1), txt = ws.map(x => x.w).join(' ');
