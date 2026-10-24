@@ -114,7 +114,7 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
 </div>
 <script defer src="config.js"></script><script defer src="vendor/supabase.js"></script>
 <script type="module">
-import { localClips, suggestClips, cutsWanted } from './js/clips.js?v=2';
+import { localClips, suggestClips, cutsWanted } from './js/clips.js?v=3';
 import { PRESETS, resolve, chunksOf, drawCaption, fontsUrl, loadFont } from './js/captions.js';
 const $ = s => document.querySelector(s), say = (m, er) => { const e = $('#st'); e.textContent = m; e.classList.toggle('er', !!er); };
 const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1).slice(0, 11) || null; if (/(^|\.)youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };
@@ -219,6 +219,8 @@ const facade = (id, label) => { const b = document.createElement('button'); b.ty
   const i = document.createElement('img'); i.alt = ''; i.loading = 'lazy'; i.src = 'https://i.ytimg.com/vi/' + id + '/maxresdefault.jpg'; i.onerror = () => { i.onerror = null; i.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg'; }; i.onload = () => { if (i.naturalWidth <= 120) i.onerror && i.onerror(); };
   const p = document.createElement('span'); p.className = 'pp'; p.setAttribute('aria-hidden', 'true'); p.textContent = '▶'; b.append(i, p); return b; };
 function stop() { if (!active) return; const a = active; active = null; try { a.player.destroy(); } catch {} a.slot.replaceChildren(a.make()); a.slot.parentNode.classList.remove('pl'); a.slot.firstChild.onclick = a.play; }
+// A legenda do ForjaClip é a que vale: desliga a legenda automática do YouTube no player
+const noCc = p => { const off = () => { try { p.unloadModule('captions'); p.unloadModule('cc'); } catch {} }; off(); setTimeout(off, 400); setTimeout(off, 1500); };
 function mount(card, id, c, k) {
   const slot = card.querySelector('.slot'), msg = card.querySelector('.cm');
   const make = () => facade(id, c.title), play = async () => {
@@ -227,8 +229,9 @@ function mount(card, id, c, k) {
     const host = document.createElement('div'); slot.replaceChildren(host); slot.parentNode.classList.add('pl');
     const me = { slot, make, play, player: null, k }; active = me;
     kick();
-    me.player = new YT.Player(host, { videoId: id, playerVars: { start: Math.floor(c.start), end: Math.ceil(c.end), autoplay: 1, playsinline: 1, rel: 0, origin: location.origin }, events: {
-      onStateChange: e => { if (e.data === 0 && active === me) stop(); },
+    me.player = new YT.Player(host, { videoId: id, playerVars: { start: Math.floor(c.start), end: Math.ceil(c.end), autoplay: 1, playsinline: 1, rel: 0, cc_load_policy: 0, hl: 'pt', origin: location.origin }, events: {
+      onReady: e => noCc(e.target),
+      onStateChange: e => { if (e.data === 1) noCc(e.target); if (e.data === 0 && active === me) stop(); },
       onError: e => { if (active === me) stop(); msg.textContent = [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo fora do YouTube. Use “Abrir no YouTube”.' : 'Não foi possível reproduzir este trecho. Use “Abrir no YouTube”.'; } } });
   };
   slot.replaceChildren(make()); slot.firstChild.onclick = play;
@@ -349,7 +352,7 @@ async function showPreview() {
   if (pvId !== id) return;
   const ready = () => { try { vDur = pvP.getDuration() || 0; } catch {} coverage(); if (vDur > 30) autoT(id); };
   if (pvP && pvP.cueVideoById) { pvP.cueVideoById(id); setTimeout(ready, 1200); return; }
-  pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, origin: location.origin }, events: { onReady: () => setTimeout(ready, 600), onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui. Você ainda pode colar a transcrição e analisar.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
+  pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, cc_load_policy: 0, hl: 'pt', origin: location.origin }, events: { onReady: e => { noCc(e.target); setTimeout(ready, 600); }, onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui. Você ainda pode colar a transcrição e analisar.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
 }
 
 // ---- transcrição automática pelo link (Worker + Gemini), em blocos de 10 min com progresso real

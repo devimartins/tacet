@@ -2,7 +2,7 @@ import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, res
 import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
-import { suggestClips, localClips, cutsWanted } from './clips.js?v=2';
+import { suggestClips, localClips, cutsWanted } from './clips.js?v=3';
 import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
