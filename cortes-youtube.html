@@ -38,6 +38,7 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
 .btn:hover:not([disabled]){border-color:var(--mut)}.btn[disabled]{opacity:.45;cursor:default}
 .btn.pri{position:relative;overflow:hidden;background:var(--grad);border-color:transparent;color:var(--ink);font-weight:600;border-radius:var(--r-pill);padding-inline:var(--sp-8);box-shadow:0 6px 20px -8px var(--ac),var(--sh1)}
 .btn.pri:hover:not([disabled]){filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 10px 28px -8px var(--ac),var(--sh1)}.btn.pri:active{transform:translateY(1px)}
+.man{font-size:14px}.man summary{cursor:pointer;color:var(--ac);min-height:44px;display:flex;align-items:center}.man[hidden]{display:none}.man textarea{margin-top:var(--sp-2)}
 .how{font-size:14px}.how summary{cursor:pointer;color:var(--ac);min-height:44px;display:flex;align-items:center}.how ol{margin:var(--sp-2) 0 0;padding-left:20px;color:var(--mut);display:grid;gap:var(--sp-1)}
 .chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{border:1px solid var(--bd);background:none;border-radius:var(--r-pill);padding:6px 14px;font:500 13px var(--font-ui);min-height:44px;color:var(--mut);cursor:pointer}.chips button[aria-pressed=true]{background:var(--tx);color:var(--bg);border-color:var(--tx)}
 .gal{display:flex;gap:var(--sp-3);overflow-x:auto;padding:var(--sp-1) var(--sp-1) var(--sp-3);scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
@@ -94,9 +95,9 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
   <li class="step"><div class="sb">
    <p class="hint er" id="noLink" role="alert" hidden>Nenhum link do YouTube foi recebido. <a href="/">Volte ao ForjaClip</a> e cole o link na página inicial.</p>
    <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Preparando a transcrição…</p><div class="row"><button class="btn" id="srtB" type="button" disabled>Baixar arquivo SRT</button></div></div></div>
-   <textarea id="t" hidden></textarea>
+   <details class="man" id="manual" hidden><summary>Colar a transcrição manualmente</summary><textarea id="t" aria-label="Transcrição com tempos" placeholder="Cole a transcrição com a minutagem. Exemplo:&#10;0:00&#10;Olá, hoje eu vou falar de…&#10;0:05&#10;O primeiro erro é…"></textarea></details>
    <p class="hint er" id="tErr" role="alert" hidden></p></div></li>
-  <li class="step"><div class="sb"><span class="lbl">Estilo da legenda <small>· prévia do que o ForjaClip aplica no vídeo</small></span>
+  <li class="step"><div class="sb"><span class="lbl">Escolha o estilo da legenda <small>· veja a prévia de como ela aparece no seu vídeo</small></span>
    <div class="chips" role="group" aria-label="Filtrar estilos"><button type="button" data-gc="Todos" aria-pressed="true">Todos</button><button type="button" data-gc="Grátis" aria-pressed="false">Grátis</button><button type="button" data-gc="Pro" aria-pressed="false">Pro</button></div>
    <div class="gal" id="gal" role="group" aria-label="Estilos de legenda"></div>
    <p class="hint">Selecionado: <b id="styN">Iman · grátis</b>. Os estilos marcados <b>PRO</b> aparecem aqui como prévia; para exportar com eles é preciso o plano Pro.</p>
@@ -362,7 +363,7 @@ async function showPreview() {
   const id = ytId($('#u').value.trim()); if (id === pvId) return; pvId = id || ''; vDur = 0; autoRun++; autoFor = ''; $('#go').disabled = !id;
   if (!id) { $('#pvw').hidden = true; if (pvP) { try { pvP.destroy(); } catch {} pvP = null; $('#pbox').innerHTML = '<div id="pbh"></div>'; } return coverage(); }
   $('#pvw').hidden = false;
-  try { await api(); } catch (e) { return prog(0, 'Não foi possível carregar o player do YouTube. A análise continua funcionando.'); }
+  try { await api(); } catch (e) { showManual(); return prog(0, 'Não foi possível carregar o player do YouTube. Você pode colar a transcrição manualmente.'); }
   if (pvId !== id) return;
   const ready = () => { try { vDur = pvP.getDuration() || 0; } catch {} coverage(); if (vDur > 30) autoT(id); };
   if (pvP && pvP.cueVideoById) { pvP.cueVideoById(id); setTimeout(ready, 1200); return; }
@@ -371,11 +372,12 @@ async function showPreview() {
 
 // ---- transcrição automática pelo link (Worker + Gemini), em blocos de 10 min com progresso real
 let autoFor = '', autoFilled = false, autoRun = 0;
+const showManual = () => { $('#manual').hidden = false; };
 async function autoT(id) {
   if (autoFor === id) return; autoFor = id;
   if ($('#t').value.trim() && !autoFilled) return;
-  if (!window.CFG?.AI) return;
-  const tk = await token(); if (!tk) return prog(0, 'Entre no ForjaClip para usar a transcrição automática.');
+  if (!window.CFG?.AI) return showManual();
+  const tk = await token(); if (!tk) { showManual(); return prog(0, 'Entre no ForjaClip para usar a transcrição automática, ou cole a transcrição manualmente.'); }
   const run = ++autoRun, n = Math.min(24, Math.ceil(vDur / 600)), url = 'https://www.youtube.com/watch?v=' + id, lines = []; let ok = true;
   $('#t').value = ''; autoFilled = true; $('#go').disabled = true;
   for (let i = 0; i < n; i++) {
@@ -384,13 +386,13 @@ async function autoT(id) {
     prog(i / n, 'Transcrevendo automaticamente… bloco ' + (i + 1) + ' de ' + n + ' (' + Math.round(i / n * 100) + '%)');
     try {
       const r = await fetch(CFG.AI + '/transcript', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ url, from, len }) }), d = await r.json().catch(() => ({}));
-      if (r.status === 404) { ok = false; $('#t').value = ''; autoFilled = false; $('#go').disabled = false; return prog(0, 'A transcrição automática ainda não está disponível. Tente de novo mais tarde.'); }
+      if (r.status === 404) { ok = false; $('#t').value = ''; autoFilled = false; $('#go').disabled = false; showManual(); return prog(0, 'A transcrição automática ainda não está disponível. Você pode colar a transcrição manualmente.'); }
       if (!r.ok) throw new Error(d.error || 'erro ' + r.status);
       for (const g of d.segments || []) lines.push(fmt(g.s) + '\n' + g.text);
       $('#t').value = lines.join('\n');
-    } catch (e) { ok = false; prog(i / n, 'A transcrição automática parou: ' + e.message + ' Tente de novo mais tarde.'); break; }
+    } catch (e) { ok = false; showManual(); prog(i / n, 'A transcrição automática parou: ' + e.message + ' Você pode colar a transcrição manualmente.'); break; }
   }
-  if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) prog(0, 'Não encontrei fala neste vídeo.'); else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + (lines.length === 1 ? ' linha' : ' linhas') + '). Clique em Sugerir trechos.', true); } } }
+  if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) { showManual(); prog(0, 'Não encontrei fala neste vídeo. Você pode colar a transcrição manualmente.'); } else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + (lines.length === 1 ? ' linha' : ' linhas') + '). Clique em Sugerir trechos.', true); } } }
 }
 const srtT = x => { const ms = Math.round(x * 1000), p = (n, l = 2) => String(n).padStart(l, '0'); return p(Math.floor(ms / 36e5)) + ':' + p(Math.floor(ms / 6e4) % 60) + ':' + p(Math.floor(ms / 1000) % 60) + ',' + p(ms % 1000, 3); };
 $('#srtB').onclick = () => {
