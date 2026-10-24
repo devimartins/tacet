@@ -108,7 +108,7 @@ textarea{min-height:140px;resize:vertical}input:focus,textarea:focus{outline:0;b
  <div class="pv" id="pv"><img id="pvI" alt="Quadro de exemplo do vídeo"></div>
  <div class="row"><button class="btn" id="pvN" type="button">Trocar quadro de exemplo</button><label class="opt" style="min-height:44px;align-items:center"><input type="checkbox" id="fol" checked><span><b style="font-weight:500">Acompanhar quem fala</b></span></label></div>
  <div class="row" id="posF" style="margin-top:var(--sp-3);align-items:flex-start"></div></section>
-<section id="out" aria-label="Trechos sugeridos"><div class="outh" id="outH" hidden><h2 id="outT"></h2><p>Toque no play para ver cada trecho no player oficial. “Ver legendas” mostra como ficaria a legenda do ForjaClip.</p></div><div class="sum" id="sum" hidden><img id="sumI" alt=""><div class="sm"><b id="sumT"></b><div class="tl" id="tl" role="list" aria-label="Posição dos trechos no vídeo"></div></div><span class="tt" id="sumD"></span></div><div class="bar" id="bar" hidden><div class="tabs" id="tabs" role="group" aria-label="Filtrar trechos"></div><label>Ordenar<select id="srt"><option value="score">Maior nota</option><option value="time">Ordem no vídeo</option></select></label></div><div class="grid" id="g"></div></section>
+<section id="out" aria-label="Trechos sugeridos"><div class="outh" id="outH" hidden><h2 id="outT"></h2><p>Toque no play para ver cada trecho no player oficial. “Ver legendas” mostra como ficaria a legenda do ForjaClip.</p></div><div class="sum" id="sum" hidden><img id="sumI" alt=""><div class="sm"><b id="sumT"></b><div class="tl" id="tl" role="list" aria-label="Posição dos trechos no vídeo"></div></div><span class="tt" id="sumD"></span></div><div class="bar" id="bar" hidden><div class="tabs" id="tabs" role="group" aria-label="Filtrar trechos"></div><label>Nota mínima<select id="mn"><option value="0">Todas</option><option value="70">70% ou mais</option><option value="80">80% ou mais</option><option value="90">90% ou mais</option></select></label><label>Ordenar<select id="srt"><option value="score">Maior nota</option><option value="time">Ordem no vídeo</option></select></label></div><div class="grid" id="g"></div></section>
 </main>
 <footer class="foot"><a href="/termos.html">Termos</a><a href="/privacidade.html">Privacidade</a><a href="/direitos-autorais.html">Direitos autorais</a><span>O enquadramento e as legendas são prévias visuais sobre o player oficial do YouTube; nenhum vídeo é baixado.</span></footer>
 </div>
@@ -220,7 +220,7 @@ const facade = (id, label) => { const b = document.createElement('button'); b.ty
   const p = document.createElement('span'); p.className = 'pp'; p.setAttribute('aria-hidden', 'true'); p.textContent = '▶'; b.append(i, p); return b; };
 function stop() { if (!active) return; const a = active; active = null; try { a.player.destroy(); } catch {} a.slot.replaceChildren(a.make()); a.slot.parentNode.classList.remove('pl'); a.slot.firstChild.onclick = a.play; }
 // A legenda do ForjaClip é a que vale: desliga a legenda automática do YouTube no player
-const noCc = p => { const off = () => { try { p.unloadModule('captions'); p.unloadModule('cc'); } catch {} }; off(); setTimeout(off, 400); setTimeout(off, 1500); };
+const noCc = p => { if (!p) return; const off = () => { try { p.unloadModule('captions'); p.unloadModule('cc'); } catch {} }; off(); setTimeout(off, 400); setTimeout(off, 1500); };
 function mount(card, id, c, k) {
   const slot = card.querySelector('.slot'), msg = card.querySelector('.cm');
   const make = () => facade(id, c.title), play = async () => {
@@ -230,7 +230,7 @@ function mount(card, id, c, k) {
     const me = { slot, make, play, player: null, k }; active = me;
     kick();
     me.player = new YT.Player(host, { videoId: id, playerVars: { start: Math.floor(c.start), end: Math.ceil(c.end), autoplay: 1, playsinline: 1, rel: 0, cc_load_policy: 0, hl: 'pt', origin: location.origin }, events: {
-      onReady: e => noCc(e.target),
+      onReady: e => noCc(e && e.target),
       onStateChange: e => { if (e.data === 1) noCc(e.target); if (e.data === 0 && active === me) stop(); },
       onError: e => { if (active === me) stop(); msg.textContent = [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo fora do YouTube. Use “Abrir no YouTube”.' : 'Não foi possível reproduzir este trecho. Use “Abrir no YouTube”.'; } } });
   };
@@ -240,13 +240,13 @@ let curClips = [], curId = '', curDur = 1, flt = 'all';
 function refresh() {
   const n = { all: curClips.length, apr: curClips.filter(c => c.st === 'apr').length, rej: curClips.filter(c => c.st === 'rej').length }, tb = $('#tabs');
   tb.replaceChildren(...[['all', 'Todos'], ['apr', 'Aprovados'], ['rej', 'Rejeitados']].map(([k, t]) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t + ' (' + n[k] + ')'; b.setAttribute('aria-pressed', String(flt === k)); b.onclick = () => { flt = k; refresh(); }; return b; }));
-  const by = $('#srt').value === 'time' ? (x, y) => x.start - y.start : (x, y) => (y.score || 0) - (x.score || 0), g = $('#g'); let shown = 0;
-  for (const c of [...curClips].sort(by)) { const ok = flt === 'all' || c.st === flt; c.el.hidden = !ok; if (ok) shown++; g.append(c.el); }
-  const old = g.querySelector('.empty'); if (old) old.remove(); if (!shown) { const e = document.createElement('p'); e.className = 'empty'; e.textContent = 'Nenhum trecho aqui ainda. Use ✓ e ✕ nos cartões para aprovar ou rejeitar.'; g.append(e); }
+  const mn = Number($('#mn').value) || 0, by = $('#srt').value === 'time' ? (x, y) => x.start - y.start : (x, y) => (y.score || 0) - (x.score || 0), g = $('#g'); let shown = 0;
+  for (const c of [...curClips].sort(by)) { const ok = (flt === 'all' || c.st === flt) && (c.score || 0) >= mn; c.el.hidden = !ok; if (ok) shown++; g.append(c.el); }
+  const old = g.querySelector('.empty'); if (old) old.remove(); if (!shown) { const e = document.createElement('p'); e.className = 'empty'; e.textContent = mn ? 'Nenhum trecho com nota de ' + mn + '% ou mais. Reduza a nota mínima para ver mais.' : 'Nenhum trecho aqui ainda. Use ✓ e ✕ nos cartões para aprovar ou rejeitar.'; g.append(e); }
   const tl = $('#tl'); tl.replaceChildren(...curClips.map(c => { const a = document.createElement('a'); a.href = '#cl-' + c.id; a.setAttribute('role', 'listitem'); a.style.left = (c.start / curDur * 100) + '%'; a.className = c.st || ''; a.title = c.title + ' (' + fmt(c.start) + ')'; a.setAttribute('aria-label', c.title + ', em ' + fmt(c.start)); a.onclick = e => { e.preventDefault(); if (c.el.hidden) { flt = 'all'; refresh(); } c.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.el.querySelector('.fac') && c.el.querySelector('.fac').focus({ preventScroll: true }); }; return a; }));
   $('#sumT').textContent = curClips.length + (curClips.length === 1 ? ' trecho selecionado' : ' trechos selecionados') + ' · enquadrados em 9:16'; $('#sumD').textContent = fmt(curDur); $('#sumI').src = 'https://i.ytimg.com/vi/' + curId + '/mqdefault.jpg'; $('#sum').hidden = false; $('#bar').hidden = false;
 }
-$('#srt').onchange = () => refresh();
+$('#srt').onchange = $('#mn').onchange = () => refresh();
 function render(id, clips, words) {
   clips.forEach((c, i) => { c.id = 'k' + i; c.st = ''; });
   stop(); const g = $('#g'); g.replaceChildren(); cards.length = 0; curClips = clips; curId = id; curDur = Math.max(1, words.length ? words[words.length - 1].e : 0, ...clips.map(c => c.end));
@@ -271,7 +271,7 @@ function render(id, clips, words) {
     z.textContent = st.classList.contains('crop') ? 'Ver completo' : 'Enquadrar 9:16';
     mount(a, id, c, k); g.append(a);
   }
-  flt = 'all'; $('#srt').value = 'score'; refresh();
+  flt = 'all'; $('#srt').value = 'score'; $('#mn').value = '0'; refresh();
 }
 // ---- galeria de estilos de legenda: prévia animada, com selo GRÁTIS ou PRO
 const GAL = $('#gal'), galCards = [], SAMPLE = 'Essa legenda vai chamar a atenção de quem assiste'.split(' ').map((w, j) => ({ w, s: j * .5, e: j * .5 + .45 })), PCH = chunksOf(SAMPLE, 3), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -352,7 +352,7 @@ async function showPreview() {
   if (pvId !== id) return;
   const ready = () => { try { vDur = pvP.getDuration() || 0; } catch {} coverage(); if (vDur > 30) autoT(id); };
   if (pvP && pvP.cueVideoById) { pvP.cueVideoById(id); setTimeout(ready, 1200); return; }
-  pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, cc_load_policy: 0, hl: 'pt', origin: location.origin }, events: { onReady: e => { noCc(e.target); setTimeout(ready, 600); }, onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui. Você ainda pode colar a transcrição e analisar.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
+  pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, cc_load_policy: 0, hl: 'pt', origin: location.origin }, events: { onReady: e => { noCc(e && e.target); setTimeout(ready, 600); }, onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui. Você ainda pode colar a transcrição e analisar.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
 }
 
 // ---- transcrição automática pelo link (Worker + Gemini), em blocos de 10 min com progresso real
@@ -376,7 +376,7 @@ async function autoT(id) {
       $('#t').value = lines.join('\n');
     } catch (e) { ok = false; prog(i / n, 'A transcrição automática parou: ' + e.message + ' Você pode colar o texto para completar.'); break; }
   }
-  if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) prog(0, 'Não encontrei fala neste vídeo. Cole a transcrição manualmente.'); else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + ' trechos). Revise o texto, se quiser, e clique em Sugerir trechos.', true); } } }
+  if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) prog(0, 'Não encontrei fala neste vídeo. Cole a transcrição manualmente.'); else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + (lines.length === 1 ? ' linha' : ' linhas') + '). Revise o texto, se quiser, e clique em Sugerir trechos.', true); } } }
 }
 let dbT = 0; const later = fn => { clearTimeout(dbT); dbT = setTimeout(fn, 450); };
 $('#u').addEventListener('input', () => later(showPreview)); $('#t').addEventListener('input', e => { if (e.isTrusted) autoFilled = false; later(coverage); }); $('#fl').addEventListener('change', () => setTimeout(coverage, 400)); $('#pst').addEventListener('click', () => setTimeout(coverage, 400));
