@@ -7,7 +7,7 @@ const tab = id => { const b = $(id); if (b) b.click(); };
 // Cada item: palavras-chave, rótulo, onde fica e o que fazer. editor:true exige um vídeo aberto.
 const ITEMS = [
   { k: 'legenda caption transcrever transcricao falar texto', t: 'Adicionar legendas', home: ['#drop2', 'Escolha "Legende seu vídeo" e selecione o vídeo. A transcrição é automática.'], ed: ['#presets', 'Aqui você troca o estilo da legenda. Em "Legendas" você edita o texto.', '#tabS'] },
-  { k: 'corte cortes clipe viral longo melhor momento ia', t: 'Cortar um vídeo longo com IA', home: ['#drop', 'Escolha "Cortes de vídeo longo": a IA sugere os melhores momentos.'], ed: ['#clips', 'Os cortes sugeridos aparecem aqui. Use "Gerar vídeo" para exportar cada um.', '#tabC'] },
+  { k: 'corte cortes clipe viral longo melhor momento ia', t: 'Cortes com IA a partir de um vídeo longo', home: ['#drop', 'Escolha "Cortes com IA": a IA sugere os melhores momentos.'], ed: ['#clips', 'Os cortes sugeridos aparecem aqui. Use "Gerar vídeo" para exportar cada um.', '#tabC'] },
   { k: 'estilo fonte cor tema legenda animada preset', t: 'Mudar o estilo da legenda', home: ['#gal', 'Escolha um estilo e depois envie o vídeo.'], ed: ['#presets', 'Clique num estilo; abaixo ficam fonte, cores, tamanho e posição.', '#tabS'] },
   { k: 'cinetica cinetico animada animacao bounce marca-texto preenchido tremor digitacao previa mouse', t: 'Legendas cinéticas e prévia', ed: ['#presets', 'Abra a categoria Cinético. Passe o mouse sobre um estilo para ver a legenda no seu vídeo; clique para aplicar.'], home: ['#gal', 'Os estilos da categoria Cinético têm animações palavra a palavra.'] },
   { k: 'silencio pausa vicio muleta ritmo', t: 'Remover silêncios', ed: ['#fxCut', 'Ative "Cortar pausas" para remover silêncios e vícios de fala.', '#tabC'] },
@@ -23,17 +23,17 @@ const ITEMS = [
   { k: 'editar texto corrigir palavra transcricao', t: 'Corrigir o texto das legendas', ed: ['#tabT', 'Abra "Legendas" e edite as frases. O olho esconde uma frase.', '#tabT'] },
   { k: 'exportar baixar gerar salvar video mp4', t: 'Exportar o vídeo', ed: ['#clips', 'Clique em "Gerar vídeo" no corte desejado e depois em baixar.', '#tabC'] },
   { k: 'formato proporcao vertical quadrado 9:16 feed', t: 'Mudar o formato (9:16, 1:1…)', ed: ['#ratio', 'Escolha o formato do vídeo aqui.'] },
-  { k: 'youtube link url', t: 'Usar um link do YouTube', home: ['#ytUrl', 'Cole o link, escolha o trecho e grave pelo player oficial (Chrome ou Edge no computador).'] },
+  { k: 'youtube link url', t: 'Usar um link do YouTube', home: ['#ytUrl', 'Cole o link em "Cortes do YouTube": a IA lê o vídeo e mostra os melhores trechos.'] },
   { k: 'projeto salvo abrir dias', t: 'Abrir meus projetos', home: ['#plist', 'Seus projetos ficam salvos por 3 dias no plano gratuito.'] },
   { k: 'plano pro preco assinar pagar pix cartao anuncio', t: 'Plano Pro e preços', home: ['#plan', 'R$ 19,90/mês nos 3 primeiros meses, depois R$ 29,90. PIX, débito ou crédito.'] },
   { k: 'tema claro escuro modo noturno', t: 'Trocar tema claro/escuro', any: ['#nTheme', 'Alterna entre o tema claro e o escuro.'] },
   { k: 'inicio home voltar', t: 'Voltar ao início', any: ['#nLogo', 'Clique no logo para voltar à tela inicial.'] },
 ];
 const TOUR = [
-  ['#drop', 'Comece aqui', 'Envie um vídeo longo para a IA achar os melhores cortes.'],
+  ['#drop', 'Cortes com IA', 'Envie um vídeo longo para a IA achar os melhores cortes.'],
   ['#drop2', 'Legende seu vídeo', 'Prefere só legendar? Use este cartão.'],
-  ['#tpOpen', 'Teleprompter (Pro)', 'Grave lendo o roteiro olhando para a câmera e siga direto para a edição.'],
-  ['#ytUrl', 'Link do YouTube', 'Cole um link para usar um trecho de um vídeo.'],
+  ['#tpOpen', 'Gravar com teleprompter', 'Grave lendo o roteiro olhando para a câmera e siga direto para a edição.'],
+  ['#ytUrl', 'Cortes do YouTube', 'Cole um link para ver os melhores trechos de um vídeo.'],
   ['#plan', 'Plano Pro', 'Estilos completos, sem anúncios, pagamento por PIX ou cartão.'],
   ['#gal', 'Estilos de legenda', 'Escolha um visual antes de enviar o vídeo.'],
   ['#plist', 'Seus projetos', 'Tudo que você começou fica salvo por 3 dias.'],

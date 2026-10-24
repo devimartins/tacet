@@ -3,7 +3,7 @@
 Atualize este arquivo ao terminar cada sessão. Nunca escreva valores de chaves, só os nomes.
 
 ## Estado atual (24/10/2026)
-- Tela inicial: teleprompter, "Legende seu vídeo" e "Cortes de vídeo longo", e o card "Cortes a partir de um link do YouTube" (Beta).
+- Tela inicial: teleprompter, "Legende seu vídeo" e "Cortes com IA", e o card "Cortes do YouTube" (Beta).
 - Página `cortes-youtube.html`: transcrição automática pelo link (Worker `/transcript`, Gemini), trechos sugeridos, mini players em 9:16, legenda de prévia, edição de legenda por trecho, tela dividida para duas pessoas, tela cheia, menu lateral/inferior.
 - Limites de transcrição por link (no Worker): grátis 1 h/dia, Pro 3 h/dia, teto global 7,5 h/dia. Variáveis do Worker: `FREE_DAILY_YT_SEC`, `PRO_DAILY_YT_SEC`, `GLOBAL_DAILY_YT_SEC`.
 - Avatares: 16 desenhos originais em `js/avatar.js`.
@@ -24,3 +24,5 @@ Atualize este arquivo ao terminar cada sessão. Nunca escreva valores de chaves,
 
 ## Registro
 - 24/10/2026 — Claude: criou `AGENTS.md` e este arquivo.
+
+- 24/10/2026 — Claude: formato original do vídeo como padrão no editor (seletor sempre visível); botões "?" de ajuda (`js/help.js`); renomeados Início, Cortes com IA, Cortes do YouTube, Reduzir player, Cortar pausas das pontas; tour só na tela certa; vídeo de cada projeto guardado no aparelho (3 mais recentes); textos do login atualizados. Leu o PR #2 do Codex (ainda sem integração).
