@@ -27,7 +27,7 @@ export async function loadFont(font, ...weights) {
 const B = { font: 'Montserrat', wLight: 800, wActive: 800, color: '#ffffff', activeColor: '#ffffff', stroke: 0, strokeColor: '#000000', bgOpacity: 0, bg: '#000000', case: 'none', n: 3, pop: 0, shadow: 1, fs: 50, mode: 'word' };
 export const PRESETS = {
   classico: { ...B, name: 'Clássico', free: true, font: 'Inter', wLight: 600, wActive: 600, color: '#ffffff', activeColor: '#ffffff', stroke: 35, n: 6, fs: 44, shadow: 1, case: 'none' },
-  iman: { ...B, name: 'Iman', free: true, wLight: 300, wActive: 600, case: 'lower', n: 4, fs: 40, shadow: 1, dim: 0.6 },
+  iman: { ...B, name: 'Iman', free: true, wLight: 300, wActive: 600, case: 'none', n: 4, fs: 40, shadow: 1, dim: 0.6 },
   impacto: { ...B, name: 'Impacto', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', activeColor: '#FFD500', stroke: 55, n: 3, pop: 1, fs: 50 },
   uma_palavra: { ...B, name: 'Uma palavra', free: true, font: 'Montserrat', wLight: 900, wActive: 900, case: 'upper', stroke: 55, n: 1, pop: 1, fs: 72 },
   minimal: { ...B, name: 'Minimal', free: true, font: 'Inter', wLight: 500, wActive: 700, n: 4, fs: 38 },
@@ -74,6 +74,8 @@ export const safeRect = (p, W = 1080, H = 1920) => { const m = PLATFORMS[p] || P
 
 // Agrupa em blocos de até n palavras, mas nunca atravessa uma pausa (>= 0,5 s) nem um fim de frase:
 // assim a próxima frase só aparece quando começa a ser falada.
+// Duas linhas por bloco (exceto "Uma palavra" e Cascata): o bloco tem o dobro de palavras do ajuste n.
+export const perChunk = rs => (rs.n | 0) <= 1 || rs.mode === 'cascade' ? Math.max(1, rs.n | 0) : Math.min(8, (rs.n | 0) * 2);
 export const chunksOf = (words, n) => {
   const out = []; let cur = [];
   words.forEach((w, i) => {
@@ -103,6 +105,11 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
     lines = []; let cur = [], cw = 0;
     words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
     if (cur.length) lines.push(cur);
+    if (lines.length === 1 && lines[0].length >= 4 && rs.n > 1) {   // quebra equilibrada em 2 linhas
+      const all = lines[0]; let best = 1, bd = 1e9;
+      for (let q = 1; q < all.length; q++) { const a = all.slice(0, q).reduce((u, o) => u + o.rw + gap, 0), b = all.slice(q).reduce((u, o) => u + o.rw + gap, 0), d = Math.abs(a - b); if (d < bd) { bd = d; best = q; } }
+      lines = [all.slice(0, best), all.slice(best)];
+    }
     if (lines.length <= 2) break;
   }
   const lw = l => l.reduce((s, o, i) => s + o.rw + (i ? gap : 0), 0);

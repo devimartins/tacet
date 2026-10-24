@@ -1,4 +1,4 @@
-import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, drawCaption, safeRect, outsideSafe } from './captions.js';
+import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe } from './captions.js';
 import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
@@ -299,7 +299,7 @@ const hkey = w => +w.s.toFixed(2), visible = () => S.words.filter(w => !S.hid.ha
 S.tone = 'auto';
 let toneC = { w: null, n: -1, v: 'inspirador' };
 const effTone = () => { if (S.tone && S.tone !== 'auto') return S.tone; if (!S.words || !S.words.length) return 'inspirador'; if (toneC.w !== S.words || toneC.n !== S.words.length) toneC = { w: S.words, n: S.words.length, v: detectTone(S.words) }; return toneC.v; };
-function rebuild() { S.chunks = chunksOf(S.fx.emoji ? addEmojis(visible(), 2.5, effTone()) : visible(), Math.max(1, rs().n | 0)); drawTimeline(); phrasesUI(); toneInfo(); }
+function rebuild() { S.chunks = chunksOf(S.fx.emoji ? addEmojis(visible(), 2.5, effTone()) : visible(), perChunk(rs())); drawTimeline(); phrasesUI(); toneInfo(); }
 function setO(k, v) { if (['x', 'y', 'cropX'].includes(k)) S.style[k] = v; else S.style.o = { ...S.style.o, [k]: v }; rebuild(); applyCrop(); saveSoon('style', { style: S.style }); }
 function applyFit() {   // fundo desfocado (prévia): vídeo inteiro por cima de uma cópia pequena e desfocada
   const v = $('#vid'); if (!v.videoWidth) return; const [W, H] = DIMS[S.ratio], on = useBlur(S.style.fit || 'auto', v.videoWidth, v.videoHeight, W, H);
@@ -512,7 +512,7 @@ function thumb(pid) {
 // lista de frases: texto editável, tempo, olho para esconder
 function phrasesUI() {
   const box = $('#phr'); if (!box || box.contains(document.activeElement)) return;
-  box.replaceChildren(); const all = chunksOf(S.words, Math.max(1, rs().n | 0));
+  box.replaceChildren(); const all = chunksOf(S.words, perChunk(rs()));
   all.forEach(ch => {
     const off = ch.every(w => S.hid.has(hkey(w))), inp = el('input', { value: ch.map(w => w.w).join(' '), ariaLabel: 'Frase' });
     inp.onchange = () => { const txt = [...box.querySelectorAll('input')].map(i => i.value).join(' '); S.words = retime(S.words, tokens(txt), S.dur); $('#txt').value = S.words.map(w => w.w).join(' '); rebuild(); saveSoon('tr', { transcript: { words: S.words } }, 600); };

@@ -1,6 +1,6 @@
 // Gera um corte 9:16 com legendas, 100% no navegador: decodifica, recorta, desenha as legendas, codifica e grava o MP4.
 // O áudio original (AAC) é copiado sem recodificar.
-import { drawCaption, chunksOf, resolve, loadFont } from './captions.js';
+import { drawCaption, chunksOf, perChunk, resolve, loadFont } from './captions.js';
 import { makeReader } from './media.js';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
@@ -28,7 +28,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const rs = resolve(style);
   await loadFont(rs.font, rs.wLight, rs.wActive);
   const cw = words.filter(w => w.s >= start - 0.05 && w.e <= end + 0.05 && !inRange(rem, w.s)).map(w => ({ ...w, s: Math.max(0, shift(w.s) - base), e: shift(w.e) - base }));
-  const chunks = chunksOf(opts.emoji ? addEmojis(cw, 2.5, opts.tone) : cw, Math.max(1, rs.n | 0));
+  const chunks = chunksOf(opts.emoji ? addEmojis(cw, 2.5, opts.tone) : cw, perChunk(rs));
   const rot = V.rotation, swap = rot === 90 || rot === 270, dw = swap ? V.height : V.width, dh = swap ? V.width : V.height;
   const blur = useBlur(style.fit || 'auto', dw, dh, W, H), sc = blur ? Math.min(W / dw, H / dh) : Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * (blur ? 0.5 : rs.cropX), sy = (dh - sh) / 2;
   const scB = Math.max(W / dw, H / dh), bgc = blur && !opts.bgScene ? document.createElement('canvas') : null; if (bgc) { bgc.width = Math.ceil(W / 14); bgc.height = Math.ceil(H / 14); }
