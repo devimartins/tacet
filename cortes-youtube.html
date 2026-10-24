@@ -342,17 +342,41 @@ function coverage() {
   else prog(1, ws.length + ' palavras lidas, até ' + fmt(end) + '. Aguardando a duração do vídeo.', false);
 }
 async function showPreview() {
-  const id = ytId($('#u').value.trim()); if (id === pvId) return; pvId = id || ''; vDur = 0;
+  const id = ytId($('#u').value.trim()); if (id === pvId) return; pvId = id || ''; vDur = 0; autoRun++; autoFor = ''; $('#go').disabled = false;
   if (!id) { $('#pvw').hidden = true; if (pvP) { try { pvP.destroy(); } catch {} pvP = null; $('#pbox').innerHTML = '<div id="pbh"></div>'; } return coverage(); }
   $('#pvw').hidden = false;
   try { await api(); } catch (e) { return prog(0, 'Não foi possível carregar o player do YouTube. A análise continua funcionando.'); }
   if (pvId !== id) return;
-  const ready = () => { try { vDur = pvP.getDuration() || 0; } catch {} coverage(); };
+  const ready = () => { try { vDur = pvP.getDuration() || 0; } catch {} coverage(); if (vDur > 30) autoT(id); };
   if (pvP && pvP.cueVideoById) { pvP.cueVideoById(id); setTimeout(ready, 1200); return; }
   pvP = new YT.Player('pbh', { videoId: id, width: '100%', height: '100%', playerVars: { playsinline: 1, rel: 0, origin: location.origin }, events: { onReady: () => setTimeout(ready, 600), onStateChange: ready, onError: e => { $('#pvw').hidden = false; prog(0, [101, 150, 153].includes(e.data) ? 'O criador não permite exibir este vídeo aqui. Você ainda pode colar a transcrição e analisar.' : 'Não foi possível carregar o vídeo. Confira o link.'); } } });
 }
+
+// ---- transcrição automática pelo link (Worker + Gemini), em blocos de 10 min com progresso real
+let autoFor = '', autoFilled = false, autoRun = 0;
+async function autoT(id) {
+  if (autoFor === id) return; autoFor = id;
+  if ($('#t').value.trim() && !autoFilled) return;
+  if (!window.CFG?.AI) return;
+  const tk = await token(); if (!tk) return prog(0, 'Entre no ForjaClip para a transcrição automática, ou cole o texto abaixo.');
+  const run = ++autoRun, n = Math.min(24, Math.ceil(vDur / 600)), url = 'https://www.youtube.com/watch?v=' + id, lines = []; let ok = true;
+  $('#t').value = ''; autoFilled = true; $('#go').disabled = true;
+  for (let i = 0; i < n; i++) {
+    if (run !== autoRun || pvId !== id) return;
+    const from = i * 600, len = Math.min(600, Math.ceil(vDur - from)); if (len < 5) break;
+    prog(i / n, 'Transcrevendo automaticamente… bloco ' + (i + 1) + ' de ' + n + ' (' + Math.round(i / n * 100) + '%)');
+    try {
+      const r = await fetch(CFG.AI + '/transcript', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ url, from, len }) }), d = await r.json().catch(() => ({}));
+      if (r.status === 404) { ok = false; $('#t').value = ''; autoFilled = false; $('#go').disabled = false; return prog(0, 'A transcrição automática ainda não está disponível. Cole o texto abaixo.'); }
+      if (!r.ok) throw new Error(d.error || 'erro ' + r.status);
+      for (const g of d.segments || []) lines.push(fmt(g.s) + '\n' + g.text);
+      $('#t').value = lines.join('\n');
+    } catch (e) { ok = false; prog(i / n, 'A transcrição automática parou: ' + e.message + ' Você pode colar o texto para completar.'); break; }
+  }
+  if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) prog(0, 'Não encontrei fala neste vídeo. Cole a transcrição manualmente.'); else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + ' trechos). Revise o texto, se quiser, e clique em Sugerir trechos.', true); } } }
+}
 let dbT = 0; const later = fn => { clearTimeout(dbT); dbT = setTimeout(fn, 450); };
-$('#u').addEventListener('input', () => later(showPreview)); $('#t').addEventListener('input', () => later(coverage)); $('#fl').addEventListener('change', () => setTimeout(coverage, 400)); $('#pst').addEventListener('click', () => setTimeout(coverage, 400));
+$('#u').addEventListener('input', () => later(showPreview)); $('#t').addEventListener('input', e => { if (e.isTrusted) autoFilled = false; later(coverage); }); $('#fl').addEventListener('change', () => setTimeout(coverage, 400)); $('#pst').addEventListener('click', () => setTimeout(coverage, 400));
 setTimeout(showPreview, 300);
 $('#f').onsubmit = async e => {
   e.preventDefault(); $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); const id = ytId($('#u').value.trim()), btn = $('#go');
