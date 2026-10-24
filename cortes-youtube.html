@@ -295,7 +295,7 @@ function render(id, clips, words) {
   flt = 'all'; $('#srt').value = 'score'; $('#mn').value = '0'; refresh();
 }
 // ---- galeria de estilos de legenda: prévia animada, com selo GRÁTIS ou PRO
-const GAL = $('#gal'), galCards = [], SAMPLE = 'Essa legenda vai chamar a atenção de quem assiste'.split(' ').map((w, j) => ({ w, s: j * .5, e: j * .5 + .45 })), PCH = chunksOf(SAMPLE, 3), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const GAL = $('#gal'), galCards = [], SAMPLE = 'Essa legenda vai chamar a atenção de quem está assistindo agora'.split(' ').map((w, j) => ({ w, s: j * .5, e: j * .5 + .45 })), PCH = {}, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let gcat = 'Todos', lastG = 0;
 function buildGallery() {
   GAL.replaceChildren(); galCards.length = 0;
@@ -321,7 +321,7 @@ function animG(now) {
       if (im && im.complete && im.naturalWidth) { const k = Math.max(270 / im.naturalWidth, 480 / im.naturalHeight); c.drawImage(im, (270 - im.naturalWidth * k) / 2, (480 - im.naturalHeight * k) / 2, im.naturalWidth * k, im.naturalHeight * k); }
       else { const gr = c.createLinearGradient(0, 0, 0, 480); gr.addColorStop(0, '#3a2a22'); gr.addColorStop(1, '#0d0e10'); c.fillStyle = gr; c.fillRect(0, 0, 270, 480); }
       const sh = c.createLinearGradient(0, 200, 0, 480); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.6)'); c.fillStyle = sh; c.fillRect(0, 0, 270, 480);
-      try { drawCaption(c, 270, 480, PCH, t, { ...r, x: .5, y: .68, n: 3, fs: Math.min(100, r.fs * 1.7) }); } catch {}
+      try { drawCaption(c, 270, 480, PCH[g.id] || (PCH[g.id] = chunksOf(SAMPLE, perChunk(r))), t, { ...r, x: .5, y: .68, fs: Math.min(100, r.fs * 1.7) }); } catch {}
     }
   }
   requestAnimationFrame(animG);

@@ -72,15 +72,36 @@ export const PLATFORMS = {
 };
 export const safeRect = (p, W = 1080, H = 1920) => { const m = PLATFORMS[p] || PLATFORMS.all; return { x: m.l / 1080 * W, y: m.t / 1920 * H, w: W - (m.l + m.r) / 1080 * W, h: H - (m.t + m.b) / 1920 * H }; };
 
-// Agrupa em blocos de até n palavras, mas nunca atravessa uma pausa (>= 0,5 s) nem um fim de frase:
-// assim a próxima frase só aparece quando começa a ser falada.
+// Quebra de linha segundo as regras de legendagem (Netflix pt-BR, BBC, estudos de rastreamento ocular): no máximo 2 linhas,
+// forma de pirâmide (linha de baixo maior), quebra depois de pontuação e antes de conjunção/preposição, e sem separar
+// artigo do substantivo, "não"/pronome do verbo, auxiliar do verbo ou nome de sobrenome.
+const norm = w => String(w).toLocaleLowerCase('pt-BR').replace(/[^\p{L}\p{N}]/gu, '');
+const NO_END = new Set('o a os as um uma uns umas de do da dos das em no na nos nas ao aos à às pelo pela para pra por com sem sobre e ou mas que se me te lhe não nunca eu você ele ela nós eles elas meu minha seu sua teu tua esse essa este esta isso isto como quando porque muito mais vou vai vamos estou está tem tenho foi era ser ter pode posso deve quer quero sou'.split(' '));
+const OK_BEFORE = new Set('e ou mas que porque quando como se para pra por com sem sobre de em no na do da até onde então pois'.split(' '));
+const PUNCT_END = /[,;:.!?…]["')\]]*$/, CAP = /^\p{Lu}/u;
+function bestSplit(ws, gap, maxW) {
+  const wid = a => a.reduce((u, o, i) => u + o.rw + (i ? gap : 0), 0); let best = null;
+  for (let q = 1; q < ws.length; q++) {
+    const top = ws.slice(0, q), bot = ws.slice(q), a = wid(top), b = wid(bot), tot = a + b;
+    if (a > maxW || b > maxW) continue;
+    const lt = top[top.length - 1].w.w, fb = bot[0].w.w; let c = Math.abs(b - a * 1.12) / tot + (a > b ? 0.3 : 0);
+    if (PUNCT_END.test(lt)) c -= 0.6;
+    if (NO_END.has(norm(lt))) c += 0.9;
+    if (OK_BEFORE.has(norm(fb))) c -= 0.3;
+    if (q > 1 && CAP.test(lt) && CAP.test(fb)) c += 0.7;
+    if (!best || c < best.c) best = { c, lines: [top, bot] };
+  }
+  return best;
+}
 // Duas linhas por bloco (exceto "Uma palavra" e Cascata): o bloco tem o dobro de palavras do ajuste n.
 export const perChunk = rs => (rs.n | 0) <= 1 || rs.mode === 'cascade' ? Math.max(1, rs.n | 0) : Math.min(8, (rs.n | 0) * 2);
+// Agrupa em blocos de até n palavras, sem atravessar pausa (>= 0,5 s) nem fim de frase, e sem terminar o bloco numa palavra
+// solta (artigo, preposição, conjunção): ela passa para o bloco seguinte.
 export const chunksOf = (words, n) => {
   const out = []; let cur = [];
   words.forEach((w, i) => {
-    cur.push(w); const nx = words[i + 1];
-    if (!nx || cur.length >= n || nx.s - w.e >= 0.5 || /[.!?…]["')\]]*$/.test(w.w)) { out.push(cur); cur = []; }
+    cur.push(w); const nx = words[i + 1], hard = !nx || nx.s - w.e >= 0.5 || /[.!?…]["')\]]*$/.test(w.w);
+    if (hard || cur.length >= n) { let carry = null; if (!hard && cur.length > 2 && !PUNCT_END.test(w.w) && NO_END.has(norm(w.w))) carry = cur.pop(); out.push(cur); cur = carry ? [carry] : []; }
   });
   return out;
 };
@@ -105,10 +126,9 @@ export function drawCaption(ctx, W, H, chunks, t, rs) {
     lines = []; let cur = [], cw = 0;
     words.forEach(o => { if (cur.length && cw + gap + o.rw > maxW) { lines.push(cur); cur = []; cw = 0; } cur.push(o); cw += (cur.length > 1 ? gap : 0) + o.rw; });
     if (cur.length) lines.push(cur);
-    if (lines.length === 1 && lines[0].length >= 4 && rs.n > 1) {   // quebra equilibrada em 2 linhas
-      const all = lines[0]; let best = 1, bd = 1e9;
-      for (let q = 1; q < all.length; q++) { const a = all.slice(0, q).reduce((u, o) => u + o.rw + gap, 0), b = all.slice(q).reduce((u, o) => u + o.rw + gap, 0), d = Math.abs(a - b); if (d < bd) { bd = d; best = q; } }
-      lines = [all.slice(0, best), all.slice(best)];
+    if (rs.n > 1 && lines.length <= 2 && words.length >= 4) {   // 2 linhas quando o bloco passa de ~60% da largura (ou já não cabe em uma)
+      const one = words.reduce((u, o, i) => u + o.rw + (i ? gap : 0), 0);
+      if (lines.length === 2 || one > maxW * 0.6) { const bs = bestSplit(words, gap, maxW); if (bs && (bs.c < 0.55 || f <= 0.8)) lines = bs.lines; else if (bs) continue; }
     }
     if (lines.length <= 2) break;
   }
