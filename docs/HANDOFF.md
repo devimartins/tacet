@@ -1,0 +1,26 @@
+# Handoff entre agentes
+
+Atualize este arquivo ao terminar cada sessão. Nunca escreva valores de chaves, só os nomes.
+
+## Estado atual (24/10/2026)
+- Tela inicial: teleprompter, "Legende seu vídeo" e "Cortes de vídeo longo", e o card "Cortes a partir de um link do YouTube" (Beta).
+- Página `cortes-youtube.html`: transcrição automática pelo link (Worker `/transcript`, Gemini), trechos sugeridos, mini players em 9:16, legenda de prévia, edição de legenda por trecho, tela dividida para duas pessoas, tela cheia, menu lateral/inferior.
+- Limites de transcrição por link (no Worker): grátis 1 h/dia, Pro 3 h/dia, teto global 7,5 h/dia. Variáveis do Worker: `FREE_DAILY_YT_SEC`, `PRO_DAILY_YT_SEC`, `GLOBAL_DAILY_YT_SEC`.
+- Avatares: 16 desenhos originais em `js/avatar.js`.
+- Service worker sem recarga automática de página.
+
+## Segredos (só os nomes; os valores ficam no Worker e no Supabase)
+`GEMINI_KEY`, `GEMINI_MODEL`, chaves do Groq, `MP_TOKEN` (Mercado Pago), service role do Supabase.
+
+## Pendências conhecidas
+- Teto mensal de transcrição por usuário (depende de uma função de uso no Supabase que não está no repositório).
+- Verificar com um vídeo real do YouTube o corte 9:16 e a tela dividida.
+
+## Tarefa do Codex: sistema novo
+- O que é o sistema: _(preencher com o dono)_
+- Onde entra no app (site ou Worker): _(preencher)_
+- Arquivos que o Codex pode criar ou alterar: _(preencher)_
+- Branch de trabalho: `codex/<assunto>`; abrir pull request para a `main`.
+
+## Registro
+- 24/10/2026 — Claude: criou `AGENTS.md` e este arquivo.
