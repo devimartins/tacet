@@ -211,10 +211,17 @@ const rnd = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.545
 function drawFx(ctx, fx, o, { px, off, w, age, t, col, rs }) {
   const s = o.t, dur = Math.max(0.2, o.w.e - o.w.s), put = (x, y, c, str = s) => { ctx.fillStyle = c; ctx.fillText(str, off + x, y); };
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-  if (fx === 'glitch') {   // deslocamento RGB tremido + fatias deslocadas
-    const j = Math.floor(t * 14), d = px * 0.06 * (0.4 + rnd(j, 1));
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; put(-d, 0, 'rgba(255,0,90,.9)'); put(d, 0, 'rgba(0,235,255,.9)'); ctx.restore(); put(0, 0, '#fff');
-    if (rnd(j, 2) > 0.55) { const y0 = -px * (0.25 + 0.55 * rnd(j, 3)); ctx.save(); ctx.beginPath(); ctx.rect(off - px, y0, w + px * 2, px * 0.13); ctx.clip(); put(px * 0.2 * (rnd(j, 4) - 0.5) * 2, 0, '#fff'); ctx.restore(); }
+  if (fx === 'glitch') {   // glitch por letra: cada letra inteira treme, divide em vermelho/ciano e pisca; nada é fatiado dentro da letra
+    const ch = [...s], j = Math.floor(t * 12), j2 = Math.floor(t * 22); let x = 0;
+    ch.forEach((q, i) => {
+      const cw = ctx.measureText(q).width, hit = rnd(j, i + 9) > 0.8, ent = age < 0.24 ? rnd(j2 + i * 3, i + 17) > 1 - age / 0.24 : true;   // entrada: letras aparecem piscando, fora de ordem
+      if (ent && q.trim()) {
+        const d = px * (hit ? 0.06 + 0.06 * rnd(j, i + 1) : 0.012), dx = hit ? (rnd(j, i + 3) - 0.5) * px * 0.16 : 0, dy = hit ? (rnd(j, i + 5) - 0.5) * px * 0.12 : 0;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; put(x + dx - d, dy, 'rgba(255,0,90,.9)', q); put(x + dx + d, dy, 'rgba(0,235,255,.9)', q); ctx.restore();
+        ctx.save(); ctx.globalAlpha *= hit && rnd(j, i + 11) > 0.7 ? 0.55 : 1; put(x + dx, dy, '#fff', q); ctx.restore();
+      }
+      x += cw;
+    });
   } else if (fx === 'aurora') {   // gradiente boreal em movimento + brilho
     const ph = (t * 0.55) % 1, x0 = off - 2 * w + ph * 2 * w, g = ctx.createLinearGradient(x0, 0, x0 + 4 * w, 0), c = ['#00ffd0', '#7b5cff', '#ff5cd6'];
     for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, c[i % 3]);
