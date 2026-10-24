@@ -22,6 +22,8 @@ const CSS = `
 #tp .txt{position:absolute;left:0;right:0;top:0;padding:0 8px;font-weight:700;text-align:center;text-shadow:0 1px 3px #000;white-space:pre-wrap;will-change:transform}
 #tp .line{position:absolute;left:4%;right:4%;top:16%;height:3px;background:#ff5a1f99;border-radius:2px;pointer-events:none}
 #tp .chk{position:absolute;left:10px;top:10px;z-index:3;max-width:min(72%,420px);padding:7px 11px;border-radius:10px;font-size:13px;line-height:1.35;font-weight:600;background:#000a;border:1px solid #fff3}#tp .chk.ok{color:#5be08f}#tp .chk.bad{color:#ffb454}#tp .chk:empty{display:none}
+#tp .gd{position:absolute;z-index:2;pointer-events:none;display:none;background:linear-gradient(#ffffff40,#ffffff40) 0 33.33%/100% 1px no-repeat,linear-gradient(#ffffff40,#ffffff40) 0 66.66%/100% 1px no-repeat,linear-gradient(#ffffff40,#ffffff40) 33.33% 0/1px 100% no-repeat,linear-gradient(#ffffff40,#ffffff40) 66.66% 0/1px 100% no-repeat}#tp .gd.on{display:block}#tp .gd::after{content:"";position:absolute;inset:10%;border:1px dashed #ffffff55;border-radius:6px}
+#tp .gd i{position:absolute;left:6px;top:calc(33.33% - 18px);font:600 11px system-ui;font-style:normal;color:#fff;opacity:.8;text-shadow:0 1px 2px #000}
 #tp .cnt{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:30vmin;font-weight:800;text-shadow:0 2px 12px #000}
 #tp .rec{position:absolute;top:10px;right:12px;display:none;gap:6px;align-items:center;font-weight:700}
 #tp .rec i{width:10px;height:10px;border-radius:50%;background:#f33;animation:tpb 1s infinite}
@@ -151,17 +153,24 @@ export function openTeleprompter({ onUse, flash, ai }) {
   async function camera() {
     h(`<div class="cam"><video id="v" playsinline muted autoplay></video>
       <div class="win"><div class="txt" id="tx"></div></div><div class="line"></div>
-      <div class="chk" id="chk" role="status"></div><div class="cnt" id="c"></div><div class="rec" id="r"><i></i><span id="rt">0:00</span></div></div>
+      <div class="gd" id="gd" aria-hidden="true"><i>olhos aqui</i></div><div class="chk" id="chk" role="status"></div><div class="cnt" id="c"></div><div class="rec" id="r"><i></i><span id="rt">0:00</span></div></div>
     <div class="ctl">
       <button id="sm" type="button" aria-label="Diminuir velocidade">Mais lento</button>
       <button class="recb" id="rb" type="button" aria-label="Gravar"></button>
       <button id="sf" type="button" aria-label="Aumentar velocidade">Mais rápido</button>
     </div>
-    <div class="ctl"><button id="zm" type="button">A−</button><button id="zp" type="button">A+</button><button id="pz" type="button">Pausar texto</button><button id="x" type="button">Cancelar</button></div>`);
+    <div class="ctl"><button id="zm" type="button">A−</button><button id="zp" type="button">A+</button><button id="gb" type="button" aria-pressed="true">Guia</button><button id="pz" type="button">Pausar texto</button><button id="x" type="button">Cancelar</button></div>`);
     $('#x').onclick = () => { close(); };
     stopMeter(); const err = await acquire();
     if (!live()) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
     const v = $('#v'); v.srcObject = stream; v.play().catch(() => { /* autoplay */ });
+    // guia de enquadramento: terços e margem de 10%, só na prévia (nunca entra no vídeo gravado), alinhada à área real do vídeo
+    const gd = $('#gd'), gb = $('#gb'), cam = $('.cam');
+    const place = () => { if (!gd || !v.videoWidth) return; const W = cam.clientWidth, H = cam.clientHeight, k = Math.min(W / v.videoWidth, H / v.videoHeight), w = v.videoWidth * k, h = v.videoHeight * k;
+      Object.assign(gd.style, { left: ((W - w) / 2) + 'px', top: ((H - h) / 2) + 'px', width: w + 'px', height: h + 'px' }); };
+    const showG = () => { gd.classList.toggle('on', cfg.guide !== false); gb.setAttribute('aria-pressed', String(cfg.guide !== false)); place(); };
+    gb.onclick = () => { cfg.guide = cfg.guide === false; save(cfg); showG(); };
+    v.addEventListener('loadedmetadata', place); v.addEventListener('resize', place); window.addEventListener('resize', place); showG();
     let lastChk = '';
     startShotCheck(v, iss => { const c = $('#chk'); if (!c || !iss) return; const t = iss.length ? MSG[iss[0]] : 'Enquadramento e luz ok'; if (t !== lastChk) { lastChk = t; c.textContent = t; c.className = 'chk ' + (iss.length ? 'bad' : 'ok'); } }).then(x => { if ($('#v')) sc = x; else x && x.stop(); }).catch(() => { });
     const tx = $('#tx'); tx.textContent = cfg.text; tx.style.fontSize = cfg.size + 'px'; tx.style.lineHeight = '1.35'; tx.style.transform = cfg.mirror ? 'scaleX(-1)' : '';
