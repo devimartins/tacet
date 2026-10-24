@@ -6,7 +6,7 @@ const tab = id => { const b = $(id); if (b) b.click(); };
 
 // Cada item: palavras-chave, rótulo, onde fica e o que fazer. editor:true exige um vídeo aberto.
 const ITEMS = [
-  { k: 'legenda caption transcrever transcricao falar texto', t: 'Adicionar legendas', home: ['#drop2', 'Escolha "Só legendas" e selecione o vídeo. A transcrição é automática.'], ed: ['#presets', 'Aqui você troca o estilo da legenda. Em "Legendas" você edita o texto.', '#tabS'] },
+  { k: 'legenda caption transcrever transcricao falar texto', t: 'Adicionar legendas', home: ['#drop2', 'Escolha "Legende seu vídeo" e selecione o vídeo. A transcrição é automática.'], ed: ['#presets', 'Aqui você troca o estilo da legenda. Em "Legendas" você edita o texto.', '#tabS'] },
   { k: 'corte cortes clipe viral longo melhor momento ia', t: 'Cortar um vídeo longo com IA', home: ['#drop', 'Escolha "Cortes de vídeo longo": a IA sugere os melhores momentos.'], ed: ['#clips', 'Os cortes sugeridos aparecem aqui. Use "Gerar vídeo" para exportar cada um.', '#tabC'] },
   { k: 'estilo fonte cor tema legenda animada preset', t: 'Mudar o estilo da legenda', home: ['#gal', 'Escolha um estilo e depois envie o vídeo.'], ed: ['#presets', 'Clique num estilo; abaixo ficam fonte, cores, tamanho e posição.', '#tabS'] },
   { k: 'cinetica cinetico animada animacao bounce marca-texto preenchido tremor digitacao previa mouse', t: 'Legendas cinéticas e prévia', ed: ['#presets', 'Abra a categoria Cinético. Passe o mouse sobre um estilo para ver a legenda no seu vídeo; clique para aplicar.'], home: ['#gal', 'Os estilos da categoria Cinético têm animações palavra a palavra.'] },
@@ -31,7 +31,7 @@ const ITEMS = [
 ];
 const TOUR = [
   ['#drop', 'Comece aqui', 'Envie um vídeo longo para a IA achar os melhores cortes.'],
-  ['#drop2', 'Só legendas', 'Prefere só legendar? Use este cartão.'],
+  ['#drop2', 'Legende seu vídeo', 'Prefere só legendar? Use este cartão.'],
   ['#tpOpen', 'Teleprompter (Pro)', 'Grave lendo o roteiro olhando para a câmera e siga direto para a edição.'],
   ['#ytUrl', 'Link do YouTube', 'Cole um link para usar um trecho de um vídeo.'],
   ['#plan', 'Plano Pro', 'Estilos completos, sem anúncios, pagamento por PIX ou cartão.'],

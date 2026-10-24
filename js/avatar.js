@@ -1,29 +1,38 @@
-// Avatares 2D originais (SVG gerado no código, sem bibliotecas nem licenças de terceiros).
-const SKIN = ['#FFD9B8', '#F4B98C', '#D99A6C', '#A8693F', '#7A4A2B', '#FBE3C8'];
+// Avatares originais (SVG gerado no código: sem bibliotecas, sem rede e sem licenças de terceiros).
+// Os 4 primeiros são personagens de fogo. O índice e a cor de fundo continuam salvos como "a<índice>-<fundo>".
 const BG = ['#FF6A3D', '#FFB020', '#3DDC84', '#4DC3FF', '#7C6CFF', '#FF5DA2', '#2A2D34', '#E8E2DA'];
-export const AV_COUNT = 12, BG_COUNT = BG.length;
-const eyes = [
-  c => `<circle cx="38" cy="50" r="4" fill="#1b1d21"/><circle cx="62" cy="50" r="4" fill="#1b1d21"/>`,
-  c => `<path d="M33 52q5-7 10 0M57 52q5-7 10 0" stroke="#1b1d21" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
-  c => `<circle cx="38" cy="50" r="4" fill="#1b1d21"/><path d="M57 51q5 -5 10 0" stroke="#1b1d21" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
-  c => `<rect x="30" y="44" width="17" height="13" rx="6" fill="none" stroke="#1b1d21" stroke-width="3"/><rect x="53" y="44" width="17" height="13" rx="6" fill="none" stroke="#1b1d21" stroke-width="3"/><path d="M47 50h6" stroke="#1b1d21" stroke-width="3"/><circle cx="38.5" cy="50.5" r="2.6" fill="#1b1d21"/><circle cx="61.5" cy="50.5" r="2.6" fill="#1b1d21"/>`,
-];
-const mouth = [
-  `<path d="M40 66q10 10 20 0" stroke="#1b1d21" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
-  `<path d="M40 64q10 16 20 0z" fill="#7a1f1f"/>`,
-  `<path d="M42 68h16" stroke="#1b1d21" stroke-width="3.5" stroke-linecap="round"/>`,
-];
-const acc = [
-  ``,
-  `<path d="M18 38q32-26 64 0" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/>`,
-  `<path d="M20 36q30-34 60 0z" fill="#1b1d21"/><circle cx="50" cy="13" r="5" fill="#FFB020"/>`,
-  `<path d="M24 46q-2-30 26-30t26 30" stroke="#1b1d21" stroke-width="5" fill="none"/><rect x="16" y="42" width="10" height="20" rx="5" fill="#1b1d21"/><rect x="74" y="42" width="10" height="20" rx="5" fill="#1b1d21"/>`,
-  `<path d="M50 14q-9 10-2 17 1-6 6-8-1 5 3 8 6-8-7-17z" fill="#FF6A3D"/>`,
-  `<path d="M26 30l8 8 8-14 8 14 8-14 8 14 8-8-6 18H32z" fill="#FFB020"/>`,
+export const AV_COUNT = 16, BG_COUNT = BG.length;
+const K = '#1b1d21', W = '#fff';
+let uid = 0;
+const FL = 'M50 7C54 23 77 33 77 58C77 77 65 91 50 91C35 91 23 78 23 60C23 46 31 38 37 27C39 35 42 40 47 41C44 28 45 18 50 7Z';
+const eyeO = (x, y, r = 5) => `<ellipse cx="${x}" cy="${y}" rx="${r * .8}" ry="${r}" fill="${K}"/><circle cx="${x + 1}" cy="${y - r * .4}" r="${r * .3}" fill="${W}"/>`;
+const smile = (y = 70, w = 11) => `<path d="M${50 - w} ${y}q${w} ${w} ${2 * w} 0" stroke="${K}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+const blush = y => `<ellipse cx="32" cy="${y}" rx="5" ry="3" fill="#ff5d7a" opacity=".45"/><ellipse cx="68" cy="${y}" rx="5" ry="3" fill="#ff5d7a" opacity=".45"/>`;
+const flame = (id, c1, c2, c3) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset=".55" stop-color="${c2}"/><stop offset="1" stop-color="${c3}"/></linearGradient></defs><path d="${FL}" fill="url(#${id})"/><path d="M50 50C54 58 62 64 62 74C62 83 56 89 50 89C44 89 38 83 38 75C38 68 44 63 46 56Z" fill="#fff" opacity=".22"/>`;
+const flameHair = (id, y = 0) => `<defs><linearGradient id="${id}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#E5322D"/><stop offset=".5" stop-color="#FF6A1F"/><stop offset="1" stop-color="#FFC53D"/></linearGradient></defs><path d="M24 40C20 28 28 20 33 12C34 20 38 22 41 21C40 14 44 8 50 2C52 11 58 14 62 12C62 18 68 20 70 12C76 22 82 32 76 40C70 32 60 27 50 27C40 27 30 32 24 40Z" transform="translate(0 ${y})" fill="url(#${id})"/>`;
+const head = (c, ry = 31) => `<ellipse cx="50" cy="56" rx="29" ry="${ry}" fill="${c}"/>`;
+const body = c => `<path d="M12 100q6-20 38-20t38 20z" fill="${c}"/>`;
+const A = [
+  id => flame(id, '#FFD56B', '#FF8A1F', '#E5322D') + eyeO(41, 62) + eyeO(59, 62) + smile(71) + blush(70),
+  id => flame(id, '#B8F1FF', '#38B6FF', '#2E4BFF') + `<path d="M35 62q6-6 12 0M53 62q6-6 12 0" stroke="${K}" stroke-width="3.4" fill="none" stroke-linecap="round"/>` + smile(70, 9),
+  id => flame(id, '#FFB347', '#FF3B1F', '#A3081A') + eyeO(41, 63, 4.5) + eyeO(59, 63, 4.5) + `<path d="M33 53l16 6M67 53l-16 6" stroke="${K}" stroke-width="3.6" stroke-linecap="round"/><path d="M41 76q9-7 18 0" stroke="${K}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`,
+  id => flame(id, '#FFE08A', '#FF9A2E', '#E5322D') + `<rect x="28" y="55" width="20" height="13" rx="5" fill="${K}"/><rect x="52" y="55" width="20" height="13" rx="5" fill="${K}"/><path d="M48 59h4" stroke="${K}" stroke-width="3"/><path d="M31 58l8 0" stroke="#fff" stroke-width="2" opacity=".5"/>` + smile(75, 9),
+  id => body('#2b2f3a') + head('#F4B98C') + flameHair(id, 4) + eyeO(40, 56, 4) + eyeO(60, 56, 4) + smile(67, 9) + blush(65),
+  id => body('#C2410C') + `<path d="M22 62C22 38 36 26 50 26S78 38 78 62C78 76 66 88 50 88S22 76 22 62Z" fill="#FF8A1F"/><path d="M50 14C54 20 56 26 52 32C58 28 62 24 60 18C68 26 66 36 60 40L40 40C34 36 32 26 40 18C40 24 44 28 48 28C46 24 46 18 50 14Z" fill="#FFC53D"/><path d="M44 60h12l-6 9z" fill="#FFC53D"/>` + eyeO(38, 54, 4.5) + eyeO(62, 54, 4.5),
+  id => body('#3b3f4c') + `<path d="M24 46L28 16 46 30h8L72 16l4 30" fill="#F2A154"/><ellipse cx="50" cy="56" rx="29" ry="28" fill="#F2A154"/><ellipse cx="50" cy="66" rx="14" ry="10" fill="#FFE9D2"/><path d="M45 61h10l-5 5z" fill="${K}"/>` + eyeO(38, 52, 4) + eyeO(62, 52, 4) + `<path d="M50 66v3M44 70q6 4 6-1M56 70q-6 4-6-1" stroke="${K}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+  id => body('#4b5160') + `<rect x="46" y="14" width="8" height="10" fill="#9aa3b5"/><circle cx="50" cy="12" r="5" fill="#FF6A3D"/><rect x="21" y="24" width="58" height="52" rx="14" fill="#c9d1e0"/><rect x="29" y="38" width="42" height="22" rx="9" fill="#12161f"/><circle cx="41" cy="49" r="5" fill="#4DF0FF"/><circle cx="59" cy="49" r="5" fill="#4DF0FF"/><path d="M40 67h20" stroke="#12161f" stroke-width="3.5" stroke-linecap="round"/>`,
+  id => body('#e6e9ef') + `<circle cx="50" cy="52" r="34" fill="#e6e9ef"/><ellipse cx="50" cy="54" rx="25" ry="22" fill="#1d2433"/><ellipse cx="42" cy="48" rx="9" ry="5" fill="#fff" opacity=".18" transform="rotate(-20 42 48)"/>` + eyeO(41, 56, 4) + eyeO(59, 56, 4) + smile(65, 7) + `<rect x="44" y="82" width="12" height="6" rx="2" fill="#FF6A3D"/>`,
+  id => `<path d="M24 92V50C24 30 36 18 50 18S76 30 76 50V92l-9-8-9 8-8-8-8 8-9-8z" fill="#f4f6fb"/>` + eyeO(40, 52, 5) + eyeO(60, 52, 5) + `<ellipse cx="50" cy="68" rx="6" ry="7" fill="${K}"/>` + blush(62),
+  id => body('#4a2a63') + `<path d="M50 10C70 10 80 34 80 52 80 76 66 90 50 90S20 76 20 52C20 34 30 10 50 10Z" fill="#7bd88f"/><ellipse cx="36" cy="54" rx="10" ry="15" fill="#12161f" transform="rotate(20 36 54)"/><ellipse cx="64" cy="54" rx="10" ry="15" fill="#12161f" transform="rotate(-20 64 54)"/><circle cx="38" cy="49" r="3" fill="#fff" opacity=".6"/><circle cx="62" cy="49" r="3" fill="#fff" opacity=".6"/><path d="M44 74q6 4 12 0" stroke="${K}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+  id => body('#1f2430') + head('#FBE3C8') + `<path d="M18 46C22 22 78 22 82 46V56H18z" fill="#1f2430"/><rect x="24" y="44" width="52" height="12" rx="6" fill="#FBE3C8"/>` + eyeO(40, 50, 3.6) + eyeO(60, 50, 3.6) + `<path d="M18 40h64" stroke="#E5322D" stroke-width="5"/><path d="M82 40l8 6-8 4z" fill="#E5322D"/>`,
+  id => body('#6d28d9') + head('#D99A6C') + `<path d="M26 34l8 10 8-16 8 16 8-16 8 16 8-10-4 22H30z" fill="#FFC53D" stroke="#E08A00" stroke-width="2"/><circle cx="50" cy="30" r="3" fill="#E5322D"/>` + eyeO(40, 62, 4) + eyeO(60, 62, 4) + smile(72, 9) + blush(70),
+  id => body('#14161d') + `<path d="M24 56C24 34 36 20 50 20S76 34 76 56C76 66 72 72 68 76V86H32V76C28 72 24 66 24 56Z" fill="#ECE7DD"/><ellipse cx="38" cy="55" rx="9" ry="11" fill="#12161f"/><ellipse cx="62" cy="55" rx="9" ry="11" fill="#12161f"/><path d="M38 60C34 54 38 48 38 44 44 50 42 56 38 60zM62 60C58 54 62 48 62 44 68 50 66 56 62 60z" fill="#FF8A1F"/><path d="M47 66h6l-3 7z" fill="#12161f"/><path d="M38 80v-6M46 80v-6M54 80v-6M62 80v-6" stroke="#12161f" stroke-width="2.4"/>`,
+  id => body('#0f5132') + head('#A8693F') + `<path d="M19 50C19 26 34 18 50 18S81 26 81 50C74 40 64 34 50 34S26 40 19 50Z" fill="#2b1b12"/><path d="M12 62q-4 14 8 18M88 62q4 14-8 18" stroke="#FFC53D" stroke-width="4" fill="none" stroke-linecap="round"/>` + eyeO(40, 58, 4) + eyeO(60, 58, 4) + smile(69, 9),
+  id => body('#8a3b12') + `<ellipse cx="50" cy="58" rx="30" ry="29" fill="#f5c28f"/><path d="M20 52C16 36 30 26 40 30c4-10 16-10 20 0 10-4 24 6 20 22-8-10-18-14-30-14S28 42 20 52Z" fill="#7a3e1a"/>` + eyeO(40, 60, 4) + eyeO(60, 60, 4) + `<path d="M30 52l-3-6M70 52l3-6" stroke="${K}" stroke-width="2" stroke-linecap="round"/>` + smile(71, 9) + blush(68),
 ];
 export function avatarSvg(i = 0, bg = 0, size = 64) {
   i = ((+i || 0) % AV_COUNT + AV_COUNT) % AV_COUNT; bg = ((+bg || 0) % BG_COUNT + BG_COUNT) % BG_COUNT;
-  const skin = SKIN[i % SKIN.length], e = eyes[i % 4], m = mouth[Math.floor(i / 4) % 3], a = acc[i % 6];
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="Avatar"><rect width="100" height="100" fill="${BG[bg]}"/><ellipse cx="50" cy="104" rx="34" ry="24" fill="${SKIN[(i + 2) % SKIN.length]}" opacity=".0"/><path d="M14 100q6-22 36-22t36 22z" fill="#1b1d21" opacity=".85"/><ellipse cx="50" cy="54" rx="29" ry="31" fill="${skin}"/><ellipse cx="32" cy="64" rx="5" ry="3" fill="#ff7a7a" opacity=".35"/><ellipse cx="68" cy="64" rx="5" ry="3" fill="#ff7a7a" opacity=".35"/>${e()}${m}${a}</svg>`;
+  const id = 'af' + (++uid);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="Avatar"><rect width="100" height="100" fill="${BG[bg]}"/><circle cx="50" cy="52" r="46" fill="#000" opacity=".16"/>${A[i](id)}</svg>`;
 }
 export const parseAv = s => { const m = /^a(\d+)-(\d+)$/.exec(s || ''); return m ? [+m[1] % AV_COUNT, +m[2] % BG_COUNT] : null; };

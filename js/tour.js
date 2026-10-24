@@ -56,7 +56,7 @@ export function startTour(id, steps, { onEnd } = {}) {
 
 export const HOME = [
   { sel: '#drop', title: 'Cortes de vídeo longo', text: 'Envie um vídeo de podcast, aula ou palestra. A IA acha os melhores momentos e já aplica as legendas animadas.' },
-  { sel: '#drop2', title: 'Só legendas', text: 'Quer só legendar o vídeo inteiro? Use esta opção: a transcrição é automática e você escolhe o estilo.' },
+  { sel: '#drop2', title: 'Legende seu vídeo', text: 'Quer só legendar o vídeo inteiro? Use esta opção: a transcrição é automática e você escolhe o estilo.' },
   { sel: '#tpOpen', title: 'Teleprompter (Pro)', text: 'Grave lendo o roteiro olhando para a câmera. Ao parar, a gravação abre direto no editor.' },
   { sel: '#ytForm', title: 'Link do YouTube (Beta)', text: 'No computador, grava o trecho do player oficial para transcrever. Use só vídeos sobre os quais você tem direitos.' },
   { sel: '#gal', title: 'Estilos de legenda', text: 'Veja como cada estilo fica. Os com selo Pro são exclusivos do plano pago.' },
