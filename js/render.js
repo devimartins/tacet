@@ -27,7 +27,8 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   if (!(len > 0.5)) throw new Error('Corte curto demais.');
   const rs = resolve(style);
   await loadFont(rs.font, rs.wLight, rs.wActive);
-  const cw = words.filter(w => w.s >= start - 0.05 && w.e <= end + 0.05 && !inRange(rem, w.s)).map(w => ({ ...w, s: Math.max(0, shift(w.s) - base), e: shift(w.e) - base }));
+  for (const o of Object.values(rs.seg || {})) if (o.font) await loadFont(o.font, rs.wLight, rs.wActive);
+  const cw = words.filter(w => w.s >= start - 0.05 && w.e <= end + 0.05 && !inRange(rem, w.s)).map(w => ({ ...w, s0: w.s, s: Math.max(0, shift(w.s) - base), e: shift(w.e) - base }));
   const chunks = chunksOf(opts.emoji ? addEmojis(cw, 2.5, opts.tone) : cw, perChunk(rs));
   const rot = V.rotation, swap = rot === 90 || rot === 270, dw = swap ? V.height : V.width, dh = swap ? V.width : V.height;
   const blur = useBlur(style.fit || 'auto', dw, dh, W, H), sc = blur ? Math.min(W / dw, H / dh) : Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * (blur ? 0.5 : rs.cropX), sy = (dh - sh) / 2;

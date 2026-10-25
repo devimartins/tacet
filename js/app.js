@@ -1,4 +1,4 @@
-import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe } from './captions.js';
+import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
 import { openMedia, extractAudio } from './media.js';
 import { useBlur, renderClip } from './render.js';
 import { helpBtn } from './help.js?v=1';
@@ -751,7 +751,7 @@ $('#stage').addEventListener('pointerdown', e => { if (e.target.closest('label,b
   const lb = S.logo && logoOv.box, px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
   if (lb && px * $('#cv').width >= lb.x && px * $('#cv').width <= lb.x + lb.w && py * $('#cv').height >= lb.y && py * $('#cv').height <= lb.y + lb.h) { drag = { logo: true, x: e.clientX, y: e.clientY, sx: S.logoCfg.x, sy: S.logoCfg.y, w: r.width, h: r.height }; $('#stage').classList.add('drag'); $('#stage').setPointerCapture(e.pointerId); return; }
   drag = { x: e.clientX, y: e.clientY, sx: rs().x, sy: rs().y, w: r.width, h: r.height }; $('#stage').classList.add('drag'); $('#stage').setPointerCapture(e.pointerId); });
-$('#stage').addEventListener('pointermove', e => { if (!drag) return; if (drag.logo) { S.logoCfg.x = Math.min(1, Math.max(0, drag.sx + (e.clientX - drag.x) / drag.w)); S.logoCfg.y = Math.min(1, Math.max(0, drag.sy + (e.clientY - drag.y) / drag.h)); saveLogoCfg(); return; } let nx = Math.min(0.92, Math.max(0.08, drag.sx + (e.clientX - drag.x) / drag.w)), ny = Math.min(0.97, Math.max(0.03, drag.sy + (e.clientY - drag.y) / drag.h)); S.guides = null; if (S.snapOn !== false && !e.altKey && S.bbox) { const g = snapCap(nx, ny); nx = g.nx; ny = g.ny; S.guides = g.lines; if (g.lines.length && !drag.hit) { try { navigator.vibrate && navigator.vibrate(8); } catch {} } drag.hit = g.lines.length > 0; } S.style.x = nx; S.style.y = ny; sync(); saveSoon('style', { style: S.style }); });
+$('#stage').addEventListener('pointermove', e => { if (!drag) return; if (drag.logo) { S.logoCfg.x = Math.min(1, Math.max(0, drag.sx + (e.clientX - drag.x) / drag.w)); S.logoCfg.y = Math.min(1, Math.max(0, drag.sy + (e.clientY - drag.y) / drag.h)); saveLogoCfg(); return; } if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 6) drag.moved = true; let nx = Math.min(0.92, Math.max(0.08, drag.sx + (e.clientX - drag.x) / drag.w)), ny = Math.min(0.97, Math.max(0.03, drag.sy + (e.clientY - drag.y) / drag.h)); S.guides = null; if (S.snapOn !== false && !e.altKey && S.bbox) { const g = snapCap(nx, ny); nx = g.nx; ny = g.ny; S.guides = g.lines; if (g.lines.length && !drag.hit) { try { navigator.vibrate && navigator.vibrate(8); } catch {} } drag.hit = g.lines.length > 0; } S.style.x = nx; S.style.y = ny; sync(); saveSoon('style', { style: S.style }); });
 function snapCap(nx, ny) {
   const W = cv.width, H = cv.height, b = S.bbox, T = 7 * (cv.width / Math.max(1, $('#stage').getBoundingClientRect().width));
   const dx = (nx - S.style.x) * W, dy = (ny - S.style.y) * H, L = b.x + dx, R = L + b.w, C = L + b.w / 2, Tp = b.y + dy, Bt = Tp + b.h, M = Tp + b.h / 2;
@@ -764,7 +764,7 @@ function snapCap(nx, ny) {
   if (by) { ny += by.d / H; lines.push({ v: 0, p: by.v, k: by.k }); }
   return { nx: Math.min(0.92, Math.max(0.08, nx)), ny: Math.min(0.97, Math.max(0.03, ny)), lines };
 }
-const endDrag = () => { drag = null; S.guides = null; $('#stage').classList.remove('drag'); }; $('#stage').addEventListener('pointerup', endDrag); $('#stage').addEventListener('pointercancel', endDrag);
+const endDrag = () => { drag = null; S.guides = null; $('#stage').classList.remove('drag'); }; $('#stage').addEventListener('pointerup', () => { const tap = drag && !drag.logo && !drag.moved && S.bbox && !$('#edit').hidden; endDrag(); if (tap) segOpen(); }); $('#stage').addEventListener('pointercancel', endDrag);
 
 // ---------- início ----------
 async function boot() {
@@ -1077,8 +1077,7 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
 
 // ---------- pré-visualização em tela cheia ----------
 { const st = $('#stage'), bar = $('#fsBar'), mark = document.createComment('stage'); let on = false, real = false;
-  const setPP = () => { $('#fsPlay').textContent = $('#pp').textContent; };
-  new MutationObserver(setPP).observe($('#pp'), { childList: true, characterData: true, subtree: true });
+  const setPP = () => {};
   const toggle = v => {
     if (v === on) return; on = v;
     if (on) { st.replaceWith(mark); document.body.append(st); } else { mark.replaceWith(st); }
@@ -1086,7 +1085,7 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
     if (on) { real = false; try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.then(() => { real = true; }).catch(() => 0); } catch { /* iPhone: fica o modo sobreposto */ } }
     else if (document.fullscreenElement) document.exitFullscreen().catch(() => 0);
   };
-  $('#fsPrev').onclick = () => toggle(true); $('#fsX').onclick = () => toggle(false); $('#fsPlay').onclick = () => $('#pp').click();
+  $('#fsPrev').onclick = () => toggle(true); $('#fsX').onclick = () => toggle(false);
   document.addEventListener('fullscreenchange', () => { if (on && real && !document.fullscreenElement) toggle(false); });
   addEventListener('keydown', e => { if (e.key === 'Escape' && on) toggle(false); });
 }
@@ -1428,3 +1427,25 @@ function imgSearchOpen(mode) { imgMode = mode; $('#bgDT').textContent = mode ===
   const ro = new ResizeObserver(fitStage); ro.observe(left); const pan = $('#tlpan'); if (pan) ro.observe(pan); for (const c of left.children) if (c !== st) ro.observe(c);
   mq.addEventListener('change', fitStage); addEventListener('resize', fitStage); setInterval(fitStage, 700);
 }
+
+// ---- ajustar a fonte e a animação só do trecho (bloco) de legenda tocado ----
+{ const F = $('#segF'); for (const f of Object.keys(FONTS)) F.append(el('option', { value: f, textContent: f })); }
+var segCur = null;
+function curChunk() { let k = -1; for (let i = 0; i < S.chunks.length; i++) if (S.cur >= S.chunks[i][0].s) k = i; else break; return S.chunks[k] || null; }
+function segOpen() {
+  const c = curChunk(); if (!c) return; if (S.playing) play(false);
+  segCur = segKey(c); const ov = (S.style.seg || {})[segCur] || {}, r = rs();
+  $('#segTx').textContent = '“' + c.map(w => w.w).join(' ') + '”'; $('#segF').value = ov.font || r.font; $('#segA').value = ov.anim || ''; $('#segM').value = ov.mode || '';
+  $('#segD').showModal();
+}
+async function segSet(patch, all) {
+  if (segCur == null) return; S.style.seg = S.style.seg || {};
+  const apply = k => { const o = { ...(S.style.seg[k] || {}), ...patch }; for (const x of Object.keys(o)) if (o[x] === '' || o[x] == null) delete o[x]; if (Object.keys(o).length) S.style.seg[k] = o; else delete S.style.seg[k]; };
+  if (all) S.chunks.forEach(c => apply(segKey(c))); else apply(segCur);
+  if (patch.font) await loadFont(patch.font, rs().wLight, rs().wActive);
+  saveSoon('style', { style: S.style });
+}
+$('#segF').onchange = () => segSet({ font: $('#segF').value }); $('#segA').onchange = () => segSet({ anim: $('#segA').value }); $('#segM').onchange = () => segSet({ mode: $('#segM').value });
+$('#segOk').onclick = () => $('#segD').close();
+$('#segAll').onclick = async () => { await segSet({ font: $('#segF').value, anim: $('#segA').value, mode: $('#segM').value }, true); flash('Aplicado a todas as legendas.'); $('#segD').close(); };
+$('#segReset').onclick = () => { if (S.style.seg) delete S.style.seg[segCur]; saveSoon('style', { style: S.style }); $('#segF').value = rs().font; $('#segA').value = ''; $('#segM').value = ''; };

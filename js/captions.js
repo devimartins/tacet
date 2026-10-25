@@ -60,7 +60,7 @@ export const CATS = ['Todos', 'Cinético', 'Efeitos', 'Destaque', 'Viral', 'Eleg
 export const DEFAULT_STYLE = { preset: 'iman', x: 0.5, y: 0.58, cropX: 0.5, o: {} };
 export function resolve(style) {   // preset + ajustes do usuário
   const s = style || DEFAULT_STYLE;
-  return { ...(PRESETS[s.preset] || PRESETS.iman), ...(s.o || {}), x: s.x ?? 0.5, y: s.y ?? 0.58, cropX: s.cropX ?? 0.5 };
+  return { ...(PRESETS[s.preset] || PRESETS.iman), ...(s.o || {}), x: s.x ?? 0.5, y: s.y ?? 0.58, cropX: s.cropX ?? 0.5, seg: s.seg || null };
 }
 
 // Área segura (quadro 1080×1920) a partir das margens publicadas para anúncios; não são regras oficiais para posts orgânicos.
@@ -111,10 +111,12 @@ export const sizePx = (s, W) => (0.03 + s.fs * 0.0006) * W;   // slider 0–100 
 
 // Desenha a legenda do instante t. Retorna a caixa (em px) ocupada, para o alerta de safe zone.
 const eo = p => 1 - (1 - p) * (1 - p) * (1 - p), spring = p => 1 - Math.exp(-7 * p) * Math.cos(11 * p), cl = v => Math.min(1, Math.max(0, v));
+export const segKey = c => Math.round((c[0].s0 ?? c[0].s) * 100);
 export function drawCaption(ctx, W, H, chunks, t, rs) {
-  if (rs.mode === 'cascade') return drawCascade(ctx, W, H, chunks, t, rs);
   let k = -1; for (let i = 0; i < chunks.length; i++) if (t >= chunks[i][0].s) k = i; else break;
-  const c = chunks[k]; if (!c || t > c[c.length - 1].e + 0.4) return null;
+  const c = chunks[k]; if (!c || t > c[c.length - 1].e + 0.4) return rs.mode === 'cascade' ? drawCascade(ctx, W, H, chunks, t, rs) : null;
+  if (rs.seg && rs.seg[segKey(c)]) rs = { ...rs, ...rs.seg[segKey(c)] };   // ajuste só deste trecho (fonte, animação, destaque)
+  if (rs.mode === 'cascade') return drawCascade(ctx, W, H, chunks, t, rs);
   let a = -1; for (let i = 0; i < c.length; i++) if (t >= c[i].s) a = i;
   const px0 = sizePx(rs, Math.min(W, H * 0.75)), maxW = Math.min(W * 0.86, H * 0.75 * 0.86 * 1.6);
   const words = c.map((w, i) => ({ w, i, t: txt(w.w, rs.case), emo: w.emo, on: i === a, past: i < a }));
