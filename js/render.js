@@ -71,7 +71,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (cssF && 'filter' in ctx) ctx.filter = cssF;
     ctx.drawImage(f, 0, 0); f.close();
     ctx.setTransform(1, 0, 0, 1, 0, 0); if (cssF && 'filter' in ctx) ctx.filter = 'none';
-    if (opts.bgScene) { try { await (bgM = bgM || await import('./bgswap.js?v=1')).swapOn(ctx, cv, W, H, opts.bgScene); } catch (e) { if (!bgWarned) { bgWarned = true; console.warn('fundo', e); } } }
+    if (opts.bgScene) { try { if (!bgM) { bgM = await import('./bgswap.js?v=2'); bgM.resetMask(); } await bgM.swapOn(ctx, cv, W, H, opts.bgScene); } catch (e) { if (!bgWarned) { bgWarned = true; console.warn('fundo', e); } } }
     if (grader) { try { ctx.drawImage(grader.apply(cv, gP.g, gP.lut), 0, 0); } catch { /* segue sem cor */ } }
     if (opts.overlays && opts.overlays.length) drawBroll(ctx, W, H, opts.overlays, ta);
     drawCaption(ctx, W, H, chunks, t, rs);

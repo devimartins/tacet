@@ -558,7 +558,7 @@ function mkFx(k, label, hint) {
 const syncFx = () => { fadeUI && fadeUI(); fxBtns.forEach(b => b.setAttribute('aria-pressed', String(!!S.fx[b.dataset.k] === !!+b.dataset.v))); if (colorUI) colorUI.sync(); };
 let colorUI = null;   // painel de cor: módulo carregado sob demanda, só quando o usuário abre a seção
 const ensureColor = async () => { if (!colorUI) { const m = await import('./colorui.js?v=3'); colorUI = m.initColor({ S, $, el, canPro, saveSoon, flash }); } return colorUI; };
-$('#fxColorD').addEventListener('toggle', e => { if (e.target.open) ensureColor(); });
+$('#fxColorBtn').onclick = () => { const b = $('#fxColorBtn'), box = $('#fxColor'), open = box.hidden; box.hidden = !open; b.setAttribute('aria-expanded', String(open)); if (open) ensureColor(); };
 const ZL = { 1: 1.05, 2: 1.1, 3: 1.16 };
 const FILLERS = new Set(['hum', 'ahn', 'ãh', 'ah', 'éh', 'hm', 'hmm', 'uh', 'um', 'né', 'tipo', 'então', 'ééé', 'eh']);
 function fillerBtn() {
@@ -1340,30 +1340,30 @@ $('#srtIn').onchange = async ev => {
 $('#srtInL').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#srtIn').click(); } };
 
 // ---- Trocar o fundo do vídeo (recorte no aparelho + cenários de estúdio + imagem da galeria ou da busca) ----
-var BGM = null, bgReady = false; async function bgMod() { return BGM || (BGM = await import('./bgswap.js?v=1')); }
+var BGM = null, bgReady = false; async function bgMod() { return BGM || (BGM = await import('./bgswap.js?v=2')); }
 function setBg(sc) {
-  S.bgScene = sc || null; S.style.bgId = sc && sc.id ? sc.id : undefined; saveSoon('style', { style: S.style });
-  const on = $('#c_bgon'); if (on) on.checked = !!sc; document.querySelectorAll('.bgch button').forEach(b => b.setAttribute('aria-pressed', String(!!sc && sc.id === b.dataset.id)));
+  BGM?.resetMask?.(); S.bgScene = sc || null; S.style.bgId = sc && sc.id ? sc.id : undefined; saveSoon('style', { style: S.style });
+  const on = $('#c_bgon'); if (on) { on.textContent = sc ? 'Voltar ao fundo original' : 'Remover o fundo do vídeo'; on.setAttribute('aria-pressed', String(!!sc)); on.classList.toggle('pri', !sc); } document.querySelectorAll('.bgch button').forEach(b => b.setAttribute('aria-pressed', String(!!sc && sc.id === b.dataset.id)));
   if (!sc) { const c = $('#segc'); c.style.display = 'none'; $('#vid').style.visibility = ''; return; }
   if (!bgReady) { flash('Preparando o recorte do fundo (só na primeira vez)...'); bgMod().then(m => m.loadSeg().then(() => { bgReady = true; })).catch(() => { flash('Não consegui carregar o recorte de fundo neste aparelho.'); setBg(null); }); }
 }
 function bgControls(grp) {
   const mod = () => bgMod();
-  const on = el('input', { type: 'checkbox', id: 'c_bgon', onchange: () => { if (on.checked) setBg(S.bgScene || { id: 'light' }); else setBg(null); } });
-  const ch = el('div', { className: 'bgch' }); mod().then(m => m.SCENES.forEach(o => ch.append(Object.assign(el('button', { type: 'button', title: o.n, onclick: () => setBg({ id: o.id }) }), { style: 'background:radial-gradient(circle at 50% 35%,' + o.c[0] + ',' + o.c[1] + ')' }))), () => {});
+  const on = el('button', { type: 'button', className: 'btn pri', id: 'c_bgon', textContent: 'Remover o fundo do vídeo', onclick: () => setBg(S.bgScene ? null : { id: 'light' }) });
+  const ch = el('div', { className: 'bgch' }); mod().then(m => m.SCENES.forEach(o => ch.append((() => { const b = el('button', { type: 'button', title: o.n, ariaLabel: o.n, onclick: () => setBg({ id: o.id }) }); b.dataset.id = o.id; b.style.backgroundImage = 'url(' + m.sceneCanvas({ id: o.id }, 90, 160).toDataURL('image/jpeg', .8) + ')'; return b; })())), () => {});
   const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async () => { const f = file.files[0]; file.value = ''; if (!f) return; try { setBg({ img: await createImageBitmap(f), name: f.name }); } catch { flash('Não consegui abrir essa imagem.'); } } });
-  return grp('Trocar o fundo (cenário)', el('div', { className: 'row' }, el('label', { htmlFor: 'c_bgon', textContent: 'Trocar o fundo ' }, helpBtn('bg')), on), ch,
+  return grp('Trocar o fundo (cenário)', el('div', { className: 'row btns' }, on, helpBtn('bg')), ch,
     el('div', { className: 'row btns' }, el('button', { className: 'btn', type: 'button', textContent: 'Escolher da galeria', onclick: () => file.click() }), el('button', { className: 'btn', type: 'button', textContent: 'Buscar imagem', onclick: () => bgSearchOpen() }), file),
     el('p', { className: 'mut', textContent: 'Funciona em qualquer vídeo em que uma pessoa apareça bem. Vai melhor com boa luz e sem outras pessoas atrás; em vídeos sem pessoa (paisagem, tela de computador) o resultado fica ruim. O recorte acontece no seu aparelho, o vídeo não é enviado. A exportação fica mais lenta com o fundo trocado.' }));
   // os botões dos cenários são criados depois que o módulo carrega
 }
-var segBusy = false, segT = 0, fb = document.createElement('canvas'), pc = document.createElement('canvas');
+var segBusy = false, segT = 0, segDur = 0, fb = document.createElement('canvas'), pc = document.createElement('canvas');
 function segPrev() {
   const c = $('#segc'), v = $('#vid'); if (!c) return;
   if (!S.bgScene || !hasVid() || !v.videoWidth || $('#edit').hidden) { if (c.style.display === 'block') { c.style.display = 'none'; v.style.visibility = ''; } return; }
   if (!bgReady) return;
-  c.style.display = 'block'; v.style.visibility = 'hidden'; c.style.transform = v.style.transform; c.style.filter = v.style.filter;
-  const n = performance.now(); if (segBusy || n - segT < 70) return; segBusy = true; segT = n;
+  c.style.transform = v.style.transform; c.style.filter = v.style.filter;
+  const n = performance.now(); if (segBusy || n - segT < Math.max(70, (segDur || 0) * 1.3)) return; segBusy = true; segT = n;
   (async () => {
     try {
       const st = $('#stage').getBoundingClientRect(), W = Math.max(2, Math.round(Math.min(540, st.width * Math.min(2, devicePixelRatio || 1)))), H = Math.max(2, Math.round(W * st.height / Math.max(1, st.width)));
@@ -1371,14 +1371,14 @@ function segPrev() {
       const x = fb.getContext('2d'), iw = v.videoWidth, ih = v.videoHeight, k = S.blurOn ? Math.min(W / iw, H / ih) : Math.max(W / iw, H / ih), dx = S.blurOn ? (W - iw * k) / 2 : (W - iw * k) * rs().cropX;
       x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.drawImage(v, dx, (H - ih * k) / 2, iw * k, ih * k);
       const p = await BGM.cutout(fb, W, H, pc); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
-      const g = c.getContext('2d'); g.drawImage(BGM.sceneCanvas(S.bgScene, W, H), 0, 0); g.drawImage(p, 0, 0);
+      const g = c.getContext('2d'); g.drawImage(BGM.sceneCanvas(S.bgScene, W, H), 0, 0); g.drawImage(p, 0, 0); segDur = performance.now() - segT; c.style.display = 'block'; v.style.visibility = 'hidden';
     } catch { /* tenta no próximo quadro */ } finally { segBusy = false; }
   })();
 }
 function offerBg() { if (!S.offerBg) return; S.offerBg = false; if (!canPro()) return; try { $('#bgO').showModal(); } catch { /* já aberto */ } }
-const pickBg = id => { $('#bgO').close(); setBg({ id }); tab('style'); setTimeout(() => $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); };
+const pickBg = id => { $('#bgO').close(); setBg({ id }); tab('style'); setTimeout(() => { $('#c_bgon')?.closest('.grp.acc')?.classList.add('open'); $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300); };
 $('#bgLight').onclick = () => pickBg('white'); $('#bgDark').onclick = () => pickBg('dark'); $('#bgNo').onclick = () => $('#bgO').close();
-$('#bgMore').onclick = () => { $('#bgO').close(); tab('style'); setTimeout(() => $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); };
+$('#bgMore').onclick = () => { $('#bgO').close(); tab('style'); setTimeout(() => { $('#c_bgon')?.closest('.grp.acc')?.classList.add('open'); $('#c_bgon')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300); };
 function bgSearchOpen() { imgSearchOpen('bg'); }
 async function bgSearch() {
   const q = $('#bgQ').value.trim(), g = $('#bgG'), m = $('#bgM'); if (!q) return; g.replaceChildren(); m.textContent = 'Buscando...';
@@ -1393,7 +1393,7 @@ $('#bgGo').onclick = bgSearch; $('#bgQ').onkeydown = e => { if (e.key === 'Enter
 // barra de ferramentas do celular: cada botão abre o painel certo e rola até o assunto
 function goTo(t, text) {
   tab(t); const root = $(t === 'style' ? '#pStyle' : t === 'text' ? '#pText' : '#pClips');
-  setTimeout(() => { if (!text) { const rt = root.closest('.right'); if (rt) rt.scrollTop = 0; return; } const h = text && [...root.querySelectorAll('.grp > b, summary, h3, h2')].find(n => n.textContent.toLowerCase().includes(text)); (h || root).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
+  setTimeout(() => { if (!text) { const rt = root.closest('.right'); if (rt) rt.scrollTop = 0; return; } const h = text && [...root.querySelectorAll('.grp > b, summary, h3, h2')].find(n => n.textContent.toLowerCase().includes(text)); h?.closest?.('.grp.acc')?.classList.add('open'); (h || root).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
 }
 const MBAR = { mbStyle: ['style'], mbText: ['text'], mbBg: ['style', 'fundo do'], mbCuts: ['clips'], mbAud: ['clips', 'som'] };
 const edEl = document.querySelector('#edit .edit'), panClose = () => { edEl.classList.remove('pan'); document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', 'false')); };
@@ -1481,3 +1481,15 @@ $('#codeGo').onclick = async () => {
   b.disabled = false;
 };
 $('#codeIn').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#codeGo').click(); } };
+
+// seções expansíveis: cada grupo das abas Estilo, Legendas e Ferramentas fica fechado até o toque no título
+{ const roots = ['#ctl', '#pText', '#pClips'];
+  const wire = () => roots.forEach(r => { const rt = $(r); if (!rt) return; for (const g of rt.children) {
+    if (!g.classList.contains('grp') || g.id === 'vidSet' || g.id === 'fxColorG' || g.classList.contains('acc') || g.tagName === 'DETAILS') continue;
+    const h = g.firstElementChild; if (!h || h.tagName !== 'B') continue;
+    g.classList.add('acc'); h.tabIndex = 0; h.setAttribute('role', 'button'); h.setAttribute('aria-expanded', 'false');
+    const tog = () => { const o = g.classList.toggle('open'); h.setAttribute('aria-expanded', String(o)); };
+    h.addEventListener('click', e => { if (e.target.closest('.hq,button')) return; tog(); }); h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } });
+  } });
+  wire(); roots.forEach(r => { const rt = $(r); rt && new MutationObserver(wire).observe(rt, { childList: true }); });
+}
