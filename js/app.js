@@ -1336,7 +1336,7 @@ function bgControls(grp) {
   const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async () => { const f = file.files[0]; file.value = ''; if (!f) return; try { setBg({ img: await createImageBitmap(f), name: f.name }); } catch { flash('Não consegui abrir essa imagem.'); } } });
   return grp('Trocar o fundo (cenário)', el('div', { className: 'row' }, el('label', { htmlFor: 'c_bgon', textContent: 'Trocar o fundo ' }, helpBtn('bg')), on), ch,
     el('div', { className: 'row btns' }, el('button', { className: 'btn', type: 'button', textContent: 'Escolher da galeria', onclick: () => file.click() }), el('button', { className: 'btn', type: 'button', textContent: 'Buscar imagem', onclick: () => bgSearchOpen() }), file),
-    el('p', { className: 'mut', textContent: 'O recorte acontece no seu aparelho, o vídeo não é enviado. Funciona melhor com boa luz e sem outras pessoas atrás. A exportação fica mais lenta com o fundo trocado.' }));
+    el('p', { className: 'mut', textContent: 'Funciona em qualquer vídeo em que uma pessoa apareça bem. Vai melhor com boa luz e sem outras pessoas atrás; em vídeos sem pessoa (paisagem, tela de computador) o resultado fica ruim. O recorte acontece no seu aparelho, o vídeo não é enviado. A exportação fica mais lenta com o fundo trocado.' }));
   // os botões dos cenários são criados depois que o módulo carrega
 }
 var segBusy = false, segT = 0, fb = document.createElement('canvas'), pc = document.createElement('canvas');
