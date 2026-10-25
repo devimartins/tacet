@@ -63,11 +63,42 @@ export function endSentences(words, gap = 0.8) {
     return o;
   });
 }
+// Vírgulas: pausa curta sem pontuação vira vírgula, e conjunções adversativas pedem vírgula antes ("..., mas ...").
+const CONJ = new Set(['mas', 'porém', 'contudo', 'todavia', 'entretanto', 'senão', 'portanto', 'logo']);
+export function commas(words, lo = 0.35, hi = 0.8) {
+  let run = 0;
+  return words.map((o, i) => {
+    const n = words[i + 1]; let w = o.w;
+    if (ANY.test(w)) { run = 0; return o; }
+    run++;
+    if (n) {
+      const gap = n.s - o.e, nc = split(n.w)?.[1].toLocaleLowerCase('pt-BR');
+      if (run >= 3 && ((gap >= lo && gap < hi) || (CONJ.has(nc) && !ANY.test(w)))) { run = 0; return { ...o, w: w + ',' }; }
+    }
+    return o;
+  });
+}
+// Perguntas: frase curta, sem vírgula, que começa por palavra interrogativa e terminou em ponto, vira "?".
+const Q1 = new Set(['qual', 'quais', 'quanto', 'quantos', 'quanta', 'quantas']);
+export function questions(words) {
+  let a = 0;
+  return words.map((o, i) => {
+    if (!END.test(o.w)) return o;
+    const seg = words.slice(a, i + 1); a = i + 1;
+    if (seg.length > 12 || seg.some((x, k) => k < seg.length - 1 && /[,;:]/.test(x.w))) return o;
+    const f = split(seg[0].w)?.[1].toLocaleLowerCase('pt-BR'), f2 = seg[1] ? split(seg[1].w)?.[1].toLocaleLowerCase('pt-BR') : '';
+    const q = Q1.has(f) || (f === 'por' && f2 === 'que') || (f === 'será' && f2 === 'que') || (f === 'você' && /\b(sabe|já|tem|quer|acha)\b/.test(seg.slice(1, 3).map(x => x.w.toLowerCase()).join(' ')) && false);
+    return q && /\.$/.test(o.w) ? { ...o, w: o.w.replace(/\.$/, '?') } : o;
+  });
+}
+// Palavras comuns que o modelo às vezes capitaliza no meio da frase.
+const LOW = new Set(['e', 'de', 'da', 'do', 'das', 'dos', 'que', 'para', 'pra', 'com', 'mas', 'em', 'na', 'no', 'nas', 'nos', 'um', 'uma', 'os', 'as', 'a', 'o', 'por', 'se', 'ou', 'eu', 'você', 'ele', 'ela', 'nós', 'não', 'é', 'foi', 'são', 'tem', 'muito', 'mais', 'quando', 'como', 'então', 'porque', 'também', 'já', 'só', 'isso', 'esse', 'essa', 'este', 'esta']);
 export function fixCase(words) {
-  words = endSentences(words);
+  words = questions(endSentences(commas(words)));
   let start = true;
   return words.map((o, i) => {
     let w = o.w; const p = split(w), core = p ? p[1].toLocaleLowerCase('pt-BR') : '', prev = i ? split(words[i - 1].w)?.[1].toLocaleLowerCase('pt-BR') : '', next = words[i + 1] ? split(words[i + 1].w)?.[1].toLocaleLowerCase('pt-BR') : '';
+    if (!start && p && LOW.has(core) && p[1] !== p[1].toLocaleLowerCase('pt-BR') && p[1] !== p[1].toLocaleUpperCase('pt-BR')) w = p[0] + core + p[2];
     if (start || PROPER.has(core) || (core === 'santo' && prev === 'espírito') || (core === 'espírito' && next === 'santo')) w = cap(w);
     start = /[.!?…]["')\]]*$/.test(o.w);
     return w === o.w ? o : { ...o, w };

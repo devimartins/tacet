@@ -4,7 +4,7 @@ import { useBlur, renderClip } from './render.js';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
-import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=2';
+import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=3';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
 import { findBroll } from './broll.js';
@@ -1376,10 +1376,13 @@ $('#bgGo').onclick = bgSearch; $('#bgQ').onkeydown = e => { if (e.key === 'Enter
 // barra de ferramentas do celular: cada botão abre o painel certo e rola até o assunto
 function goTo(t, text) {
   tab(t); const root = $(t === 'style' ? '#pStyle' : t === 'text' ? '#pText' : '#pClips');
-  setTimeout(() => { const h = text && [...root.querySelectorAll('.grp > b, summary, h3, h2')].find(n => n.textContent.toLowerCase().includes(text)); (h || root).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
+  setTimeout(() => { if (!text) { const rt = root.closest('.right'); if (rt) rt.scrollTop = 0; return; } const h = text && [...root.querySelectorAll('.grp > b, summary, h3, h2')].find(n => n.textContent.toLowerCase().includes(text)); (h || root).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
 }
 const MBAR = { mbStyle: ['style'], mbText: ['text'], mbBg: ['style', 'fundo do'], mbCuts: ['clips'], mbAud: ['clips', 'som'] };
-for (const [id, a] of Object.entries(MBAR)) { const b = $('#' + id); if (b) b.onclick = () => { document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); goTo(a[0], a[1]); }; }
+const edEl = document.querySelector('#edit .edit'), panClose = () => { edEl.classList.remove('pan'); document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', 'false')); };
+for (const [id, a] of Object.entries(MBAR)) { const b = $('#' + id); if (b) b.onclick = () => { if (edEl.classList.contains('pan') && b.getAttribute('aria-pressed') === 'true') { panClose(); return; } document.querySelectorAll('#mbar [data-mb]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); edEl.classList.add('pan'); edEl.classList.remove('tlon'); const tb = $('#flTl'); if (tb) { tb.setAttribute('aria-pressed', 'false'); tb.textContent = 'Exibir timeline'; } goTo(a[0], a[1]); }; }
+$('#panX').onclick = panClose;
+{ const tb = $('#flTl'); tb && tb.addEventListener('click', () => { const on = edEl.classList.toggle('tlon'); tb.setAttribute('aria-pressed', String(on)); tb.textContent = on ? 'Ocultar timeline' : 'Exibir timeline'; if (on) panClose(); drawTimeline(); }); }
 
 // horizontal (largura >= 900 px): a linha do tempo vira um painel de largura total embaixo, com faixas nomeadas;
 // na vertical (celular): fica compacta logo abaixo dos controles do vídeo
