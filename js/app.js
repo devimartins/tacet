@@ -1334,7 +1334,7 @@ function bgControls(grp) {
   const on = el('input', { type: 'checkbox', id: 'c_bgon', onchange: () => { if (on.checked) setBg(S.bgScene || { id: 'light' }); else setBg(null); } });
   const ch = el('div', { className: 'bgch' }); mod().then(m => m.SCENES.forEach(o => ch.append(Object.assign(el('button', { type: 'button', title: o.n, onclick: () => setBg({ id: o.id }) }), { style: 'background:radial-gradient(circle at 50% 35%,' + o.c[0] + ',' + o.c[1] + ')' }))), () => {});
   const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async () => { const f = file.files[0]; file.value = ''; if (!f) return; try { setBg({ img: await createImageBitmap(f), name: f.name }); } catch { flash('Não consegui abrir essa imagem.'); } } });
-  return grp('Fundo do vídeo', el('div', { className: 'row' }, el('label', { htmlFor: 'c_bgon', textContent: 'Trocar o fundo ' }, helpBtn('bg')), on), ch,
+  return grp('Trocar o fundo (cenário)', el('div', { className: 'row' }, el('label', { htmlFor: 'c_bgon', textContent: 'Trocar o fundo ' }, helpBtn('bg')), on), ch,
     el('div', { className: 'row btns' }, el('button', { className: 'btn', type: 'button', textContent: 'Escolher da galeria', onclick: () => file.click() }), el('button', { className: 'btn', type: 'button', textContent: 'Buscar imagem', onclick: () => bgSearchOpen() }), file),
     el('p', { className: 'mut', textContent: 'O recorte acontece no seu aparelho, o vídeo não é enviado. Funciona melhor com boa luz e sem outras pessoas atrás. A exportação fica mais lenta com o fundo trocado.' }));
   // os botões dos cenários são criados depois que o módulo carrega
