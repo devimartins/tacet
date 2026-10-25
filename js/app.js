@@ -788,6 +788,7 @@ async function boot() {
   const apply = async s => {
     if (!s) { S.user = null; forget(); vstore.clear(); view('login'); return; }
     if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
+    try { const iv = await S.sb.rpc('claim_invites'); if (iv.data > 0) setTimeout(() => flash('Você ganhou ' + iv.data + ' dias de Pro!'), 1200); } catch { /* sem convite */ }
     const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; setTimeout(tpLabel, 0); try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
@@ -1181,7 +1182,24 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
     }
     T.replaceChildren(t); if (!data?.length) M.textContent = 'Nenhum usuário encontrado.';
   }
-  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); };
+  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); promos(); };
+  async function promos() {
+    const { data, error } = await S.sb.rpc('admin_promo_list'); if (error) { $('#pcL').textContent = 'Rode supabase/promo.sql no Supabase para ativar os códigos.'; return; }
+    const t = document.createElement('table'), hr = t.insertRow(); for (const h of ['Código', 'Dias', 'Usos', 'Validade', 'Nota', '']) { const th = document.createElement('th'); th.textContent = h; hr.append(th); }
+    for (const k of data || []) { const r = t.insertRow(); [k.code, k.days, k.uses + (k.max_uses ? '/' + k.max_uses : ''), k.expires_at ? fmt(k.expires_at) : '–', k.note || ''].forEach(v => { r.insertCell().textContent = v; }); const b = document.createElement('button'); b.type = 'button'; b.textContent = k.active ? 'Desativar' : 'Ativar'; b.onclick = async () => { const x = await S.sb.rpc('admin_promo_save', { c: k.code, d: k.days, mx: k.max_uses, exp: k.expires_at, n: k.note, act: !k.active }); if (x.error) return err(x.error); promos(); }; r.insertCell().append(b); }
+    $('#pcL').replaceChildren(t); if (!data?.length) $('#pcL').textContent = 'Nenhum código criado ainda.';
+  }
+  $('#pcSave').onclick = async () => {
+    const c = $('#pcC').value.trim().toUpperCase(); if (!/^[A-Z0-9_-]{3,40}$/.test(c)) return err('Use 3 a 40 letras, números, - ou _.');
+    const x = await S.sb.rpc('admin_promo_save', { c, d: +$('#pcD').value || 30, mx: $('#pcM').value ? +$('#pcM').value : null, exp: $('#pcE').value ? new Date($('#pcE').value + 'T23:59:59').toISOString() : null, n: $('#pcN').value.trim() || null, act: true });
+    if (x.error) return err(x.error); M.textContent = 'Código ' + c + ' salvo.'; promos();
+  };
+  $('#blGo').onclick = async () => {
+    const em = [...new Set($('#blE').value.split(/[\s,;]+/).map(v => v.trim().toLowerCase()).filter(v => v.includes('@')))]; if (!em.length) return err('Cole ao menos um e-mail.');
+    if (!confirm(`Liberar ${+$('#blD').value || 31} dias de Pro para ${em.length} e-mail(s)?`)) return;
+    const x = await S.sb.rpc('admin_grant_bulk', { emails: em, d: +$('#blD').value || 31 }); if (x.error) return err(x.error);
+    const ul = document.createElement('ul'); for (const r of x.data || []) { const li = document.createElement('li'); li.textContent = r.email + ': ' + r.status; ul.append(li); } $('#blR').replaceChildren(ul); users(); overview();
+  };
   $('#amGo').onclick = users; $('#amQ').onkeydown = e => { if (e.key === 'Enter') users(); }; $('#amX').onclick = () => d.close();
 })();
 
@@ -1449,3 +1467,17 @@ $('#segF').onchange = () => segSet({ font: $('#segF').value }); $('#segA').oncha
 $('#segOk').onclick = () => $('#segD').close();
 $('#segAll').onclick = async () => { await segSet({ font: $('#segF').value, anim: $('#segA').value, mode: $('#segM').value }, true); flash('Aplicado a todas as legendas.'); $('#segD').close(); };
 $('#segReset').onclick = () => { if (S.style.seg) delete S.style.seg[segCur]; saveSoon('style', { style: S.style }); $('#segF').value = rs().font; $('#segA').value = ''; $('#segM').value = ''; };
+
+// resgatar código promocional
+$('#codeGo').onclick = async () => {
+  const c = $('#codeIn').value.trim(), m = $('#planMsg'); if (!c) { m.textContent = 'Digite o código.'; return; }
+  if (!S.user) { m.textContent = 'Entre na sua conta para usar o código.'; return; }
+  const b = $('#codeGo'); b.disabled = true; m.textContent = 'Conferindo o código…';
+  try {
+    const { data, error } = await S.sb.rpc('redeem_code', { c }); if (error) throw error;
+    S.plan = 'pro'; m.textContent = 'Código aplicado! Você ganhou ' + data.days + ' dias de Pro.'; $('#codeIn').value = ''; flash('Pro liberado por ' + data.days + ' dias.');
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) { m.textContent = e?.message && !/function|rpc|schema/i.test(e.message) ? e.message : 'Não foi possível usar o código agora.'; }
+  b.disabled = false;
+};
+$('#codeIn').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#codeGo').click(); } };
