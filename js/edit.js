@@ -61,9 +61,9 @@ export function zoomAt(chunks, t, level = 1.1) {
   for (const c of p) {
     if (t < c.a) break; const k = c.kind;
     if (k === 'slow') z = Math.max(z, A * (t < c.b ? e(Math.min(1, (t - c.a) / 1.2)) : Math.max(0, 1 - (t - c.b) / 0.6)));
-    else if (k === 'punch') z = Math.max(z, 1.25 * A * (t < c.b ? e(Math.min(1, (t - c.a) / 0.12)) : Math.max(0, 1 - (t - c.b) / 0.35)));
+    else if (k === 'punch') z = Math.max(z, 1.25 * A * (t < c.b ? e(Math.min(1, (t - c.a) / 0.2)) : e(Math.max(0, 1 - (t - c.b) / 0.5))));
     else if (k === 'detail') z = Math.max(z, 0.9 * A * (t < c.b ? e(Math.min(1, (t - c.a) / 0.4)) : Math.max(0, 1 - (t - c.b) / 0.4)));
-    else if (k === 'jump') { if (t < c.b) z = Math.max(z, 0.8 * A); }
+    else if (k === 'jump') z = Math.max(z, 0.8 * A * (t < c.b ? e(Math.min(1, (t - c.a) / 0.25)) : e(Math.max(0, 1 - (t - c.b) / 0.4))));
     else if (k === 'creep') z = Math.max(z, 0.45 * A * (t < c.b ? (t - c.a) / (c.b - c.a) : Math.max(0, 1 - (t - c.b) / 0.5)));
   }
   return 1 + z;

@@ -665,7 +665,7 @@ function expOpen() {
   if (!S.file && !S.words.length) { flash('Abra um vídeo primeiro.'); return; }
   const d = $('#expD'), real = S.clips.filter(c => c.id !== 'full');
   $('#expCuts').hidden = !real.length; $('#expCuts').textContent = 'Escolher entre os cortes sugeridos (' + real.length + ')';
-  $('#expSave').hidden = !(S.expClip && S.expClip.url); $('#expMsg').textContent = ''; $('#expPg').hidden = true; $('#expFull').disabled = !!S.busy;
+  $('#expSave').hidden = !(S.expClip && S.expClip.url); $('#shareBox').hidden = $('#expSave').hidden; $('#expMsg').textContent = ''; $('#expPg').hidden = true; $('#expFull').disabled = !!S.busy;
   if (!d.open) d.showModal();
 }
 $('#expBtn').onclick = $('#expBtn2').onclick = expOpen; $('#expX').onclick = () => $('#expD').close();
@@ -676,10 +676,10 @@ $('#expFull').onclick = async () => {
   if (!c) { c = { id: 'full', start: 0, end: S.dur, title: 'Vídeo completo', reason: '' }; if (S.mode === 'captions') S.clips.unshift(c); else S.fullClip = c; }
   c.start = 0; c.end = S.dur || S.media.duration;
   if (c.end - c.start > 120) { $('#expMsg').textContent = 'No navegador, cada exportação pode ter até 2 minutos. Use um corte menor (aba Ferramentas) ou um vídeo mais curto.'; return; }
-  S.expClip = c; $('#expSave').hidden = true; $('#expPg').hidden = false; $('#expPg').value = 0; $('#expMsg').textContent = 'Gerando…'; $('#expFull').disabled = true;
+  S.expClip = c; $('#expSave').hidden = true; $('#shareBox').hidden = true; $('#expPg').hidden = false; $('#expPg').value = 0; $('#expMsg').textContent = 'Gerando…'; $('#expFull').disabled = true;
   await renderOne(c);
   $('#expFull').disabled = false; $('#expPg').hidden = true;
-  if (c.url) { $('#expMsg').textContent = 'Pronto! Toque em “Salvar vídeo pronto”.'; $('#expSave').hidden = false; } else $('#expMsg').textContent = c.state === 'error' ? (c.err || 'Falha ao gerar.') : 'Geração cancelada.';
+  if (c.url) { $('#expMsg').textContent = 'Pronto! Toque em “Salvar vídeo pronto”.'; $('#expSave').hidden = false; $('#shareBox').hidden = false; } else $('#expMsg').textContent = c.state === 'error' ? (c.err || 'Falha ao gerar.') : 'Geração cancelada.';
 };
 $('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) + '.mp4'); };
 
@@ -1092,6 +1092,9 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
 }
 // ---------- tela cheia e instalação ----------
 { const fsB = $('#nFs'), root = document.documentElement, standalone = matchMedia('(display-mode:standalone),(display-mode:fullscreen)').matches || navigator.standalone;
+  if (!standalone && !(root.requestFullscreen && document.fullscreenEnabled) && /iphone|ipad|ipod/i.test(navigator.userAgent)) {   // iPhone não permite tela cheia numa página: o caminho é instalar na tela de início
+    fsB.hidden = false; fsB.onclick = () => { $('#nInst').click(); };
+  }
   if (!standalone && root.requestFullscreen && document.fullscreenEnabled) {   // iPhone não oferece esta API: lá o caminho é instalar na tela de início
     fsB.hidden = false;
     const tip = $('#fsTip'), seen = () => { try { return sessionStorage.getItem('fc.fstip'); } catch { return null; } };
@@ -1104,7 +1107,7 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const mobile = ios || /android/i.test(navigator.userAgent);
   const SH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M6 12v7h12v-7"/></svg>';
-  const steps = ios ? ['Toque em <b>Compartilhar</b> ' + SH + ' (na barra do Safari ou do Chrome).', 'Role e toque em <b>Adicionar à Tela de Início</b>.', 'Toque em <b>Adicionar</b>. O ícone do ForjaClip aparece na sua tela.'] : ['Abra o menu <b>⋮</b> do navegador.', 'Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.', 'Confirme. O ícone do ForjaClip aparece na sua tela.'];
+  const steps = ios ? ['Toque em <b>Compartilhar</b> ' + SH + ' (na barra do Safari, ou no menu <b>⋯</b> do Chrome).', 'Role e toque em <b>Adicionar à Tela de Início</b>.', 'Toque em <b>Adicionar</b>. O ícone do ForjaClip aparece na sua tela.'] : ['Abra o menu <b>⋮</b> do navegador.', 'Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.', 'Confirme. O ícone do ForjaClip aparece na sua tela.'];
   let ev = null; if (!standalone && mobile) { $('#nInst').hidden = false; $('#lgInst').hidden = false; }   // no celular o botão sempre aparece: com o aviso nativo ou com o passo a passo
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); ev = e; if (!standalone) { $('#nInst').hidden = false; $('#lgInst').hidden = false; } });
   $('#nInst').onclick = async () => {
@@ -1492,4 +1495,28 @@ $('#codeIn').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('
     h.addEventListener('click', e => { if (e.target.closest('.hq,button')) return; tog(); }); h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } });
   } });
   wire(); roots.forEach(r => { const rt = $(r); rt && new MutationObserver(wire).observe(rt, { childList: true }); });
+}
+
+// ---- compartilhar o vídeo exportado ----
+{
+  const txt = () => ($('#descTxt').value || '').trim() || (S.title || '').replace(/\.[^.]+$/, '');
+  const fname = () => 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) + '.mp4';
+  const copy = async t => { try { await navigator.clipboard.writeText(t); return true; } catch { return false; } };
+  const NET = [
+    ['Instagram', () => 'https://www.instagram.com/', 'upload'], ['TikTok', () => 'https://www.tiktok.com/upload', 'upload'], ['YouTube Shorts', () => 'https://studio.youtube.com/', 'upload'], ['Facebook', () => 'https://www.facebook.com/reels/create', 'upload'],
+    ['WhatsApp', t => 'https://wa.me/?text=' + encodeURIComponent(t), 'text'], ['Telegram', t => 'https://t.me/share/url?url=%20&text=' + encodeURIComponent(t), 'text'], ['X (Twitter)', t => 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(t.slice(0, 270)), 'text'], ['LinkedIn', t => 'https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(t), 'text'],
+  ];
+  const box = $('#shareBtns'), msg = $('#shareMsg');
+  box.append(el('button', { className: 'btn pri', type: 'button', textContent: 'Compartilhar nos apps do celular', onclick: async () => {
+    const c = S.expClip; if (!c || !c.url) return;
+    try { const b = await (await fetch(c.url)).blob(), f = new File([b], fname(), { type: b.type || 'video/mp4' }); const d = { files: [f], text: txt() };
+      if (navigator.canShare?.(d)) { await copy(txt()); await navigator.share(d); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    msg.textContent = 'Este aparelho não abre a lista de apps com o vídeo. Salve o vídeo e use os botões das redes abaixo.';
+  } }));
+  box.append(el('button', { className: 'btn', type: 'button', textContent: 'Gerar descrição e hashtags', onclick: e => { if (S.expClip) describeClip(S.expClip, e.currentTarget); } }));
+  for (const [n, url, kind] of NET) box.append(el('button', { className: 'btn', type: 'button', textContent: n, onclick: async () => {
+    const t = txt(), ok = await copy(t);
+    msg.textContent = kind === 'upload' ? (ok ? 'Descrição copiada. Anexe o vídeo salvo e cole o texto no ' + n + '.' : 'Anexe o vídeo salvo no ' + n + '.') : 'Abrindo ' + n + ' com o texto. Anexe o vídeo salvo, se quiser.';
+    window.open(url(t), '_blank', 'noopener');
+  } }));
 }
