@@ -2,6 +2,40 @@
 
 Atualize este arquivo ao terminar cada sessão. Nunca escreva valores de chaves, só os nomes.
 
+## Resumo consolidado do ForjaClip (26/10/2026)
+Reúne o contexto de vários chats. Cole este arquivo no início de um chat novo.
+
+**Produto e planos**
+- PWA freemium em https://forjaclip.com.br: legendas animadas, cortes com IA, teleprompter, cortes do YouTube pelo link. O vídeo é processado no aparelho; só o áudio vai ao Worker (Whisper).
+- Grátis: vídeos até 350 MB, anúncios (AdSense), projetos guardados por 3 dias. Pro: até 1 GB, sem anúncios; R$ 19,90 nos 3 primeiros meses e depois R$ 29,90; anual R$ 199. Pagamento por Mercado Pago (Checkout Pro + webhook), sem renovação automática, reembolso em até 7 dias.
+- Dono escreve em português, sem orçamento para ferramentas pagas. Respostas e textos do app em pt-BR.
+
+**Infraestrutura**
+- Front: GitHub Pages (repo `devimartins/tacet`, branch `main`). Worker: Cloudflare `tacet-ai` (fora do repo; trechos de código ficam em `docs/`). Banco/login: Supabase (SQL em `supabase/`). E-mail: Resend.
+- `supabase/promo.sql` (códigos promocionais e convites) precisa ser rodado uma vez no SQL Editor, depois de `admin.sql`.
+- Whisper com `prompt` em português e retry/fallback da transcrição por link exigem copiar o código de `docs/` para o Worker e fazer deploy.
+
+**Editor (recursos principais já implementados)**
+- Legendas: estilos, fontes, animações, alinhamento esquerda/centro/direita, guias de alinhamento, edição de fonte/animação por trecho de legenda, pontuação e maiúsculas automáticas.
+- Troca/remoção de fundo (MediaPipe, no aparelho) com cenários de estúdio e busca de imagem (Openverse); oferecida após o teleprompter.
+- Textos livres sobre o vídeo (`Adicionar texto`: fonte, cor, fundo, tamanho, posição; fixo no vídeo todo por padrão), títulos de gancho, imagens, B-roll, logo.
+- Timeline (painel lateral no desktop; botão "Exibir timeline" no celular), áudio e música extras, cor e look, zoom automático, edição automática.
+- Barra do editor no celular: Estilo, Legendas, Texto, Cor, Ferramentas, Trocar fundo, Áudio, Edição automática, Exportar. Seções do painel são expansíveis (acordeão).
+- Exportação com botões de compartilhar e descrição/hashtags por IA.
+
+**Site e SEO**
+- Páginas estáticas em `/ferramentas/`, `/guias/` e `/comparar/`; sitemap; dados estruturados; rodapé da landing redesenhado (cards de Ferramentas e Guias).
+- Pendências do dono: enviar o sitemap no Search Console, pedir indexação, buscar backlinks.
+
+**Não verificado em aparelhos reais**
+- Fluxos no iPhone (tela cheia e adicionar à tela inicial), qualidade da remoção de fundo com pessoas reais, velocidade de exportação com fundo trocado, botões de compartilhar, edição por trecho de legenda, aparência do texto livre no vídeo exportado, tour guiado com seções recolhidas.
+
+**Ideias em aberto**
+- Arrastar o texto direto no vídeo; controle de velocidade; imagens de cenário geradas por IA (fornecidas pelo dono); minificar JS; mais guias e FAQ.
+
+**Combinados com o dono**
+- Pode fazer sem pedir aprovação e avisar ao terminar ("todas as etapas estão aprovadas"). A regra de PR em `AGENTS.md` vale para o Codex; o dono autorizou o Claude a publicar direto quando pede mudança.
+
 ## Estado atual (24/10/2026)
 - Tela inicial: teleprompter, "Legende seu vídeo" e "Cortes com IA", e o card "Cortes do YouTube" (Beta).
 - Página `cortes-youtube.html`: transcrição automática pelo link (Worker `/transcript`, Gemini), trechos sugeridos, mini players em 9:16, legenda de prévia, edição de legenda por trecho, tela dividida para duas pessoas, tela cheia, menu lateral/inferior.
@@ -39,3 +73,5 @@ O dono pausou a troca entre Claude e Codex pelo GitHub (comentários nos PRs #2,
 - 25/10/2026 — Claude: meta de verificação do Google Search Console no `index.html` (propriedade por prefixo de URL). `sw.js` v172, `app.js?v=175`.
 
 - 26/10/2026 — Claude: coordenação com o Codex pelo GitHub pausada a pedido do dono (aviso no topo deste arquivo e nos PRs #2 e #9).
+
+- 26/10/2026 — Claude: rodapé da landing redesenhado; botão "Adicionar texto" (texto livre fixo, com fonte/cor/fundo/tamanho/posição); atalhos Texto e Cor na barra do editor; transcrição por link com retry automático (502/503/504) na página e retry + modelo alternativo (`gemini-2.5-flash-lite`) em `docs/worker-transcript-cache.js` (copiar para o Worker e fazer deploy). `sw.js` v175.
