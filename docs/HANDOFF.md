@@ -16,6 +16,9 @@ Atualize este arquivo ao terminar cada sessão. Nunca escreva valores de chaves,
 - Teto mensal de transcrição por usuário (depende de uma função de uso no Supabase que não está no repositório).
 - Verificar com um vídeo real do YouTube o corte 9:16 e a tela dividida.
 
+## ⏸ Coordenação Claude ↔ Codex pausada (26/10/2026)
+O dono pausou a troca entre Claude e Codex pelo GitHub (comentários nos PRs #2, #3 e #9 e tarefas neste arquivo). Até o dono retomar: não responder nem abrir PRs, comentários ou tarefas um para o outro. Os PRs abertos ficam como estão, sem merge nem fechamento.
+
 ## Tarefa do Codex: sistema novo
 - O que é o sistema: _(preencher com o dono)_
 - Onde entra no app (site ou Worker): _(preencher)_
@@ -34,3 +37,5 @@ Atualize este arquivo ao terminar cada sessão. Nunca escreva valores de chaves,
 - 25/10/2026 — Claude: SEO para busca de legendas. Novas páginas estáticas no Design System (`css/conteudo.css`): hub `/ferramentas/`, 9 ferramentas (gerador de legendas, Reels, TikTok, Shorts, YouTube pelo link, SRT/VTT, cortes com IA, remover silêncio, traduzir legenda) e 4 comparações em `/comparar/` (Submagic, Captions, Descript, VEED), cada uma com dados estruturados (WebPage, BreadcrumbList, SoftwareApplication, FAQPage). Guias migrados para o mesmo CSS e ligados às ferramentas; sitemap com 22 URLs; título e descrição da página inicial focados em "legenda automática" e bloco de links de ferramentas no fim da landing. Páginas de ferramenta sem script do AdSense (só a meta da conta), para carregar rápido. Comparações não citam preço de concorrente; mandam conferir o site oficial. Branch `claude/seo-ferramentas`: `sw.js` v171, `app.js?v=174`. Testado em 390 e 1280 px, claro e escuro, sem rolagem horizontal e sem links quebrados (fontes externas bloqueadas no sandbox). Pendências do dono: enviar o sitemap no Google Search Console, pedir indexação das páginas novas e buscar backlinks (listas de "melhores geradores de legenda", Product Hunt, diretórios de IA).
 
 - 25/10/2026 — Claude: meta de verificação do Google Search Console no `index.html` (propriedade por prefixo de URL). `sw.js` v172, `app.js?v=175`.
+
+- 26/10/2026 — Claude: coordenação com o Codex pelo GitHub pausada a pedido do dono (aviso no topo deste arquivo e nos PRs #2 e #9).
