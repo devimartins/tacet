@@ -104,3 +104,22 @@ Cada agente lê este arquivo antes de editar e registra alterações ao terminar
 4. Para retestar: iniciar a instância, entrar pelo Instance Connect, `cd /opt/tacet && git pull`, rebuild e rodar o kit. Parar a instância ao terminar. Se o projeto não for seguir, encerrar a instância para zerar o custo do disco.
 
 - 25/10/2026 — Claude: instância de teste criada, testada e parada; resultados e bugs acima. Nada publicado; `main` intocada.
+
+## Captura — teste de reprodução do embed na AWS (Claude, 26/10/2026)
+
+**Resultado: FALHOU. O YouTube exige verificação anti-robô dentro do renderer na AWS.** Parei o teste nesse ponto, sem tentar contornar. Nada foi gravado nem baixado, e a instância está PARADA.
+
+- Instância `forjaclip-capture-test` (`i-0e842179c01ecca8c`) iniciada às 12:02 UTC, código atualizado por fast-forward de `50aa353` para `9db5f06` (`codex/captura-cortes`), sem alterações locais a preservar.
+- Imagem `forjaclip-capture` reconstruída a partir de `9db5f06`; a anterior ficou com a tag `forjaclip-capture:pre-9db5f06`. O container antigo foi renomeado para `cap-pre-9db5f06` e o novo `cap` foi criado com a mesma configuração: env salvo de `docker inspect` em `/opt/cap.env` (modo 600, só nomes aqui), `--shm-size=1g`, `-p 127.0.0.1:8080:8080`, `/opt/test` e `/opt/out:/out`. `ss` confirmou a escuta só em `127.0.0.1:8080`.
+- Observação: `ALLOWED_ORIGINS` ainda contém `http://127.0.0.1:8080`, mantido do contorno de 25/10 para preservar a configuração. Com a correção do Bug 1, esse item deve ser desnecessário. Retirar e retestar quando a reprodução funcionar.
+- `/health` → 200 `{"status":"ok","version":"0.1.0"}`.
+- `sudo docker exec cap node /app/capture-service/check-playback.mjs` (12:04:57 UTC), vídeo `5pB5cYziN6U`, 30–40 s → saída exata: `Playback check failed: YouTube playback error 150`, código de saída 1.
+- Diagnóstico somente leitura (`docs/capture-test-kit/dbg2.mjs`, mesma página `/render`, mesmo vídeo e trecho) → o iframe `https://www.youtube.com/embed/5pB5cYziN6U?enablejsapi=1&autoplay=0&controls=0&playsinline=…` exibe o texto exato: `Sign in to confirm you’re not a bot This helps protect our community Sign in Learn more`; `warmStatus` = `{"error":"YouTube playback error 150","ready":false}`.
+- Conclusão: com o Referer/`referrerpolicy` corrigidos, o erro 150 continua acompanhado da tela anti-robô do YouTube. O impedimento continua na rede de datacenter, não na falta de Referer (que seria 153). Logs na instância: `/opt/test/playback-2026-10-26.log`.
+- Instância parada às ~12:07 UTC e confirmada como "Interrompido" no console, sem IP público. Custo desta rodada: ~4 min ligada, menos de US$ 0,01. O disco continua cobrando ~US$ 3,04/mês enquanto existir.
+
+### Próximo passo — dono/Codex
+
+Decidir a origem do vídeo (ex.: arquivo enviado pelo próprio usuário) ou outra arquitetura antes de qualquer novo investimento na captura de YouTube em servidor. Não contornar a verificação do YouTube. Enquadramento, áudio, sincronia e corte com o player real continuam sem validação.
+
+- 26/10/2026 — Claude: teste de reprodução do embed em `9db5f06` na AWS: erro 150 + "Sign in to confirm you’re not a bot". Instância parada. Sem merge, deploy, alteração na `main` ou ativação de `CFG.CAPTURE_API`.
