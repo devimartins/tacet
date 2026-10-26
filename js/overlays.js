@@ -18,13 +18,13 @@ export function drawOverlays(ctx, W, H, list, t, font = 'sans-serif') {
       const mw = W * 0.7, mh = H * 0.28, s = Math.min(mw / o.img.width, mh / o.img.height), w = o.img.width * s, h = o.img.height * s, x = (W - w) / 2, y = H * 0.12;
       rr(ctx, x, y, w, h, W * 0.02); ctx.clip(); ctx.drawImage(o.img, x, y, w, h);
     } else if (o.kind === 'title') {
-      const fs = W * 0.065; ctx.font = `800 ${fs}px ${font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const fs = W * (o.size || 0.065); ctx.font = `${o.font ? 700 : 800} ${fs}px ${o.font ? '"' + o.font + '", ' : ''}${font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const words = o.text.split(' '), lines = []; let cur = '';
       for (const w of words) { const n = cur ? cur + ' ' + w : w; if (ctx.measureText(n).width > W * 0.8 && cur) { lines.push(cur); cur = w; } else cur = n; }
       if (cur) lines.push(cur);
-      const lh = fs * 1.25, bw = Math.min(W * 0.88, Math.max(...lines.map(l => ctx.measureText(l).width)) + fs), bh = lines.length * lh + fs * 0.6, y0 = H * 0.1;
-      ctx.fillStyle = 'rgba(0,0,0,.72)'; rr(ctx, (W - bw) / 2, y0, bw, bh, fs * 0.35); ctx.fill();
-      ctx.fillStyle = '#fff'; lines.forEach((l, i) => ctx.fillText(l, W / 2, y0 + fs * 0.3 + lh * (i + 0.5)));
+      const lh = fs * 1.25, bw = Math.min(W * 0.88, Math.max(...lines.map(l => ctx.measureText(l).width)) + fs), bh = lines.length * lh + fs * 0.6, y0 = Math.min(H - bh - 4, H * (o.y ?? 0.1));
+      if (o.bg !== false) { ctx.fillStyle = 'rgba(0,0,0,.72)'; rr(ctx, (W - bw) / 2, y0, bw, bh, fs * 0.35); ctx.fill(); } else { ctx.shadowColor = 'rgba(0,0,0,.65)'; ctx.shadowBlur = fs * 0.25; }
+      ctx.fillStyle = o.color || '#fff'; lines.forEach((l, i) => ctx.fillText(l, W / 2, y0 + fs * 0.3 + lh * (i + 0.5)));
     }
     ctx.restore();
   }
