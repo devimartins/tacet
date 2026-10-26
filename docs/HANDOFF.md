@@ -34,7 +34,7 @@ Reúne o contexto de vários chats. Cole este arquivo no início de um chat novo
 - Arrastar o texto direto no vídeo; controle de velocidade; imagens de cenário geradas por IA (fornecidas pelo dono); minificar JS; mais guias e FAQ.
 
 **Combinados com o dono**
-- Pode fazer sem pedir aprovação e avisar ao terminar ("todas as etapas estão aprovadas"). A regra de PR em `AGENTS.md` vale para o Codex; o dono autorizou o Claude a publicar direto quando pede mudança.
+- Pode fazer sem pedir aprovação e avisar ao terminar ("todas as etapas estão aprovadas"). O dono autorizou o Claude a publicar direto na `main` quando pede mudança. Não se trabalha mais com o Codex.
 
 ## Estado atual (24/10/2026)
 - Tela inicial: teleprompter, "Legende seu vídeo" e "Cortes com IA", e o card "Cortes do YouTube" (Beta).
@@ -50,14 +50,8 @@ Reúne o contexto de vários chats. Cole este arquivo no início de um chat novo
 - Teto mensal de transcrição por usuário (depende de uma função de uso no Supabase que não está no repositório).
 - Verificar com um vídeo real do YouTube o corte 9:16 e a tela dividida.
 
-## ⏸ Coordenação Claude ↔ Codex pausada (26/10/2026)
-O dono pausou a troca entre Claude e Codex pelo GitHub (comentários nos PRs #2, #3 e #9 e tarefas neste arquivo). Até o dono retomar: não responder nem abrir PRs, comentários ou tarefas um para o outro. Os PRs abertos ficam como estão, sem merge nem fechamento.
-
-## Tarefa do Codex: sistema novo
-- O que é o sistema: _(preencher com o dono)_
-- Onde entra no app (site ou Worker): _(preencher)_
-- Arquivos que o Codex pode criar ou alterar: _(preencher)_
-- Branch de trabalho: `codex/<assunto>`; abrir pull request para a `main`.
+## Codex
+O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas nem coordenação com ele. Os PRs #2, #3, #6 e #9 foram deixados abertos e podem ser fechados pelo dono.
 
 ## Registro
 - 24/10/2026 — Claude: criou `AGENTS.md` e este arquivo.
