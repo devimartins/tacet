@@ -45,13 +45,14 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control','no-store'); res.setHeader('X-Content-Type-Options','nosniff'); res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
   try {
     const url = new URL(req.url, 'http://localhost'), origin = req.headers.origin;
+    // Static renderer modules are public; keep API origin checks unchanged.
+    if (assets.has(url.pathname) && req.method === 'GET') {
+      const [file, type] = assets.get(url.pathname); res.writeHead(200,{'Content-Type':type}); return res.end(await readFile(path.join(root,file)));
+    }
     if (origin && !origins.has(origin)) return reply(res,403,{error:'Origem não autorizada.'});
     if (origin) { res.setHeader('Access-Control-Allow-Origin',origin); res.setHeader('Vary','Origin'); }
     if (req.method === 'OPTIONS') { res.setHeader('Access-Control-Allow-Headers','Authorization,Content-Type'); res.setHeader('Access-Control-Allow-Methods','GET,POST,DELETE'); res.writeHead(204); return res.end(); }
     if (url.pathname === '/health' && req.method === 'GET') return reply(res,200,{status:'ok',version:'0.1.0'});
-    if (assets.has(url.pathname) && req.method === 'GET') {
-      const [file, type] = assets.get(url.pathname); res.writeHead(200,{'Content-Type':type}); return res.end(await readFile(path.join(root,file)));
-    }
     const download = /^\/downloads\/([a-f0-9-]{36})$/.exec(url.pathname);
     if (download && req.method === 'GET') {
       const job = jobs.items.get(download[1]);
@@ -76,6 +77,6 @@ const server = http.createServer(async (req, res) => {
   } catch(e) { if (!res.headersSent) reply(res,e.status || 500,{error:e.status ? e.message : 'Serviço de captura indisponível.'}); else res.destroy(); }
 });
 server.requestTimeout = 20000; server.headersTimeout = 10000;
-server.listen(port,'0.0.0.0',()=>console.log('Capture service listening',port));
+server.listen(port,'0.0.0.0',()=>console.log('Capture service listening',server.address().port));
 async function shutdown() { for (const j of jobs.items.values()) j.controller.abort(); server.close(); setTimeout(()=>process.exit(0),10000).unref(); }
 process.on('SIGTERM',shutdown); process.on('SIGINT',shutdown);

@@ -53,7 +53,14 @@ window.captureRenderer = {
     const slot = document.getElementById('slot'), two = data.crop && data.mode === 'split'; slot.classList.toggle('sp', two);
     const keys = two ? data.pair : [null];
     players = await Promise.all(keys.map((key, index) => new Promise((resolve, reject) => {
-      const host = document.createElement('div');
+      // Create the iframe before navigation so the referrer policy applies to its request.
+      const host = document.createElement('iframe');
+      host.title = 'YouTube video player';
+      host.referrerPolicy = 'strict-origin-when-cross-origin';
+      host.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      host.allowFullscreen = true;
+      const params = new URLSearchParams({enablejsapi:'1', autoplay:'0', controls:'0', playsinline:'1', rel:'0', cc_load_policy:'0', origin:location.origin});
+      host.src = 'https://www.youtube.com/embed/' + encodeURIComponent(data.videoId) + '?' + params;
       if (two) { const half = document.createElement('div'); half.className = 'hf'; half.style.setProperty('--hx',clamp(((data.positions[key] ?? 50)/100-.253)/(1-2*.253)).toFixed(3)); half.append(host); slot.append(half); }
       else slot.append(host);
       const player = new YT.Player(host, {videoId:data.videoId, playerVars:{autoplay:0,controls:0,playsinline:1,rel:0,cc_load_policy:0,origin:location.origin},events:{

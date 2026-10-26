@@ -34,6 +34,10 @@ export async function capture(job,{rootURL,output}) {
     check(signal);
     browser=await chromium.launch({headless:false,ignoreDefaultArgs:['--mute-audio'],args:['--kiosk','--window-position=0,0','--window-size=720,1280'],env:{...process.env,DISPLAY:':99',PULSE_SINK:'capture'}});
     const page=await browser.newPage({viewport:{width:720,height:1280},deviceScaleFactor:1});
+    const cdp = await page.context().newCDPSession(page);
+    const { windowId } = await cdp.send('Browser.getWindowForTarget');
+    await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'fullscreen' } });
+    await cdp.detach();
     // The renderer has a fixed address; never navigate to a user supplied URL.
     await page.goto(rootURL+'/render',{waitUntil:'load'});
     await page.waitForFunction(()=>!!window.captureRenderer);

@@ -65,3 +65,14 @@ Site: `CFG.CAPTURE_API`, vazio até validação. Serviço: `PUBLIC_BASE_URL`, `A
 Cada agente lê este arquivo antes de editar e registra alterações ao terminar. Não editar simultaneamente os mesmos arquivos; sem force push. Discussões pontuais no PR; nenhuma mesclagem/publicação automática.
 
 - 24/10/2026 — Codex: PR #2 aberto em rascunho; PR #1 substituído. Atualizações da main até bb62754 incorporadas à branch sem modificar páginas do Claude. Próxima validação: Docker + captura real.
+
+## Captura — correções e teste de reprodução (Codex, 26/10/2026)
+
+- Lido o relatório do Claude em `claude/captura-infra-teste` (PR #9). Corrigido o bloqueio de origem nos GETs estáticos do renderer; rotas de tarefas continuam exigindo origem permitida e autenticação.
+- Iframe criado explicitamente antes de carregar o player, com `referrerpolicy=strict-origin-when-cross-origin`, permissões de reprodução e `origin` da página. Não é necessário receber HTML do usuário; só o ID validado do vídeo.
+- Adicionados `translate=no`, metadados de referência/não tradução e tela cheia via CDP no worker. Remoção de bolhas/interface ainda requer validação visual no servidor; não foi considerada resolvida por teste local.
+- Novo `capture-service/check-playback.mjs`: verifica exclusivamente a reprodução de `5pB5cYziN6U`, 30–40 s, no renderer interno; não cria tarefa, não grava e não baixa MP4. Rodar no container atualizado e em execução: `sudo docker exec cap node /app/capture-service/check-playback.mjs`. O container antigo precisa receber a versão atualizada antes; `git pull` sozinho não atualiza a imagem/container.
+- Validação local: 7/7 testes passaram, incluindo regressão HTTP (módulos internos 200, API origem não permitida 403, sem token 401); checks de sintaxe passaram. Docker/Xvfb não disponíveis nesta sessão: reprodução real e captura visual NÃO executadas.
+- A tentativa de abrir `/embed/` diretamente no navegador desta sessão produziu erro 153, não uma confirmação de bloqueio do vídeo. Referência oficial: https://developers.google.com/youtube/iframe_api_reference — 153: falta de Referer/identificação; 150 equivale a 101 (incorporação não permitida). A mensagem anti-robô observada pelo Claude continua relevante, mas o código 150 isolado não prova bloqueio por IP.
+- Próximo passo: executar o teste de reprodução na AWS e registrar resultado. Se falhar, preservar o código/mensagem exatos; não contornar verificações. Se passar, validar enquadramento, áudio, sincronismo e corte com material autorizado. Calibração A/V, duas contas e integração continuam pendentes.
+- Nenhum arquivo servido pelo app de produção foi alterado; assets do renderer usam `no-store`. Cache/app/imports do site deverão ser atualizados pelo Claude ao integrar. `CFG.CAPTURE_API` segue vazio. Sem merge/deploy.
