@@ -48,21 +48,29 @@ const ymUTC = () => new Date().toISOString().slice(0, 7);
         const undoY = async () => { await use(env, uid, "yt", -len, capY); await use(env, GLOBAL, "yt", -len, 1e9); await monOk(-len); };
         const TP = 'Transcribe the speech of this video segment exactly as spoken, in the original language. Return only JSON {"segments":[{"t":"MM:SS","text":"..."}],"positions":{"<speaker label>":0}}. Rules: one segment per sentence (or per short phrase), each starting exactly where that sentence begins; t is the start time counted from the beginning of this segment (00:00); text is the verbatim speech with punctuation and normal capitalization; never summarize or translate; when more than one person speaks, begin the text with a short label and a colon, "Voz A:" and "Voz B:", using the same label for the same person throughout; with a single speaker add no label; ignore music and sound effects. positions: for each label you used (use "solo" for a single speaker), the horizontal position of that person in the video frame as a number from 0 (left edge) to 100 (right edge), where that person usually appears while speaking; omit the person if not visible. If there is no speech return {"segments":[],"positions":{}}.' + (ctxT ? ' Context from the end of the previous part of the video; keep the same speaker labels for the same people: ' + ctxT : "");
         let g = null;
-        for (const low of [true, false]) {
-          g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL || "gemini-2.5-flash"}:generateContent`, {
-            method: "POST",
-            headers: { "x-goog-api-key": env.GEMINI_KEY, "content-type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ fileData: { fileUri: "https://www.youtube.com/watch?v=" + m[1] }, videoMetadata: { startOffset: from + "s", endOffset: from + len + "s" } }, { text: TP }] }],
-              generationConfig: { temperature: 0, responseMimeType: "application/json", maxOutputTokens: 16000, ...low ? { mediaResolution: "MEDIA_RESOLUTION_LOW" } : {} }
-            })
-          });
-          if (g.status !== 400) break;
+        // Gemini às vezes responde 503 (sobrecarga) ou 429: tenta de novo e, se continuar, usa um modelo alternativo.
+        const models = [...new Set([env.GEMINI_MODEL || "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
+        outer: for (const model of models) {
+          for (let att = 0; att < 3; att++) {
+            for (const low of [true, false]) {
+              g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+                method: "POST",
+                headers: { "x-goog-api-key": env.GEMINI_KEY, "content-type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ fileData: { fileUri: "https://www.youtube.com/watch?v=" + m[1] }, videoMetadata: { startOffset: from + "s", endOffset: from + len + "s" } }, { text: TP }] }],
+                  generationConfig: { temperature: 0, responseMimeType: "application/json", maxOutputTokens: 16000, ...low ? { mediaResolution: "MEDIA_RESOLUTION_LOW" } : {} }
+                })
+              });
+              if (g.status !== 400) break;
+            }
+            if (g.ok || ![429, 500, 502, 503, 504].includes(g.status)) break outer;
+            await new Promise(r => setTimeout(r, 1500 * (att + 1)));
+          }
         }
         if (!g.ok) {
           await undoY();
           const em = (await g.text()).slice(0, 160);
-          return json(env, { error: g.status === 429 ? "A transcrição automática está ocupada. Tente de novo em instantes." : /private|unlisted|not.*public|permission/i.test(em) ? "O vídeo precisa ser público (não privado nem não listado)." : "Falha na transcrição automática (" + g.status + ")." }, g.status === 429 ? 429 : 502);
+          return json(env, { error: g.status === 429 ? "A transcrição automática está ocupada. Tente de novo em instantes." : /private|unlisted|not.*public|permission/i.test(em) ? "O vídeo precisa ser público (não privado nem não listado)." : (g.status === 503 || g.status >= 500 ? "O serviço de transcrição do Google está sobrecarregado agora. Toque em Tentar de novo em instantes." : "Falha na transcrição automática (" + g.status + ").") }, g.status === 429 ? 429 : 502);
         }
         let segs = [], posn = {};
         try {

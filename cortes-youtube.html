@@ -512,7 +512,8 @@ async function autoT(id, resume) {
     const msg = 'Transcrevendo automaticamente… bloco ' + (i + 1) + ' de ' + n, t0 = performance.now(), expect = Math.max(12, len / 9);
     prog(i / n, msg); const iv = setInterval(() => prog((i + 0.9 * (1 - Math.exp(-(performance.now() - t0) / 1000 / expect))) / n, msg), 400);
     try {
-      const r = await fetch(CFG.AI + '/transcript', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ url, from, len, ctx: lines.slice(-4).map(x => x.split('\n')[1] || '').join(' ').slice(-500) }) }), d = await r.json().catch(() => ({}));
+      let r, d; for (let tr = 0; tr < 3; tr++) { r = await fetch(CFG.AI + '/transcript', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ url, from, len, ctx: lines.slice(-4).map(x => x.split('\n')[1] || '').join(' ').slice(-500) }) }); d = await r.json().catch(() => ({})); if (r.ok || ![502, 503, 504].includes(r.status) || run !== autoRun) break; prog(i / n, msg + ' (o serviço está ocupado, tentando de novo…)'); await new Promise(z => setTimeout(z, 3000 * (tr + 1))); }
+      
       if (r.status === 404) { ok = false; $('#t').value = ''; autoFilled = false; $('#go').disabled = false; showManual(); return prog(0, 'A transcrição automática ainda não está disponível. Você pode colar a transcrição manualmente.'); }
       if (!r.ok) throw new Error(d.error || 'erro ' + r.status);
       for (const g of d.segments || []) lines.push(fmt(g.s) + '\n' + g.text);
