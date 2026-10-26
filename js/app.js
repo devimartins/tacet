@@ -1025,7 +1025,7 @@ function ovUI() {
       const bgc = el('input', { type: 'checkbox', checked: o.bg !== false, ariaLabel: 'Fundo escuro atrás do texto' }); bgc.onchange = () => { o.bg = bgc.checked; };
       const rg = (k, min, max, st, def, lab) => { const r = el('input', { type: 'range', min, max, step: st, value: o[k] ?? def, ariaLabel: lab }); r.oninput = () => { o[k] = +r.value; }; return r; };
       const L = (t, n) => el('label', { className: 'mut', textContent: t + ' ' }, ); const wrap = (t, n) => { const l = el('label', { className: 'mut' }); l.append(t + ' ', n); return l; };
-      sr.append(sel, wrap('Cor', col), wrap('Fundo', bgc), wrap('Tamanho', rg('size', 0.03, 0.14, 0.005, 0.065, 'Tamanho do texto')), wrap('Posição', rg('y', 0, 0.9, 0.01, 0.1, 'Posição vertical do texto'))); ul.append(sr); }
+      const fx = el('button', { type: 'button', className: 'btn', textContent: 'Fixo no vídeo todo', onclick: () => { o.from = 0; o.to = S.dur || 4; ovUI(); } }); sr.append(sel, fx, wrap('Cor', col), wrap('Fundo', bgc), wrap('Tamanho', rg('size', 0.03, 0.14, 0.005, 0.065, 'Tamanho do texto')), wrap('Posição', rg('y', 0, 0.9, 0.01, 0.1, 'Posição vertical do texto'))); ul.append(sr); }
   });
   drawTimeline(); const at = $('#ovCredit'); if (at) at.hidden = !S.ov.some(o => o.frames);
 }
@@ -1035,7 +1035,7 @@ $('#ovTitle').onclick = async () => {
   if (LIVE && S.user) { b.disabled = true; b.textContent = 'Criando com IA…'; try { const r = await assist(CFG, await token(), 'hook', w.map(x => x.w).join(' ').slice(0, 8000)); const t = (r.titles || []).find(x => typeof x === 'string' && x.trim()); if (t) text = t.trim().toUpperCase(); } catch (e) { flash(e.message + ' Usei uma sugestão simples.'); } b.disabled = false; b.textContent = 'Sugerir título de gancho'; }
   S.ov.push({ kind: 'title', text, from: 0, to: Math.min(4, S.dur || 4) }); ovUI();
 };
-$('#ovText').onclick = () => { S.ov.push({ kind: 'title', text: 'Seu texto aqui', from: 0, to: Math.min(4, S.dur || 4), font: 'Montserrat', color: '#ffffff', bg: false, size: 0.07, y: 0.42 }); ovUI(); };
+$('#ovText').onclick = () => { S.ov.push({ kind: 'title', text: 'Seu texto aqui', from: 0, to: S.dur || 4, font: 'Montserrat', color: '#ffffff', bg: false, size: 0.07, y: 0.42 }); ovUI(); };
 const brUsed = new Set(), brSeen = new Set();
 async function brollFor(qs, secs) {
   qs = [].concat(qs);   // qs: consulta principal + alternativas equivalentes (nunca uma palavra solta: melhor sem B-roll do que B-roll sem relação)
