@@ -115,7 +115,18 @@ async function extractViaContext(file, secs, onChunk, onProgress) {
   }
   onProgress && onProgress(1);
 }
+// Gravações feitas no próprio app (teleprompter) guardam o áudio bruto do microfone: não precisa decodificar o arquivo.
+async function extractFromPcm(pcm, secs, onChunk, onProgress) {
+  const { data, sr } = pcm, r = sr / 16000, total = Math.floor(data.length / r), N = 16000 * secs;
+  for (let o = 0, idx = 0; o < total; o += N, idx++) {
+    const n = Math.min(N, total - o), i16 = new Int16Array(n);
+    for (let i = 0; i < n; i++) { const a = Math.floor((o + i) * r), b = Math.max(a + 1, Math.min(data.length, Math.floor((o + i + 1) * r))); let acc = 0; for (let j = a; j < b; j++) acc += data[j]; i16[i] = Math.max(-32768, Math.min(32767, Math.round(acc / (b - a) * 32767))); }
+    await onChunk(wav(i16), idx * secs); onProgress && onProgress(Math.min(1, (o + n) / total));
+  }
+  onProgress && onProgress(1);
+}
 export async function extractAudio(file, media, secs, onChunk, onProgress) {
+  if (file && file.__pcm && file.__pcm.data.length > 16000) { await extractFromPcm(file.__pcm, secs, onChunk, onProgress); return; }
   let sent = 0; const wrap = (b, o) => { sent++; return onChunk(b, o); };
   try { await extractAudioWC(file, media, secs, wrap, onProgress); }
   catch (e) {

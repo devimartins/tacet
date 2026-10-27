@@ -1,6 +1,6 @@
 // B-roll em vídeo (Pexels, plano pago): o Worker busca e guarda em cache; o app baixa um arquivo pequeno (SD)
 // e guarda só alguns quadros reduzidos na memória (12 por segundo, até ~2,5 s) para a prévia e para a exportação.
-import { openMedia, makeReader } from './media.js?v=3';
+import { openMedia, makeReader } from './media.js?v=4';
 
 export async function findBrollVideo(CFG, token, query, secs = 2.5, fps = 12, outW = 360, used = new Set()) {
   const r = await fetch(CFG.AI + '/broll', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ q: query }) });

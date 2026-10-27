@@ -6,7 +6,7 @@ const load = () => { try { const o = JSON.parse(localStorage.getItem(KEY)) || {}
 const save = o => { try { const { text, ...rest } = o; localStorage.setItem(KEY, JSON.stringify(rest)); } catch { /* sem armazenamento */ } };
 
 import { startShotCheck, MSG } from './shotcheck.js?v=3';
-import { canRecordWC, primeAudio, startWcRecording, wcStage } from './recorder.js?v=3';
+import { canRecordWC, primeAudio, startWcRecording, startPcmTap, wcStage } from './recorder.js?v=4';
 const CSS = `
 #tp{position:fixed;inset:0;z-index:90;background:#0b0b0f;color:#fff;display:flex;flex-direction:column;font:16px/1.4 system-ui,sans-serif}
 #tp *{box-sizing:border-box}
@@ -58,7 +58,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   const root = document.createElement('div'); root.id = 'tp'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Teleprompter');
   document.body.append(st, root);
   const dbg = [];
-  let fmt = window.innerHeight > window.innerWidth ? 'v' : 'h', turnOff = () => { }, sc = null, stream = null, view = null, compCv = null, wcRec = null, wcBlob = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
+  let fmt = window.innerHeight > window.innerWidth ? 'v' : 'h', turnOff = () => { }, sc = null, stream = null, view = null, compCv = null, wcRec = null, wcBlob = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, pcm = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
   const close = () => {
     turnOff(); cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
@@ -263,18 +263,21 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
         mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
         mrDone = new Promise(r => { mr.onstop = r; }); mr.start(1000);
       } catch { mr = null; }
+      let tap = null; try { if (actx && stream.getAudioTracks()[0]) tap = startPcmTap(actx, stream.getAudioTracks()[0]); } catch (e) { dbg.push('pcm: ' + (e.message || e)); }
+      pcm = null;
       if (actx && compCv && stream.getAudioTracks()[0]) {
         try {
           wcRec = await Promise.race([startWcRecording({ ctx: actx, source: compCv, audioTrack: stream.getAudioTracks()[0], fps: 30, onError: e => (dbg.push(String(e && e.message || e)), console.warn('gravador', e)) }), new Promise((_, no) => setTimeout(() => no(new Error('início demorou na etapa ' + wcStage)), 3000))]);
-        } catch (e) { dbg.push('início: ' + String(e && e.message || e)); console.warn('Gravador próprio indisponível', e); wcRec = null; try { actx.close(); } catch { /* ok */ } }
-      } else if (actx) { try { actx.close(); } catch { /* ok */ } }
-      actx = null;
+        } catch (e) { dbg.push('início: ' + String(e && e.message || e)); console.warn('Gravador próprio indisponível', e); wcRec = null; }
+      }
+      const octx = actx; actx = null;
       if (!wcRec && !mr) { flash('Não foi possível iniciar a gravação.'); return; }
       rec = { state: 'recording', mimeType: mime, stop() {
         if (this.state !== 'recording') return; this.state = 'inactive';
         try { mr && mr.state !== 'inactive' && mr.stop(); } catch { /* ok */ }
+        try { pcm = tap ? tap.stop() : null; } catch { pcm = null; }
         const w = wcRec ? Promise.race([wcRec.stop(), new Promise((_, no) => setTimeout(() => no(new Error('tempo esgotado')), 8000))]).then(bl => { wcBlob = bl; }, e => { (dbg.push(String(e && e.message || e)), console.warn('gravador', e)); wcBlob = null; }) : Promise.resolve();
-        Promise.all([w, Promise.race([mrDone, new Promise(r => setTimeout(r, 4000))])]).finally(finish);
+        Promise.all([w, Promise.race([mrDone, new Promise(r => setTimeout(r, 4000))])]).finally(() => { try { octx && octx.state !== 'closed' && octx.close(); } catch { /* ok */ } finish(); });
       } };
       onStart && onStart(); resetY(); play();
       rb.classList.add('on'); rb.setAttribute('aria-label', 'Parar gravação'); $('#r').style.display = 'flex';
@@ -305,6 +308,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
     const blob = wcBlob || new Blob(chunks, { type }); url = URL.createObjectURL(blob);
     const file = new File([blob], 'teleprompter-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.' + ext, { type });
+    if (pcm && pcm.data.length) file.__pcm = pcm;
     if (!file.size) { flash('A gravação saiu vazia. Tente de novo. (' + (dbg.join(' | ') || 'sem detalhe') + '; partes: ' + chunks.length + ')'); camera(); return; }
     h(`<div class="bar"><b>Gravação pronta</b></div>
     <div class="res"><video id="pv" src="${url}" controls playsinline></video>

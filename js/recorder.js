@@ -55,3 +55,11 @@ export async function startWcRecording({ source, audioTrack, ctx, fps = 30, prof
     },
   };
 }
+
+// Guarda o áudio bruto do microfone (mono) durante a gravação, para transcrever sem decodificar o arquivo.
+export function startPcmTap(ctx, audioTrack) {
+  const src = ctx.createMediaStreamSource(new MediaStream([audioTrack])), sp = ctx.createScriptProcessor(4096, 1, 1), mute = ctx.createGain(), parts = []; let len = 0, on = true;
+  mute.gain.value = 0; src.connect(sp); sp.connect(mute); mute.connect(ctx.destination);
+  sp.onaudioprocess = e => { if (!on) return; const d = new Float32Array(e.inputBuffer.getChannelData(0)); parts.push(d); len += d.length; };
+  return { stop() { on = false; try { sp.disconnect(); src.disconnect(); mute.disconnect(); } catch { /* ok */ } const data = new Float32Array(len); let o = 0; for (const p of parts) { data.set(p, o); o += p.length; } return { data, sr: ctx.sampleRate }; } };
+}

@@ -1,7 +1,7 @@
 // Gravações feitas no navegador (MediaRecorder, principalmente no iPhone) saem como MP4 "fragmentado":
 // o índice não lista as amostras e o editor não acha áudio nem vídeo. Aqui reescrevo o arquivo como MP4 comum,
 // sem recodificar (só reorganiza os pacotes já gravados).
-import { openMedia } from './media.js?v=3';
+import { openMedia } from './media.js?v=4';
 
 const FREQ = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
 const rl = (u, p) => { let n = 0, i = 0, b; do { b = u[p++]; n = (n << 7) | (b & 127); i++; } while ((b & 128) && i < 4); return [n, p]; };
@@ -58,5 +58,5 @@ async function remux(file) {
 // Devolve o próprio arquivo se já for MP4 comum; senão tenta reescrever. Em falha, devolve o original.
 export async function ensureProgressive(file) {
   try { const m = await openMedia(file); if (m.video && m.video.samples && m.video.samples.length) return file; } catch { /* tenta reescrever */ }
-  try { return await remux(file); } catch (e) { console.warn('remux', e); return file; }
+  try { const r = await remux(file); if (file.__pcm) r.__pcm = file.__pcm; return r; } catch (e) { console.warn('remux', e); return file; }
 }
