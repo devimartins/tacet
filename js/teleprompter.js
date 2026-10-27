@@ -32,6 +32,7 @@ const CSS = `
 #tp.camv .ctls{flex:0 0 min(46vw,340px);justify-content:center;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)}
 #tp.camv .ctl{padding:6px 10px}#tp.camv .zr{padding:4px 12px 0}
 }
+#tp .fm{display:flex;gap:8px;justify-content:center;padding:8px 12px 0}#tp .fm button{flex:1;max-width:190px;min-height:40px;padding:6px 10px;font-size:14px}#tp .fm button[aria-pressed=true]{background:#ff5a1f;border-color:#ff5a1f;color:#fff;font-weight:600}
 #tp .rec{position:absolute;top:10px;right:12px;display:none;gap:6px;align-items:center;font-weight:700}
 #tp .rec i{width:10px;height:10px;border-radius:50%;background:#f33;animation:tpb 1s infinite}
 @keyframes tpb{50%{opacity:.2}}
@@ -55,7 +56,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   const st = document.createElement('style'); st.textContent = CSS;
   const root = document.createElement('div'); root.id = 'tp'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Teleprompter');
   document.body.append(st, root);
-  let turnOff = () => { }, sc = null, stream = null, view = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
+  let fmt = window.innerHeight > window.innerWidth ? 'v' : 'h', turnOff = () => { }, sc = null, stream = null, view = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
   const close = () => {
     turnOff(); cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
@@ -69,28 +70,31 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   // ---------- permissão: pede antes de gravar, mostra prévia e nível do microfone ----------
   // Segue a posição atual do aparelho: em pé pede imagem vertical, deitado pede horizontal. Sem zoom nem recorte forçados.
   const portrait = () => window.innerHeight > window.innerWidth;
-  const TRIES = () => { const p = portrait(), w = p ? 1080 : 1920, h = p ? 1920 : 1080;
-    return [
-      { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: w }, height: { ideal: h }, aspectRatio: { ideal: w / h }, frameRate: { ideal: 30 } } },
-      { audio: true, video: { facingMode: 'user', aspectRatio: { ideal: w / h } } },
-      { audio: true, video: true }]; };
+  // Pede sempre a imagem larga (16:9), que é o campo de visão completo da câmera. O formato da gravação (vertical ou horizontal) é escolhido na tela.
+  const TRIES = () => [
+    { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 }, frameRate: { ideal: 30 } } },
+    { audio: true, video: { facingMode: 'user' } },
+    { audio: true, video: true }];
   const live = () => !!stream && stream.getTracks().length > 0 && stream.getTracks().every(t => t.readyState === 'live');
-  // iPhone às vezes entrega a câmera sempre deitada (16:9). Nesse caso a imagem é recortada ao centro em 9:16 aqui mesmo,
-  // e o que aparece na prévia é exatamente o que será gravado.
+  // A prévia e o vídeo gravado saem de um canvas com o formato escolhido (vertical 9:16 ou horizontal 16:9), não importa como o aparelho entrega a câmera.
   const dropView = () => { cancelAnimationFrame(compRaf); compRaf = 0; view = null; };
-  async function fitOrientation() {
+  let onMis = () => { };
+  async function buildView() {
     dropView();
     try {
       const vt = stream.getVideoTracks()[0];
-      // mede o tamanho real dos quadros no elemento de vídeo (no iPhone, getSettings() pode informar uma orientação e entregar outra)
       const src = document.createElement('video'); src.muted = true; src.playsInline = true; src.srcObject = new MediaStream([vt]); await src.play().catch(() => { });
-      for (let i = 0; i < 40 && !src.videoWidth; i++) await new Promise(r => setTimeout(r, 50));
-      if (!portrait() || !src.videoWidth || src.videoWidth <= src.videoHeight) return;
-      const H = src.videoHeight, W = Math.round(H * 9 / 16 / 2) * 2, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d');
-      const bg = document.createElement('canvas'); bg.width = 18; bg.height = 32; const bx = bg.getContext('2d');   // fundo desfocado barato, para as faixas quando o zoom é menor
+      for (let i = 0; i < 60 && !src.videoWidth; i++) await new Promise(r => setTimeout(r, 50));
+      if (!src.videoWidth) return;
+      const L = Math.min(1920, Math.max(src.videoWidth, src.videoHeight)), ev = n => Math.round(n / 2) * 2;
+      const W = fmt === 'v' ? ev(L * 9 / 16) : L, H = fmt === 'v' ? L : ev(L * 9 / 16);
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d');
+      const bg = document.createElement('canvas'); bg.width = 32; bg.height = 18; const bx = bg.getContext('2d');   // fundo desfocado barato para as faixas
+      let was = null;
       const draw = () => { const vw = src.videoWidth, vh = src.videoHeight; if (vw && vh) {
-        const cover = Math.max(W / vw, H / vh), fit = Math.min(W / vw, H / vh), k = Math.max(0, Math.min(1, zk)), sc = fit + (cover - fit) * k, dw = vw * sc, dh = vh * sc;
-        if (k < 0.999) { const sb = Math.max(18 / vw, 32 / vh), bw = vw * sb, bh = vh * sb; bx.drawImage(src, (18 - bw) / 2, (32 - bh) / 2, bw, bh); cx.imageSmoothingEnabled = true; cx.drawImage(bg, 0, 0, W, H); cx.fillStyle = 'rgba(0,0,0,.35)'; cx.fillRect(0, 0, W, H); }
+        const same = Math.abs(vw / vh - W / H) < 0.04, cover = Math.max(W / vw, H / vh), fit = Math.min(W / vw, H / vh), k = Math.max(0, Math.min(1, zk)), sc = same ? cover : fit + (cover - fit) * k, dw = vw * sc, dh = vh * sc;
+        if (was !== !same) { was = !same; onMis(!same); }
+        if (!same && k < 0.999) { bx.drawImage(src, 0, 0, 32, 18); cx.imageSmoothingEnabled = true; cx.drawImage(bg, 0, 0, W, H); cx.fillStyle = 'rgba(0,0,0,.45)'; cx.fillRect(0, 0, W, H); }
         cx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh); }
         compRaf = requestAnimationFrame(draw); };
       draw(); const out = cv.captureStream(30); stream.getAudioTracks().forEach(a => out.addTrack(a)); view = out;
@@ -98,7 +102,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   }
   async function acquire() {
     if (live()) return null; let err = null; stream = null;
-    for (const c of TRIES()) { try { stream = await navigator.mediaDevices.getUserMedia(c); await fitOrientation(); return null; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
+    for (const c of TRIES()) { try { stream = await navigator.mediaDevices.getUserMedia(c); await buildView(); return null; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
     return err;
   }
   let actx = null, mraf = 0;
@@ -185,7 +189,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     h(`<div class="cam"><video id="v" playsinline muted autoplay></video>
       <div class="win"><div class="txt" id="tx"></div></div><div class="line"></div>
       <div class="gd" id="gd" aria-hidden="true"><i>olhos aqui</i></div><div class="chk" id="chk" role="status"></div><div class="cnt" id="c"></div><div class="rec" id="r"><i></i><span id="rt">0:00</span></div></div>
-    <div class="ctls"><div class="zr" id="zr" hidden><label for="zk">Zoom da câmera</label><input id="zk" type="range" min="0" max="100" step="1"><span class="mut" id="zkv"></span></div>
+    <div class="ctls"><div class="fm" id="fm" role="group" aria-label="Formato da gravação"><button id="fv" type="button" aria-pressed="true">Vertical 9:16</button><button id="fh" type="button" aria-pressed="false">Horizontal 16:9</button></div><div class="zr" id="zr" hidden><label for="zk">Zoom da câmera</label><input id="zk" type="range" min="0" max="100" step="1"><span class="mut" id="zkv"></span></div>
     <div class="ctl">
       <button id="sm" type="button" aria-label="Diminuir velocidade">Mais lento</button>
       <button class="recb" id="rb" type="button" aria-label="Gravar"></button>
@@ -197,11 +201,12 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     if (!live()) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
     const v = $('#v'); const zi = $('#zk'), zr = $('#zr'), zu = () => { $('#zkv').textContent = zi.value < 15 ? 'Amplo' : zi.value > 85 ? 'Fechado' : zi.value + '%'; };
     zi.oninput = () => { zk = zi.value / 100; cfg.zoomK = zk; save(cfg); zu(); };
-    const applyView = () => { v.srcObject = view || stream; v.play().catch(() => { /* autoplay */ }); zr.hidden = !view; zi.value = Math.round(zk * 100); zu(); };
-    applyView(); v.play().catch(() => { /* autoplay */ });
-    // girou o aparelho: mede de novo a câmera e refaz o recorte (em pé = 9:16; deitado = imagem inteira). Não mexe durante a gravação.
-    let ot = 0; const onTurn = () => { clearTimeout(ot); ot = setTimeout(async () => { if (!document.getElementById('tp') || !$('#v') || (rec && rec.state === 'recording')) return; await fitOrientation(); applyView(); }, 450); };
-    window.addEventListener('resize', onTurn); window.addEventListener('orientationchange', onTurn); turnOff = () => { clearTimeout(ot); window.removeEventListener('resize', onTurn); window.removeEventListener('orientationchange', onTurn); };
+    const applyView = () => { v.srcObject = view || stream; v.play().catch(() => { /* autoplay */ }); zi.value = Math.round(zk * 100); zu(); };
+    onMis = m => { zr.hidden = !m; };
+    const fb = { v: $('#fv'), h: $('#fh') };
+    const mark = () => { for (const k in fb) fb[k].setAttribute('aria-pressed', String(fmt === k)); };
+    for (const k in fb) fb[k].onclick = async () => { if (rec && rec.state === 'recording') { flash('Pare a gravação para mudar o formato.'); return; } if (fmt === k) return; fmt = k; mark(); await buildView(); applyView(); };
+    mark(); applyView();
     // guia de enquadramento: terços e margem de 10%, só na prévia (nunca entra no vídeo gravado), alinhada à área real do vídeo
     const gd = $('#gd'), gb = $('#gb'), cam = $('.cam');
     const place = () => { if (!gd || !v.videoWidth) return; const W = cam.clientWidth, H = cam.clientHeight, k = Math.min(W / v.videoWidth, H / v.videoHeight), w = v.videoWidth * k, h = v.videoHeight * k;
