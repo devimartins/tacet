@@ -253,26 +253,28 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
       c.style.display = 'none'; rb.disabled = false;
       let tm = 0, t0 = 0;
       const finish = () => { sc && sc.stop(); sc = null; clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
-      let started = false; wcBlob = null; wcRec = null;
+      wcBlob = null; wcRec = null; chunks = [];
+      mime = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+      // reserva: o gravador do navegador roda junto; se o gravador próprio falhar, usamos o arquivo dele
+      let mr = null, mrDone = Promise.resolve();
+      try {
+        mr = new MediaRecorder(view || stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined);
+        mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        mrDone = new Promise(r => { mr.onstop = r; }); mr.start(1000);
+      } catch { mr = null; }
       if (actx && compCv && stream.getAudioTracks()[0]) {
         try {
           wcRec = await startWcRecording({ ctx: actx, source: compCv, audioTrack: stream.getAudioTracks()[0], fps: 30, onError: e => console.warn('gravador', e) });
-          rec = { state: 'recording', mimeType: 'video/mp4', stop() {
-            if (this.state !== 'recording') return; this.state = 'inactive';
-            wcRec.stop().then(b => { wcBlob = b; }, e => { console.warn('gravador', e); wcBlob = null; }).finally(finish);
-          } };
-          started = true;
         } catch (e) { console.warn('Gravador próprio indisponível, usando o padrão do navegador.', e); wcRec = null; try { actx.close(); } catch { /* ok */ } }
       } else if (actx) { try { actx.close(); } catch { /* ok */ } }
       actx = null;
-      if (!started) {
-        mime = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
-        chunks = [];
-        try { rec = new MediaRecorder(view || stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined); } catch { flash('Não foi possível iniciar a gravação.'); return; }
-        rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-        rec.onstop = finish;
-        rec.start(1000);
-      }
+      if (!wcRec && !mr) { flash('Não foi possível iniciar a gravação.'); return; }
+      rec = { state: 'recording', mimeType: mime, stop() {
+        if (this.state !== 'recording') return; this.state = 'inactive';
+        try { mr && mr.state !== 'inactive' && mr.stop(); } catch { /* ok */ }
+        const w = wcRec ? Promise.race([wcRec.stop(), new Promise((_, no) => setTimeout(() => no(new Error('tempo esgotado')), 8000))]).then(bl => { wcBlob = bl; }, e => { console.warn('gravador', e); wcBlob = null; }) : Promise.resolve();
+        Promise.all([w, Promise.race([mrDone, new Promise(r => setTimeout(r, 4000))])]).finally(finish);
+      } };
       onStart && onStart(); resetY(); play();
       rb.classList.add('on'); rb.setAttribute('aria-label', 'Parar gravação'); $('#r').style.display = 'flex';
       t0 = Date.now(); tm = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('#rt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 500);
