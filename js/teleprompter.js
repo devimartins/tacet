@@ -61,7 +61,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
 
   // ---------- permissão: pede antes de gravar, mostra prévia e nível do microfone ----------
   // Segue a posição atual do aparelho: em pé pede imagem vertical, deitado pede horizontal. Sem zoom nem recorte forçados.
-  const portrait = () => (window.screen?.orientation?.type ? window.screen.orientation.type.startsWith('portrait') : window.innerHeight >= window.innerWidth);
+  const portrait = () => window.innerHeight > window.innerWidth;
   const TRIES = () => { const p = portrait(), w = p ? 1080 : 1920, h = p ? 1920 : 1080;
     return [
       { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: w }, height: { ideal: h }, aspectRatio: { ideal: w / h }, frameRate: { ideal: 30 } } },
@@ -74,12 +74,12 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   async function fitOrientation() {
     dropView();
     try {
-      const vt = stream.getVideoTracks()[0]; let st = vt.getSettings(); const wrong = () => st.width && st.height && (st.width > st.height) === portrait();
-      if (!wrong()) return;
-      try { await vt.applyConstraints({ width: { ideal: portrait() ? 1080 : 1920 }, height: { ideal: portrait() ? 1920 : 1080 }, aspectRatio: { ideal: portrait() ? 9 / 16 : 16 / 9 } }); st = vt.getSettings(); } catch { /* tenta o recorte */ }
-      if (!wrong() || !portrait()) return;
-      const src = document.createElement('video'); src.muted = true; src.playsInline = true; src.srcObject = new MediaStream([vt]); await src.play();
-      const H = st.height, W = Math.round(H * 9 / 16 / 2) * 2, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d');
+      const vt = stream.getVideoTracks()[0];
+      // mede o tamanho real dos quadros no elemento de vídeo (no iPhone, getSettings() pode informar uma orientação e entregar outra)
+      const src = document.createElement('video'); src.muted = true; src.playsInline = true; src.srcObject = new MediaStream([vt]); await src.play().catch(() => { });
+      for (let i = 0; i < 40 && !src.videoWidth; i++) await new Promise(r => setTimeout(r, 50));
+      if (!portrait() || !src.videoWidth || src.videoWidth <= src.videoHeight) return;
+      const H = src.videoHeight, W = Math.round(H * 9 / 16 / 2) * 2, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d');
       const draw = () => { const vw = src.videoWidth, vh = src.videoHeight; if (vw && vh) { const sw = Math.min(vw, vh * W / H); cx.drawImage(src, (vw - sw) / 2, 0, sw, vh, 0, 0, W, H); } compRaf = requestAnimationFrame(draw); };
       draw(); const out = cv.captureStream(30); stream.getAudioTracks().forEach(a => out.addTrack(a)); view = out;
     } catch { dropView(); }
