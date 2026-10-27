@@ -60,14 +60,20 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
 
 
   // ---------- permissão: pede antes de gravar, mostra prévia e nível do microfone ----------
-  const TRIES = [
-    { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 }, resizeMode: { ideal: 'none' } } },
-    { audio: true, video: { facingMode: 'user' } },
-    { audio: true, video: true }];
+  // Segue a posição atual do aparelho: em pé pede imagem vertical, deitado pede horizontal. Sem zoom nem recorte forçados.
+  const portrait = () => (window.screen?.orientation?.type ? window.screen.orientation.type.startsWith('portrait') : window.innerHeight >= window.innerWidth);
+  const TRIES = () => { const p = portrait(), w = p ? 1080 : 1920, h = p ? 1920 : 1080;
+    return [
+      { audio: { echoCancellation: true, noiseSuppression: true }, video: { facingMode: 'user', width: { ideal: w }, height: { ideal: h }, aspectRatio: { ideal: w / h }, frameRate: { ideal: 30 } } },
+      { audio: true, video: { facingMode: 'user', aspectRatio: { ideal: w / h } } },
+      { audio: true, video: true }]; };
   const live = () => !!stream && stream.getTracks().length > 0 && stream.getTracks().every(t => t.readyState === 'live');
+  async function fitOrientation() {   // se a câmera veio deitada com o aparelho em pé (ou o contrário), pede a proporção certa de novo
+    try { const vt = stream.getVideoTracks()[0], st = vt.getSettings(); if (st.width && st.height && (st.width > st.height) === portrait()) await vt.applyConstraints({ width: { ideal: portrait() ? 1080 : 1920 }, height: { ideal: portrait() ? 1920 : 1080 }, aspectRatio: { ideal: portrait() ? 9 / 16 : 16 / 9 } }); } catch { /* mantém como veio */ }
+  }
   async function acquire() {
     if (live()) return null; let err = null; stream = null;
-    for (const c of TRIES) { try { stream = await navigator.mediaDevices.getUserMedia(c); return null; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
+    for (const c of TRIES()) { try { stream = await navigator.mediaDevices.getUserMedia(c); await fitOrientation(); return null; } catch (e) { err = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotFoundError')) break; } }
     return err;
   }
   let actx = null, mraf = 0;
@@ -240,17 +246,16 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     const blob = new Blob(chunks, { type }); url = URL.createObjectURL(blob);
     const file = new File([blob], 'teleprompter-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.' + ext, { type });
     if (!file.size) { flash('A gravação saiu vazia. Tente de novo.'); camera(); return; }
-    rawDialog(file, () => { close(); flash('Gravação aberta no editor. Escolha o estilo e gere as legendas.'); onUse(file); }); return;
     h(`<div class="bar"><b>Gravação pronta</b></div>
     <div class="res"><video id="pv" src="${url}" controls playsinline></video>
-    <p class="tip" id="wm" style="font-size:14px;color:#fff">Atenção: a gravação ainda não está no editor. Toque em <b>Usar no ForjaClip</b> para legendar agora, ou toque em <b>Salvar no aparelho</b> e depois envie esse arquivo ao ForjaClip em <b>Legende seu vídeo</b>.</p>
-    <div class="ctl"><button id="sv" type="button">Salvar no aparelho</button><button class="pri" id="us" type="button">Usar no ForjaClip</button><button id="again" type="button">Gravar de novo</button><button id="x" type="button">Fechar</button></div></div>`);
+    <p class="tip" id="wm" style="font-size:14px;color:#fff">Assista à prévia. Se gostou, toque em <b>Usar no ForjaClip</b> para legendar. Se não, toque em <b>Gravar de novo</b>: o texto e os ajustes continuam aqui.</p>
+    <div class="ctl"><button class="pri" id="us" type="button">Usar no ForjaClip</button><button id="again" type="button">Gravar de novo</button><button id="sv" type="button">Salvar no aparelho</button><button id="x" type="button">Descartar e fechar</button></div></div>`);
     if (ext === 'webm') $('#wm').append(document.createElement('br'), 'Este navegador gravou em WebM. Se o editor não aceitar, grave em um navegador que salve MP4 (Safari ou Chrome recente).');
     $('#sv').onclick = async () => {
       try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch (e) { if (e.name === 'AbortError') return; }
       const a = document.createElement('a'); a.href = url; a.download = file.name; a.click();
     };
-    $('#us').onclick = () => { const f = file; close(); onUse(f); };
+    $('#us').onclick = () => { const f = file; $('#pv').pause(); rawDialog(f, () => { close(); flash('Gravação aberta no editor. Preparando a transcrição…'); onUse(f); }); };
     $('#again').onclick = () => { URL.revokeObjectURL(url); url = ''; camera(); };
     $('#x').onclick = close;
   }
