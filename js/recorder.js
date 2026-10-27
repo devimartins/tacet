@@ -19,7 +19,7 @@ export async function startWcRecording({ source, audioTrack, ctx, fps = 30, prof
   if (!vcfg) throw new Error('Sem codificador de vídeo.');
   const sr = ctx.sampleRate, acfg = { codec: P.a[0], sampleRate: sr, numberOfChannels: 1, bitrate: 96000 };
   if (!(await AudioEncoder.isConfigSupported(acfg)).supported) throw new Error('Sem codificador de áudio.');
-  if (ctx.state !== 'running') { try { await ctx.resume(); } catch { /* ok */ } }
+  if (ctx.state !== 'running') { try { ctx.resume(); } catch { /* ok */ } }
   const target = new window.Mp4Muxer.ArrayBufferTarget();
   const muxer = new window.Mp4Muxer.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: vmux, width: w, height: h, frameRate: fps }, audio: { codec: P.a[1], sampleRate: sr, numberOfChannels: 1 } });
   let failed = null; const fail = e => { failed = failed || e; onError && onError(e); };
