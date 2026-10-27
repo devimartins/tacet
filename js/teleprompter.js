@@ -48,10 +48,10 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   const st = document.createElement('style'); st.textContent = CSS;
   const root = document.createElement('div'); root.id = 'tp'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Teleprompter');
   document.body.append(st, root);
-  let sc = null, stream = null, rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
+  let sc = null, stream = null, view = null, compRaf = 0, rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
   const close = () => {
-    cancelAnimationFrame(raf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
+    cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
     stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* sem wake lock */ }
     if (url) URL.revokeObjectURL(url); root.remove(); st.remove();
   };
@@ -68,8 +68,21 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
       { audio: true, video: { facingMode: 'user', aspectRatio: { ideal: w / h } } },
       { audio: true, video: true }]; };
   const live = () => !!stream && stream.getTracks().length > 0 && stream.getTracks().every(t => t.readyState === 'live');
-  async function fitOrientation() {   // se a câmera veio deitada com o aparelho em pé (ou o contrário), pede a proporção certa de novo
-    try { const vt = stream.getVideoTracks()[0], st = vt.getSettings(); if (st.width && st.height && (st.width > st.height) === portrait()) await vt.applyConstraints({ width: { ideal: portrait() ? 1080 : 1920 }, height: { ideal: portrait() ? 1920 : 1080 }, aspectRatio: { ideal: portrait() ? 9 / 16 : 16 / 9 } }); } catch { /* mantém como veio */ }
+  // iPhone às vezes entrega a câmera sempre deitada (16:9). Nesse caso a imagem é recortada ao centro em 9:16 aqui mesmo,
+  // e o que aparece na prévia é exatamente o que será gravado.
+  const dropView = () => { cancelAnimationFrame(compRaf); compRaf = 0; view = null; };
+  async function fitOrientation() {
+    dropView();
+    try {
+      const vt = stream.getVideoTracks()[0]; let st = vt.getSettings(); const wrong = () => st.width && st.height && (st.width > st.height) === portrait();
+      if (!wrong()) return;
+      try { await vt.applyConstraints({ width: { ideal: portrait() ? 1080 : 1920 }, height: { ideal: portrait() ? 1920 : 1080 }, aspectRatio: { ideal: portrait() ? 9 / 16 : 16 / 9 } }); st = vt.getSettings(); } catch { /* tenta o recorte */ }
+      if (!wrong() || !portrait()) return;
+      const src = document.createElement('video'); src.muted = true; src.playsInline = true; src.srcObject = new MediaStream([vt]); await src.play();
+      const H = st.height, W = Math.round(H * 9 / 16 / 2) * 2, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d');
+      const draw = () => { const vw = src.videoWidth, vh = src.videoHeight; if (vw && vh) { const sw = Math.min(vw, vh * W / H); cx.drawImage(src, (vw - sw) / 2, 0, sw, vh, 0, 0, W, H); } compRaf = requestAnimationFrame(draw); };
+      draw(); const out = cv.captureStream(30); stream.getAudioTracks().forEach(a => out.addTrack(a)); view = out;
+    } catch { dropView(); }
   }
   async function acquire() {
     if (live()) return null; let err = null; stream = null;
@@ -169,7 +182,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     $('#x').onclick = () => { close(); };
     stopMeter(); const err = await acquire();
     if (!live()) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
-    const v = $('#v'); v.srcObject = stream; v.play().catch(() => { /* autoplay */ });
+    const v = $('#v'); v.srcObject = view || stream; v.play().catch(() => { /* autoplay */ });
     // guia de enquadramento: terços e margem de 10%, só na prévia (nunca entra no vídeo gravado), alinhada à área real do vídeo
     const gd = $('#gd'), gb = $('#gb'), cam = $('.cam');
     const place = () => { if (!gd || !v.videoWidth) return; const W = cam.clientWidth, H = cam.clientHeight, k = Math.min(W / v.videoWidth, H / v.videoHeight), w = v.videoWidth * k, h = v.videoHeight * k;
@@ -213,7 +226,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
       c.style.display = 'none'; rb.disabled = false;
       mime = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
       chunks = [];
-      try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined); } catch { flash('Não foi possível iniciar a gravação.'); return; }
+      try { rec = new MediaRecorder(view || stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined); } catch { flash('Não foi possível iniciar a gravação.'); return; }
       rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       rec.onstop = () => { sc && sc.stop(); sc = null; clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
       rec.start(1000); onStart && onStart(); resetY(); play();
@@ -240,7 +253,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   }
   // ---------- 3. resultado ----------
   function result() {
-    stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* ok */ }
+    dropView(); stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* ok */ }
     const type = (rec.mimeType || mime || 'video/mp4').split(';')[0];
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
     const blob = new Blob(chunks, { type }); url = URL.createObjectURL(blob);
