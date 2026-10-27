@@ -219,7 +219,7 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=21');
+$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=22');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },

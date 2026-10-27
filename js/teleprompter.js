@@ -6,6 +6,7 @@ const load = () => { try { const o = JSON.parse(localStorage.getItem(KEY)) || {}
 const save = o => { try { const { text, ...rest } = o; localStorage.setItem(KEY, JSON.stringify(rest)); } catch { /* sem armazenamento */ } };
 
 import { startShotCheck, MSG } from './shotcheck.js?v=3';
+import { canRecordWC, primeAudio, startWcRecording } from './recorder.js?v=1';
 const CSS = `
 #tp{position:fixed;inset:0;z-index:90;background:#0b0b0f;color:#fff;display:flex;flex-direction:column;font:16px/1.4 system-ui,sans-serif}
 #tp *{box-sizing:border-box}
@@ -56,7 +57,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   const st = document.createElement('style'); st.textContent = CSS;
   const root = document.createElement('div'); root.id = 'tp'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Teleprompter');
   document.body.append(st, root);
-  let fmt = window.innerHeight > window.innerWidth ? 'v' : 'h', turnOff = () => { }, sc = null, stream = null, view = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
+  let fmt = window.innerHeight > window.innerWidth ? 'v' : 'h', turnOff = () => { }, sc = null, stream = null, view = null, compCv = null, wcRec = null, wcBlob = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
   const close = () => {
     turnOff(); cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
@@ -77,7 +78,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     { audio: true, video: true }];
   const live = () => !!stream && stream.getTracks().length > 0 && stream.getTracks().every(t => t.readyState === 'live');
   // A prévia e o vídeo gravado saem de um canvas com o formato escolhido (vertical 9:16 ou horizontal 16:9), não importa como o aparelho entrega a câmera.
-  const dropView = () => { cancelAnimationFrame(compRaf); compRaf = 0; view = null; };
+  const dropView = () => { cancelAnimationFrame(compRaf); compRaf = 0; view = null; compCv = null; };
   let onMis = () => { };
   async function buildView() {
     dropView();
@@ -97,7 +98,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
         if (!same && k < 0.999) { bx.drawImage(src, 0, 0, 32, 18); cx.imageSmoothingEnabled = true; cx.drawImage(bg, 0, 0, W, H); cx.fillStyle = 'rgba(0,0,0,.45)'; cx.fillRect(0, 0, W, H); }
         cx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh); }
         compRaf = requestAnimationFrame(draw); };
-      draw(); const out = cv.captureStream(30); stream.getAudioTracks().forEach(a => out.addTrack(a)); view = out;
+      draw(); const out = cv.captureStream(30); stream.getAudioTracks().forEach(a => out.addTrack(a)); view = out; compCv = cv;
     } catch { dropView(); }
   }
   async function acquire() {
@@ -245,18 +246,36 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     rb.onclick = async () => {
       if (rec && rec.state === 'recording') { rec.stop(); return; }
       if (sc) { const iss = sc.issues(); if (iss && iss.length) { rb.disabled = true; const r = await shotDialog(iss); rb.disabled = false; if (r === 'fix') return; } }
+      let actx = null; if (canRecordWC()) { try { actx = primeAudio(); } catch { actx = null; } }   // iOS: criado dentro do toque
       // contagem regressiva 3-2-1
       rb.disabled = true; const c = $('#c'); c.style.display = 'flex';
       for (let n = 3; n > 0; n--) { c.textContent = n; await new Promise(r => setTimeout(r, 1000)); }
       c.style.display = 'none'; rb.disabled = false;
-      mime = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
-      chunks = [];
-      try { rec = new MediaRecorder(view || stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined); } catch { flash('Não foi possível iniciar a gravação.'); return; }
-      rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-      rec.onstop = () => { sc && sc.stop(); sc = null; clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
-      rec.start(1000); onStart && onStart(); resetY(); play();
+      let tm = 0, t0 = 0;
+      const finish = () => { sc && sc.stop(); sc = null; clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
+      let started = false; wcBlob = null; wcRec = null;
+      if (actx && compCv && stream.getAudioTracks()[0]) {
+        try {
+          wcRec = await startWcRecording({ ctx: actx, source: compCv, audioTrack: stream.getAudioTracks()[0], fps: 30, onError: e => console.warn('gravador', e) });
+          rec = { state: 'recording', mimeType: 'video/mp4', stop() {
+            if (this.state !== 'recording') return; this.state = 'inactive';
+            wcRec.stop().then(b => { wcBlob = b; }, e => { console.warn('gravador', e); wcBlob = null; }).finally(finish);
+          } };
+          started = true;
+        } catch (e) { console.warn('Gravador próprio indisponível, usando o padrão do navegador.', e); wcRec = null; try { actx.close(); } catch { /* ok */ } }
+      } else if (actx) { try { actx.close(); } catch { /* ok */ } }
+      actx = null;
+      if (!started) {
+        mime = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+        chunks = [];
+        try { rec = new MediaRecorder(view || stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined); } catch { flash('Não foi possível iniciar a gravação.'); return; }
+        rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        rec.onstop = finish;
+        rec.start(1000);
+      }
+      onStart && onStart(); resetY(); play();
       rb.classList.add('on'); rb.setAttribute('aria-label', 'Parar gravação'); $('#r').style.display = 'flex';
-      const t0 = Date.now(); const tm = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('#rt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 500);
+      t0 = Date.now(); tm = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('#rt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 500);
     };
   }
 
@@ -279,9 +298,9 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   // ---------- 3. resultado ----------
   function result() {
     turnOff(); dropView(); stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* ok */ }
-    const type = (rec.mimeType || mime || 'video/mp4').split(';')[0];
+    const type = wcBlob ? 'video/mp4' : (rec.mimeType || mime || 'video/mp4').split(';')[0];
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
-    const blob = new Blob(chunks, { type }); url = URL.createObjectURL(blob);
+    const blob = wcBlob || new Blob(chunks, { type }); url = URL.createObjectURL(blob);
     const file = new File([blob], 'teleprompter-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.' + ext, { type });
     if (!file.size) { flash('A gravação saiu vazia. Tente de novo.'); camera(); return; }
     h(`<div class="bar"><b>Gravação pronta</b></div>
