@@ -1,6 +1,6 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
-import { openMedia, extractAudio } from './media.js?v=4';
-import { ensureProgressive } from './remux.js?v=3';
+import { openMedia, extractAudio } from './media.js?v=5';
+import { ensureProgressive } from './remux.js?v=4';
 import { useBlur, renderClip } from './render.js?v=3';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';

@@ -41,7 +41,8 @@ export async function openMedia(file) {
     const dsi = e.esds && e.esds.esd.descs[0] && e.esds.esd.descs[0].descs[0];
     const asc = dsi ? new Uint8Array(dsi.data) : findAsc(mo);
     const codec = (at.codec.length > 4 || !asc) ? at.codec : 'mp4a.40.' + (asc[0] >> 3);
-    out.audio = { codec, sampleRate: at.audio.sample_rate, channels: at.audio.channel_count, asc, samples: mp4.getTrackSamplesInfo(at.id) };
+    const FQ = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350], fi = asc && asc.length >= 2 ? ((asc[0] & 7) << 1) | (asc[1] >> 7) : 99, ach = asc && asc.length >= 2 ? (asc[1] >> 3) & 15 : 0;   // o ASC manda: o iPhone grava mono mas o índice diz 2 canais
+    out.audio = { codec, sampleRate: fi <= 12 ? FQ[fi] : at.audio.sample_rate, channels: ach > 0 && ach < 8 ? ach : at.audio.channel_count, asc, samples: mp4.getTrackSamplesInfo(at.id) };
   }
   const vt = info.videoTracks[0];
   if (vt) {
@@ -52,7 +53,26 @@ export async function openMedia(file) {
     const mt = trak.tkhd.matrix, rot = Math.round(Math.atan2(mt[1], mt[0]) * 180 / Math.PI);   // 0, 90, 180 ou -90
     out.video = { codec: vt.codec, width: vt.video.width, height: vt.video.height, rotation: ((rot % 360) + 360) % 360, description, samples: mp4.getTrackSamplesInfo(vt.id) };
   }
+  if (out.video && !out.video.samples.length) await fillFragmented(file, out, info);
   return out;
+}
+
+// MP4 "fragmentado" (gravações do MediaRecorder do iPhone): o moov não lista amostras; elas estão nos blocos moof.
+// Leio o arquivo inteiro só para montar a lista de amostras (offset, tamanho, tempo); os dados continuam sendo lidos do arquivo original.
+async function fillFragmented(file, out, info0) {
+  if (file.size > 400 << 20) throw new Error('Gravação fragmentada grande demais para abrir.');
+  const ab = await file.arrayBuffer(); ab.fileStart = 0;
+  const mp4 = MP4Box().createFile(); const S = {}; let info = null, err = null;
+  mp4.onError = e => { err = e; };
+  mp4.onReady = i => { info = i; for (const t of [...i.videoTracks, ...i.audioTracks]) { S[t.id] = []; mp4.setExtractionOptions(t.id, null, { nbSamples: 1000 }); } mp4.start(); };
+  mp4.onSamples = (id, u, ss) => { for (const x of ss) S[id].push({ number: x.number, offset: x.offset, size: x.size, dts: x.dts, cts: x.cts, duration: x.duration, timescale: x.timescale, is_sync: x.is_sync }); };
+  mp4.appendBuffer(ab); mp4.flush();
+  if (err || !info) throw new Error('Não consegui ler a gravação fragmentada.');
+  const vt = info.videoTracks[0], at = info.audioTracks[0];
+  if (!S[vt.id] || !S[vt.id].length) throw new Error('A gravação não tem imagem.');
+  out.video.samples = S[vt.id]; if (out.audio && at && S[at.id]) out.audio.samples = S[at.id];
+  const end = t => { const a = S[t.id]; if (!a || !a.length) return 0; const l = a[a.length - 1]; return (l.cts + l.duration) / l.timescale; };
+  out.duration = Math.max(out.duration || 0, end(vt), at ? end(at) : 0);
 }
 
 // Leitor com janela de 16 MB: lê trechos do arquivo sob demanda.
