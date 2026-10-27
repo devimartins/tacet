@@ -1,7 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
-import { openMedia, extractAudio } from './media.js';
+import { openMedia, extractAudio } from './media.js?v=2';
 import { ensureProgressive } from './remux.js?v=1';
-import { useBlur, renderClip } from './render.js';
+import { useBlur, renderClip } from './render.js?v=2';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
@@ -219,7 +219,7 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=19');
+$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=20');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -1043,7 +1043,7 @@ const brUsed = new Set(), brSeen = new Set();
 async function brollFor(qs, secs) {
   qs = [].concat(qs);   // qs: consulta principal + alternativas equivalentes (nunca uma palavra solta: melhor sem B-roll do que B-roll sem relação)
   for (const qq of qs) {
-    if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=2')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
+    if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=3')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
     const img = await findBroll(qq).catch(() => null); if (img) return { img, q: qq };
   }
   return null;

@@ -71,7 +71,7 @@ function wav(i16) {
   v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); s(36, 'data'); v.setUint32(40, i16.length * 2, true);
   new Int16Array(b, 44).set(i16); return new Blob([b], { type: 'audio/wav' });
 }
-export async function extractAudio(file, media, secs, onChunk, onProgress) {
+async function extractAudioWC(file, media, secs, onChunk, onProgress) {
   const A = media.audio; if (!A) throw new Error('Este vídeo não tem áudio.');
   if (!A.codec.startsWith('mp4a')) throw new Error('Áudio ' + A.codec + ' ainda não é suportado (só AAC).');
   if (typeof AudioDecoder === 'undefined') throw new Error('Este navegador não consegue decodificar áudio. Use Chrome, Edge ou Safari atualizado.');
@@ -98,4 +98,29 @@ export async function extractAudio(file, media, secs, onChunk, onProgress) {
   await dec.flush(); dec.close();
   if (k > 0) { const blob = wav(buf.subarray(0, k)), o = idx * secs; pending = pending.then(() => onChunk(blob, o)); }
   await pending; onProgress && onProgress(1);
+}
+
+// Plano B: o decodificador de áudio do navegador (AudioDecoder) falha em alguns aparelhos (ex.: iPhone com gravações do próprio navegador).
+// Então o navegador decodifica o arquivo inteiro pelo caminho tradicional e eu reamostro para 16 kHz mono.
+async function extractViaContext(file, secs, onChunk, onProgress) {
+  if (file.size > 300 << 20) throw new Error('Arquivo grande demais para o plano B de áudio.');
+  const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC();
+  let buf; try { buf = await ac.decodeAudioData(await file.arrayBuffer()); } finally { try { ac.close(); } catch { /* ok */ } }
+  const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext, oc = new OC(1, Math.max(1, Math.ceil(buf.duration * 16000)), 16000), src = oc.createBufferSource();
+  src.buffer = buf; src.connect(oc.destination); src.start(); const r = await oc.startRendering(), f = r.getChannelData(0), N = 16000 * secs;
+  for (let o = 0, idx = 0; o < f.length; o += N, idx++) {
+    const part = f.subarray(o, Math.min(f.length, o + N)), i16 = new Int16Array(part.length);
+    for (let i = 0; i < part.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(part[i] * 32767)));
+    await onChunk(wav(i16), idx * secs); onProgress && onProgress(Math.min(1, (o + N) / f.length));
+  }
+  onProgress && onProgress(1);
+}
+export async function extractAudio(file, media, secs, onChunk, onProgress) {
+  let sent = 0; const wrap = (b, o) => { sent++; return onChunk(b, o); };
+  try { await extractAudioWC(file, media, secs, wrap, onProgress); }
+  catch (e) {
+    if (sent || !media.audio) throw e;
+    console.warn('AudioDecoder falhou; usando decodeAudioData', e);
+    try { await extractViaContext(file, secs, onChunk, onProgress); } catch (e2) { throw new Error(e.message + ' (plano B: ' + (e2.message || e2) + ')'); }
+  }
 }

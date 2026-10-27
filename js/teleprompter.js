@@ -214,6 +214,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     const showG = () => { gd.classList.toggle('on', cfg.guide !== false); gb.setAttribute('aria-pressed', String(cfg.guide !== false)); place(); };
     gb.onclick = () => { cfg.guide = cfg.guide === false; save(cfg); showG(); };
     v.addEventListener('loadedmetadata', place); v.addEventListener('resize', place); window.addEventListener('resize', place); showG();
+    const pi = setInterval(place, 250); turnOff = () => { clearInterval(pi); window.removeEventListener('resize', place); };   // reposiciona a guia sempre que o formato ou a rotação mudar
     let lastChk = '';
     startShotCheck(v, iss => { const c = $('#chk'); if (!c || !iss) return; const t = iss.length ? MSG[iss[0]] : 'Enquadramento e luz ok'; if (t !== lastChk) { lastChk = t; c.textContent = t; c.className = 'chk ' + (iss.length ? 'bad' : 'ok'); } }).then(x => { if ($('#v')) sc = x; else x && x.stop(); }).catch(() => { });
     const tx = $('#tx'); tx.textContent = cfg.text; tx.style.fontSize = cfg.size + 'px'; tx.style.lineHeight = '1.35'; tx.style.transform = cfg.mirror ? 'scaleX(-1)' : '';
