@@ -26,6 +26,12 @@ const CSS = `
 #tp .gd i{position:absolute;left:6px;top:calc(33.33% - 18px);font:600 11px system-ui;font-style:normal;color:#fff;opacity:.8;text-shadow:0 1px 2px #000}
 #tp .cnt{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:30vmin;font-weight:800;text-shadow:0 2px 12px #000}
 #tp .zr{display:flex;align-items:center;gap:10px;padding:8px 16px 0;font-size:13px}#tp .zr input{flex:1}#tp .zr[hidden]{display:none}
+#tp.camv .ctls{display:flex;flex-direction:column}
+@media (orientation:landscape) and (max-height:560px){
+#tp.camv{flex-direction:row}#tp.camv .cam{flex:1 1 auto;min-width:0}
+#tp.camv .ctls{flex:0 0 min(46vw,340px);justify-content:center;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)}
+#tp.camv .ctl{padding:6px 10px}#tp.camv .zr{padding:4px 12px 0}
+}
 #tp .rec{position:absolute;top:10px;right:12px;display:none;gap:6px;align-items:center;font-weight:700}
 #tp .rec i{width:10px;height:10px;border-radius:50%;background:#f33;animation:tpb 1s infinite}
 @keyframes tpb{50%{opacity:.2}}
@@ -49,14 +55,14 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   const st = document.createElement('style'); st.textContent = CSS;
   const root = document.createElement('div'); root.id = 'tp'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Teleprompter');
   document.body.append(st, root);
-  let sc = null, stream = null, view = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
+  let turnOff = () => { }, sc = null, stream = null, view = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
   const close = () => {
-    cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
+    turnOff(); cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
     stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* sem wake lock */ }
     if (url) URL.revokeObjectURL(url); root.remove(); st.remove();
   };
-  const h = (html) => { root.innerHTML = html; return root; };
+  const h = (html) => { root.className = ''; root.innerHTML = html; return root; };
   const $ = s => root.querySelector(s);
 
 
@@ -179,18 +185,23 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     h(`<div class="cam"><video id="v" playsinline muted autoplay></video>
       <div class="win"><div class="txt" id="tx"></div></div><div class="line"></div>
       <div class="gd" id="gd" aria-hidden="true"><i>olhos aqui</i></div><div class="chk" id="chk" role="status"></div><div class="cnt" id="c"></div><div class="rec" id="r"><i></i><span id="rt">0:00</span></div></div>
-    <div class="zr" id="zr" hidden><label for="zk">Zoom da câmera</label><input id="zk" type="range" min="0" max="100" step="1"><span class="mut" id="zkv"></span></div>
+    <div class="ctls"><div class="zr" id="zr" hidden><label for="zk">Zoom da câmera</label><input id="zk" type="range" min="0" max="100" step="1"><span class="mut" id="zkv"></span></div>
     <div class="ctl">
       <button id="sm" type="button" aria-label="Diminuir velocidade">Mais lento</button>
       <button class="recb" id="rb" type="button" aria-label="Gravar"></button>
       <button id="sf" type="button" aria-label="Aumentar velocidade">Mais rápido</button>
     </div>
-    <div class="ctl"><button id="zm" type="button">A−</button><button id="zp" type="button">A+</button><button id="gb" type="button" aria-pressed="true">Guia</button><button id="pz" type="button">Pausar texto</button><button id="x" type="button">Cancelar</button></div>`);
-    $('#x').onclick = () => { close(); };
+    <div class="ctl"><button id="zm" type="button">A−</button><button id="zp" type="button">A+</button><button id="gb" type="button" aria-pressed="true">Guia</button><button id="pz" type="button">Pausar texto</button><button id="x" type="button">Cancelar</button></div></div>`);
+    root.classList.add('camv'); $('#x').onclick = () => { close(); };
     stopMeter(); const err = await acquire();
     if (!live()) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
-    const v = $('#v'); v.srcObject = view || stream;
-    if (view) { const zi = $('#zk'), zr = $('#zr'); zr.hidden = false; zi.value = Math.round(zk * 100); const zu = () => { $('#zkv').textContent = zi.value < 15 ? 'Amplo' : zi.value > 85 ? 'Fechado' : zi.value + '%'; }; zu(); zi.oninput = () => { zk = zi.value / 100; cfg.zoomK = zk; save(cfg); zu(); }; } v.play().catch(() => { /* autoplay */ });
+    const v = $('#v'); const zi = $('#zk'), zr = $('#zr'), zu = () => { $('#zkv').textContent = zi.value < 15 ? 'Amplo' : zi.value > 85 ? 'Fechado' : zi.value + '%'; };
+    zi.oninput = () => { zk = zi.value / 100; cfg.zoomK = zk; save(cfg); zu(); };
+    const applyView = () => { v.srcObject = view || stream; v.play().catch(() => { /* autoplay */ }); zr.hidden = !view; zi.value = Math.round(zk * 100); zu(); };
+    applyView(); v.play().catch(() => { /* autoplay */ });
+    // girou o aparelho: mede de novo a câmera e refaz o recorte (em pé = 9:16; deitado = imagem inteira). Não mexe durante a gravação.
+    let ot = 0; const onTurn = () => { clearTimeout(ot); ot = setTimeout(async () => { if (!document.getElementById('tp') || !$('#v') || (rec && rec.state === 'recording')) return; await fitOrientation(); applyView(); }, 450); };
+    window.addEventListener('resize', onTurn); window.addEventListener('orientationchange', onTurn); turnOff = () => { clearTimeout(ot); window.removeEventListener('resize', onTurn); window.removeEventListener('orientationchange', onTurn); };
     // guia de enquadramento: terços e margem de 10%, só na prévia (nunca entra no vídeo gravado), alinhada à área real do vídeo
     const gd = $('#gd'), gb = $('#gb'), cam = $('.cam');
     const place = () => { if (!gd || !v.videoWidth) return; const W = cam.clientWidth, H = cam.clientHeight, k = Math.min(W / v.videoWidth, H / v.videoHeight), w = v.videoWidth * k, h = v.videoHeight * k;
@@ -261,7 +272,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   }
   // ---------- 3. resultado ----------
   function result() {
-    dropView(); stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* ok */ }
+    turnOff(); dropView(); stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* ok */ }
     const type = (rec.mimeType || mime || 'video/mp4').split(';')[0];
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
     const blob = new Blob(chunks, { type }); url = URL.createObjectURL(blob);
