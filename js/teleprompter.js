@@ -6,7 +6,7 @@ const load = () => { try { const o = JSON.parse(localStorage.getItem(KEY)) || {}
 const save = o => { try { const { text, ...rest } = o; localStorage.setItem(KEY, JSON.stringify(rest)); } catch { /* sem armazenamento */ } };
 
 import { startShotCheck, MSG } from './shotcheck.js?v=3';
-import { canRecordWC, primeAudio, startWcRecording } from './recorder.js?v=2';
+import { canRecordWC, primeAudio, startWcRecording, wcStage } from './recorder.js?v=3';
 const CSS = `
 #tp{position:fixed;inset:0;z-index:90;background:#0b0b0f;color:#fff;display:flex;flex-direction:column;font:16px/1.4 system-ui,sans-serif}
 #tp *{box-sizing:border-box}
@@ -265,7 +265,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
       } catch { mr = null; }
       if (actx && compCv && stream.getAudioTracks()[0]) {
         try {
-          wcRec = await Promise.race([startWcRecording({ ctx: actx, source: compCv, audioTrack: stream.getAudioTracks()[0], fps: 30, onError: e => (dbg.push(String(e && e.message || e)), console.warn('gravador', e)) }), new Promise((_, no) => setTimeout(() => no(new Error('início demorou')), 3000))]);
+          wcRec = await Promise.race([startWcRecording({ ctx: actx, source: compCv, audioTrack: stream.getAudioTracks()[0], fps: 30, onError: e => (dbg.push(String(e && e.message || e)), console.warn('gravador', e)) }), new Promise((_, no) => setTimeout(() => no(new Error('início demorou na etapa ' + wcStage)), 3000))]);
         } catch (e) { dbg.push('início: ' + String(e && e.message || e)); console.warn('Gravador próprio indisponível', e); wcRec = null; try { actx.close(); } catch { /* ok */ } }
       } else if (actx) { try { actx.close(); } catch { /* ok */ } }
       actx = null;
@@ -310,6 +310,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     <div class="res"><video id="pv" src="${url}" controls playsinline></video>
     <p class="tip" id="wm" style="font-size:14px;color:#fff">Assista à prévia. Se gostou, toque em <b>Usar no ForjaClip</b> para legendar. Se não, toque em <b>Gravar de novo</b>: o texto e os ajustes continuam aqui.</p>
     <div class="ctl"><button class="pri" id="us" type="button">Usar no ForjaClip</button><button id="again" type="button">Gravar de novo</button><button id="sv" type="button">Salvar no aparelho</button><button id="x" type="button">Descartar e fechar</button></div></div>`);
+    $('#wm').append(document.createElement('br'), Object.assign(document.createElement('small'), { textContent: 'Gravador: ' + (wcBlob ? 'próprio (H.264+AAC)' : 'reserva do navegador' + (dbg.length ? ' — ' + dbg.join(' | ') : '')) + ' · ' + (file.size / 1048576).toFixed(1) + ' MB' }));
     if (ext === 'webm') $('#wm').append(document.createElement('br'), 'Este navegador gravou em WebM. Se o editor não aceitar, grave em um navegador que salve MP4 (Safari ou Chrome recente).');
     $('#sv').onclick = async () => {
       try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch (e) { if (e.name === 'AbortError') return; }
