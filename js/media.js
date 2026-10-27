@@ -121,6 +121,6 @@ export async function extractAudio(file, media, secs, onChunk, onProgress) {
   catch (e) {
     if (sent || !media.audio) throw e;
     console.warn('AudioDecoder falhou; usando decodeAudioData', e);
-    try { await extractViaContext(file, secs, onChunk, onProgress); } catch (e2) { throw new Error(e.message + ' (plano B: ' + (e2.message || e2) + ')'); }
+    try { await extractViaContext(file, secs, onChunk, onProgress); } catch (e2) { const A = media.audio; throw new Error(e.message + ' (plano B: ' + (e2.message || e2) + '; áudio ' + A.codec + ', ' + A.sampleRate + ' Hz, ' + A.channels + ' canal(is), ' + (A.samples ? A.samples.length : 0) + ' amostras, arquivo ' + (file.type || '?') + ' ' + Math.round(file.size / 1024) + ' KB)'); }
   }
 }

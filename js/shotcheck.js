@@ -28,15 +28,15 @@ const ORDER = Object.keys(MSG);
 export function analyze(face, lum, asp) {
   if (!face) return ['noface'];
   const out = [], top = face.y - face.h / 2, headTop = top - 0.3 * face.h, eyeY = face.eyes ? (face.eyes[0][1] + face.eyes[1][1]) / 2 : top + 0.3 * face.h;
-  if (headTop < 0.015) out.push('headcut'); else if (eyeY > 0.5) out.push('lowface');
+  if (headTop < 0.03) out.push('headcut'); else if (headTop > 0.22 || eyeY > 0.45) out.push('lowface');
   if (face.x - face.w / 2 < 0.1 || face.x + face.w / 2 > 0.9) out.push('edge');
   const hh = asp < 1 ? [0.11, 0.3] : [0.2, 0.5];   // altura do rosto no quadro: vertical x horizontal
   if (face.h < hh[0]) out.push('far'); else if (face.h > hh[1]) out.push('close');
   if (face.eyes) { const dx = (face.eyes[0][0] - face.eyes[1][0]) * asp, dy = face.eyes[0][1] - face.eyes[1][1]; let a = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI); if (a > 90) a = 180 - a; if (a > 9) out.push('tilt'); }
   if (lum) {
-    if (lum.face < 65) out.push('dark'); else if (lum.face > 205) out.push('over');
+    if (lum.face < 95) out.push('dark'); else if (lum.face > 200) out.push('over');
     if (lum.bg - lum.face > 50 && lum.bg > 110) out.push('backlit');
-    const m = (lum.left + lum.right) / 2 || 1; if (Math.abs(lum.left - lum.right) / m > 0.35 && lum.face >= 65) out.push('uneven');
+    const m = (lum.left + lum.right) / 2 || 1; if (Math.abs(lum.left - lum.right) / m > 0.35 && lum.face >= 95) out.push('uneven');
   }
   return ORDER.filter(k => out.includes(k));
 }

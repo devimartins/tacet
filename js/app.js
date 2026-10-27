@@ -1,7 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
-import { openMedia, extractAudio } from './media.js?v=2';
-import { ensureProgressive } from './remux.js?v=1';
-import { useBlur, renderClip } from './render.js?v=2';
+import { openMedia, extractAudio } from './media.js?v=3';
+import { ensureProgressive } from './remux.js?v=2';
+import { useBlur, renderClip } from './render.js?v=3';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
@@ -219,7 +219,7 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=20');
+$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=21');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -1043,7 +1043,7 @@ const brUsed = new Set(), brSeen = new Set();
 async function brollFor(qs, secs) {
   qs = [].concat(qs);   // qs: consulta principal + alternativas equivalentes (nunca uma palavra solta: melhor sem B-roll do que B-roll sem relação)
   for (const qq of qs) {
-    if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=3')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
+    if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=4')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
     const img = await findBroll(qq).catch(() => null); if (img) return { img, q: qq };
   }
   return null;
@@ -1159,7 +1159,12 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
   paint();
   vb.onclick = () => { if (v.muted || v.volume === 0) { v.muted = false; if (v.volume === 0) v.volume = .8; } else v.muted = true; paint(); keepV(); };
   vr.oninput = () => { v.volume = vr.value / 100; v.muted = v.volume === 0; paint(); keepV(); };
-  eb.onclick = () => { $('#tabT').click(); $('#pText').scrollIntoView({ block: 'nearest' }); flash('Edite o texto das legendas na aba Legendas.'); };
+  eb.onclick = () => {
+    if (!S.words.length) { flash(S.busy ? 'A transcrição ainda está rodando. Aguarde para editar as legendas.' : 'Ainda não há legendas neste vídeo.'); return; }
+    const mb = $('#mbText'), mob = mb && getComputedStyle($('#mbar')).display !== 'none';
+    if (mob) { if (mb.getAttribute('aria-pressed') !== 'true') mb.click(); } else { $('#tabT').click(); $('#pText').scrollIntoView({ block: 'nearest' }); }
+    flash('Edite o texto das legendas na aba Legendas.');
+  };
   for (const b of [vb, vr, eb]) b.addEventListener('pointerdown', e => e.stopPropagation());
 }
 
