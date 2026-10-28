@@ -478,6 +478,7 @@ $('#tlTrim').onclick = () => {   // tira a preparação do começo e a pausa do 
   if (!n) { flash(S.words.length ? 'Os cortes já começam e terminam na fala.' : 'Ainda não há transcrição para achar onde a fala começa e termina.'); return; }
   save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI(); flash('Aparei ' + n + ' corte(s): ' + cut.toFixed(1) + ' s de preparação e pausa removidos. Você ainda pode arrastar as bordas.');
 };
+$('#tl .tw').addEventListener('click', e => { if (e.target.closest('.drag')) return; const tw = $('#tl .tw'), r = tw.getBoundingClientRect(); if (!r.width) return; S.prev = null; seek(Math.max(0, Math.min(S.dur, (e.clientX - r.left) / r.width * S.dur))); });   // toque na linha do tempo leva o vídeo até ali
 $('#tlZp').onclick = () => tlZoom(S.tlz * 1.6); $('#tlZm').onclick = () => tlZoom(S.tlz / 1.6);
 const hnd = h => { const u = el('u', { className: 'h ' + h }); u.dataset.h = h; return u; };
 function drawTimeline() {
@@ -488,7 +489,8 @@ function drawTimeline() {
   document.querySelectorAll('#tl .x').forEach(n => n.remove());
   const nc = document.querySelector('#tl .tnc'), tw = document.querySelector('#tl .tw'), ph = $('#ph2');
   const addTrack = (name, fill, cls = '', first = false) => { const t = el('div', { className: 'trk x ' + cls }), lb = el('span', { className: 'tn x', textContent: name }); if (first) { nc.prepend(lb); tw.prepend(t); } else { nc.append(lb); tw.insertBefore(t, ph); } fill(t); };
-  addTrack('Vídeo', t => t.append(el('i', { style: 'left:0;width:100%', textContent: S.title || 'Vídeo principal' })), 'tv', true);
+  { const t = el('div', { className: 'trk x tv' }), lb = el('span', { className: 'tn x', textContent: 'Vídeo' }); t.append(el('i', { style: 'left:0;width:100%', textContent: S.title || 'Vídeo principal' }));
+    const l0 = nc.querySelector('.tn:not(.x)'), t0 = $('#trkC'); if (l0 && t0) { l0.after(lb); t0.after(t); } else { nc.append(lb); tw.insertBefore(t, ph); } }   // legendas ficam acima do vídeo, como nos editores
   if ((S.aud || []).length) addTrack('Áudio', t => S.aud.forEach(o => {
     const b = el('i', { className: 'drag', style: `left:${o.at / D * 100}%;width:${Math.max(1.5, o.buf.duration / D * 100)}%`, textContent: o.name, title: 'Arraste para mover o áudio' });
     b.onpointerdown = e => { e.stopPropagation(); b.setPointerCapture(e.pointerId); const r = t.getBoundingClientRect(), x0 = e.clientX, a0 = o.at;
