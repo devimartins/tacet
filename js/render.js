@@ -1,7 +1,7 @@
 // Gera um corte 9:16 com legendas, 100% no navegador: decodifica, recorta, desenha as legendas, codifica e grava o MP4.
 // O áudio original (AAC) é copiado sem recodificar.
 import { drawCaption, chunksOf, perChunk, resolve, loadFont } from './captions.js';
-import { makeReader } from './media.js?v=5';
+import { makeReader } from './media.js?v=6';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
 import { trackAt } from './facetrack.js';
@@ -48,7 +48,8 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
 
   let bgM = null, bgWarned = false;
   const q = []; let nextT = 0, n = 0, lastT = 0;
-  const dec = new VideoDecoder({ output: f => q.push(f), error: e => { derr = e; } });
+  let ci = -1, nout = 0;
+  const dec = new VideoDecoder({ output: f => { nout++; q.push(f); }, error: e => { derr = new Error((e && e.message || 'erro') + ' [amostra ' + ci + ', quadros ' + nout + ', ' + V.codec + ' ' + V.width + 'x' + V.height + ', desc ' + (V.description ? V.description.length : 0) + ']'); } });
   const dcfg = { codec: V.codec, codedWidth: V.width, codedHeight: V.height }; if (V.description) dcfg.description = V.description;
   if (!(await VideoDecoder.isConfigSupported(dcfg)).supported) throw new Error('O aparelho não decodifica este vídeo (' + V.codec + ').');
   dec.configure(dcfg);
@@ -88,7 +89,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   let i0 = 0; for (let i = 0; i < S.length; i++) { if (tm(S[i]) > start + 2) break; if (S[i].is_sync && tm(S[i]) <= start + 1e-6) i0 = i; }   // último quadro-chave antes do início
   const read = makeReader(file);
   for (let i = i0; i < S.length; i++) {
-    const s = S[i]; if (s.dts / s.timescale > end + 0.6) break;
+    const s = S[i]; if (s.dts / s.timescale > end + 0.6) break; ci = i;
     if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
     dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: await read(s.offset, s.size) }));
     while (dec.decodeQueueSize > 8 || q.length > 4) { if (q.length) await process(q.shift()); else await new Promise(r => setTimeout(r, 2)); }

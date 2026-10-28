@@ -10,6 +10,29 @@ export const canRecordWC = () => !!(window.VideoEncoder && window.AudioEncoder &
 // Cria o contexto de áudio dentro do toque do usuário (exigência do iOS) e passa para startWcRecording.
 export function primeAudio() { const AC = window.AudioContext || window.webkitAudioContext, c = new AC(); try { c.resume(); } catch { /* ok */ } return c; }
 
+
+// Alguns navegadores (Safari) não entregam a descrição do H.264 (avcC) junto do primeiro quadro. Monto a partir do SPS/PPS do próprio quadro-chave.
+export function avcFromData(d) {
+  const nals = []; let annexb = false;
+  if ((d[0] === 0 && d[1] === 0 && d[2] === 0 && d[3] === 1) || (d[0] === 0 && d[1] === 0 && d[2] === 1)) {
+    annexb = true; let i = 0, st = -1;
+    const mark = () => { if (st >= 0) { let e = i; while (e > st && d[e - 1] === 0) e--; nals.push(d.subarray(st, e)); } };
+    while (i + 3 <= d.length) { if (d[i] === 0 && d[i + 1] === 0 && d[i + 2] === 1) { mark(); st = i + 3; i += 3; } else i++; }
+    i = d.length; mark();
+  } else { let o = 0; while (o + 4 < d.length) { const n = ((d[o] << 24) | (d[o + 1] << 16) | (d[o + 2] << 8) | d[o + 3]) >>> 0; if (!n || o + 4 + n > d.length) break; nals.push(d.subarray(o + 4, o + 4 + n)); o += 4 + n; } }
+  const sps = nals.find(n => (n[0] & 31) === 7), pps = nals.find(n => (n[0] & 31) === 8); if (!sps || !pps) return null;
+  const desc = new Uint8Array(11 + sps.length + pps.length); let k = 0;
+  desc.set([1, sps[1], sps[2], sps[3], 0xFF, 0xE1, sps.length >> 8, sps.length & 255], k); k += 8; desc.set(sps, k); k += sps.length;
+  desc.set([1, pps.length >> 8, pps.length & 255], k); k += 3; desc.set(pps, k);
+  return { annexb, desc, codec: 'avc1.' + [sps[1], sps[2], sps[3]].map(b => b.toString(16).padStart(2, '0')).join('') };
+}
+export function toAvcc(d) {   // Annex B -> quadros com prefixo de tamanho de 4 bytes
+  const parts = []; let i = 0, st = -1, len = 0;
+  const mark = () => { if (st >= 0) { let e = i; while (e > st && d[e - 1] === 0) e--; parts.push(d.subarray(st, e)); len += 4 + e - st; } };
+  while (i + 3 <= d.length) { if (d[i] === 0 && d[i + 1] === 0 && d[i + 2] === 1) { mark(); st = i + 3; i += 3; } else i++; }
+  i = d.length; mark();
+  const out = new Uint8Array(len); let o = 0; for (const p of parts) { out[o] = p.length >>> 24; out[o + 1] = (p.length >> 16) & 255; out[o + 2] = (p.length >> 8) & 255; out[o + 3] = p.length & 255; out.set(p, o + 4); o += 4 + p.length; } return out;
+}
 export let wcStage = '';
 export async function startWcRecording({ source, audioTrack, ctx, fps = 30, profile = 'mp4', onError }) {
   wcStage = 'config vídeo';
@@ -27,7 +50,17 @@ export async function startWcRecording({ source, audioTrack, ctx, fps = 30, prof
   const target = new window.Mp4Muxer.ArrayBufferTarget();
   const muxer = new window.Mp4Muxer.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: vmux, width: w, height: h, frameRate: fps }, audio: { codec: P.a[1], sampleRate: sr, numberOfChannels: 1 } });
   let failed = null; const fail = e => { failed = failed || e; onError && onError(e); };
-  const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: fail }); venc.configure(vcfg);
+  let hasCfg = false, built = null, firstV = true;
+  const vout = (c, m) => {
+    try {
+      if (vmux !== 'avc' || hasCfg || (m && m.decoderConfig && m.decoderConfig.description)) { hasCfg = true; muxer.addVideoChunk(c, m); return; }
+      const d = new Uint8Array(c.byteLength); c.copyTo(d);
+      if (!built) { built = avcFromData(d); if (!built) { fail(new Error('Sem descrição do H.264')); return; } }
+      muxer.addVideoChunkRaw(built.annexb ? toAvcc(d) : d, c.type, c.timestamp, c.duration, firstV ? { decoderConfig: { codec: built.codec, description: built.desc, codedWidth: w, codedHeight: h } } : undefined);
+      firstV = false;
+    } catch (e) { fail(e); }
+  };
+  const venc = new VideoEncoder({ output: vout, error: fail }); venc.configure(vcfg);
   const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: fail }); aenc.configure(acfg);
   wcStage = 'ligando microfone';
   const srcNode = ctx.createMediaStreamSource(new MediaStream([audioTrack])), sp = ctx.createScriptProcessor(4096, 1, 1), mute = ctx.createGain();

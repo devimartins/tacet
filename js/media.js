@@ -49,7 +49,7 @@ export async function openMedia(file) {
     const trak = mp4.getTrackById(vt.id), e = trak.mdia.minf.stbl.stsd.entries[0];
     const box = e.avcC || e.hvcC || e.vpcC || e.av1C;
     let description = null;
-    if (box) { const DS = window.DataStream || MP4Box().DataStream, ds = new DS(undefined, 0, DS.BIG_ENDIAN); box.write(ds); description = new Uint8Array(ds.buffer, 8); }
+    if (box) { const DS = window.DataStream || MP4Box().DataStream, ds = new DS(undefined, 0, DS.BIG_ENDIAN); box.write(ds); description = new Uint8Array(ds.buffer.slice(8)); }   // cópia própria: alguns navegadores ignoram o deslocamento de uma visão
     const mt = trak.tkhd.matrix, rot = Math.round(Math.atan2(mt[1], mt[0]) * 180 / Math.PI);   // 0, 90, 180 ou -90
     out.video = { codec: vt.codec, width: vt.video.width, height: vt.video.height, rotation: ((rot % 360) + 360) % 360, description, samples: mp4.getTrackSamplesInfo(vt.id) };
   }
