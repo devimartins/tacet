@@ -491,6 +491,7 @@ function drawTimeline() {
   const addTrack = (name, fill, cls = '', first = false) => { const t = el('div', { className: 'trk x ' + cls }), lb = el('span', { className: 'tn x', textContent: name }); if (first) { nc.prepend(lb); tw.prepend(t); } else { nc.append(lb); tw.insertBefore(t, ph); } fill(t); };
   { const t = el('div', { className: 'trk x tv' }), lb = el('span', { className: 'tn x', textContent: 'Vídeo' }); t.append(el('i', { style: 'left:0;width:100%', textContent: S.title || 'Vídeo principal' }));
     const l0 = nc.querySelector('.tn:not(.x)'), t0 = $('#trkC'); if (l0 && t0) { l0.after(lb); t0.after(t); } else { nc.append(lb); tw.insertBefore(t, ph); } }   // legendas ficam acima do vídeo, como nos editores
+  if ((S.fx.cut || S.fx.acut) && S.words.length) { const rr = cutRanges(visible(), 0, S.dur, S.fx, S.words); if (rr.length) addTrack('Removido', t => rr.forEach(([x, y]) => t.append(el('i', { style: `left:${x / D * 100}%;width:${Math.max(.4, (y - x) / D * 100)}%`, title: 'Removido pela edição automática: ' + mmss(x) + ' a ' + mmss(y) }))), 'tr'); }
   if ((S.aud || []).length) addTrack('Áudio', t => S.aud.forEach(o => {
     const b = el('i', { className: 'drag', style: `left:${o.at / D * 100}%;width:${Math.max(1.5, o.buf.duration / D * 100)}%`, textContent: o.name, title: 'Arraste para mover o áudio' });
     b.onpointerdown = e => { e.stopPropagation(); b.setPointerCapture(e.pointerId); const r = t.getBoundingClientRect(), x0 = e.clientX, a0 = o.at;
@@ -1296,9 +1297,10 @@ function autoEdit(fromRec) {
   const before = { cut: S.fx.cut, acut: S.fx.acut };
   S.fx.cut = 1; S.fx.acut = 1; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); rebuild();
   const r = cutRanges(visible(), 0, S.dur, S.fx, S.words), rem = r.reduce((n, [x, y]) => n + y - x, 0), msg = $('#autoEditM');
-  const txt = rem >= 1 ? (fromRec ? 'Edição automática aplicada à sua gravação: ' : 'Edição automática aplicada: ') + Math.round(rem) + ' s de pausas e hesitações removidos (' + Math.round(rem / Math.max(1, S.dur) * 100) + '% do vídeo). Toque em Reproduzir para ver o resultado e ajuste em Ferramentas > Som.' : 'Não achei pausas ou hesitações para cortar.';
+  drawTimeline();
+  const txt = rem >= 1 ? (fromRec ? 'Edição automática aplicada à sua gravação: ' : 'Edição automática aplicada: ') + Math.round(rem) + ' s de pausas e hesitações removidos em ' + r.length + ' trecho(s) (' + Math.round(rem / Math.max(1, S.dur) * 100) + '% do vídeo, em vermelho na timeline). Toque em Reproduzir para ver o resultado e ajuste em Ferramentas > Som.' : 'Não achei pausas ou hesitações para cortar.';
   if (msg) msg.textContent = txt; status(txt);
-  if (rem >= 1) { S.prev = { s: 0, e: S.dur }; S.prevRem = r; seek(0); flash('Edição automática aplicada: ' + Math.round(rem) + ' s removidos.', { label: 'Desfazer', fn: () => { S.fx.cut = before.cut || 0; S.fx.acut = before.acut || 0; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); rebuild(); S.prev = null; S.prevRem = null; if (msg) msg.textContent = 'Edição automática desfeita.'; } }); }
+  if (rem >= 1) { S.prev = { s: 0, e: S.dur }; S.prevRem = r; seek(0); flash('Edição automática aplicada: ' + Math.round(rem) + ' s removidos.', { label: 'Desfazer', fn: () => { S.fx.cut = before.cut || 0; S.fx.acut = before.acut || 0; S.style.fx = S.fx; syncFx(); saveSoon('style', { style: S.style }); rebuild(); drawTimeline(); S.prev = null; S.prevRem = null; if (msg) msg.textContent = 'Edição automática desfeita.'; } }); }
 }
 // a edição automática é uma escolha do usuário e vale só para vídeo vertical
 const aeVertical = () => { const v = $('#vid'); return !(v && v.videoWidth && v.videoHeight) || v.videoHeight > v.videoWidth; };
