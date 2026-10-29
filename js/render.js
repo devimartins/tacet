@@ -1,7 +1,7 @@
 // Gera um corte 9:16 com legendas, 100% no navegador: decodifica, recorta, desenha as legendas, codifica e grava o MP4.
 // O áudio original (AAC) é copiado sem recodificar.
 import { drawCaption, chunksOf, perChunk, resolve, loadFont } from './captions.js';
-import { makeReader } from './media.js?v=7';
+import { makeReader } from './media.js?v=8';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
 import { trackAt } from './facetrack.js';

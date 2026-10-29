@@ -59,24 +59,61 @@ export async function openMedia(file) {
 
 // MP4 "fragmentado" (gravações do MediaRecorder do iPhone): o moov não lista amostras; elas estão nos blocos moof.
 // Leio o arquivo inteiro só para montar a lista de amostras (offset, tamanho, tempo); os dados continuam sendo lidos do arquivo original.
+// Lista as amostras lendo eu mesmo os blocos moof/traf/trun (a biblioteca erra o deslocamento quando áudio e vídeo dividem o mesmo fragmento).
+function parseFragments(u, trex) {
+  const dv = new DataView(u.buffer, u.byteOffset, u.byteLength), T = {}; let o = 0;
+  const box = (p, e) => { if (p + 8 > e) return null; let sz = dv.getUint32(p), hd = 8; const ty = String.fromCharCode(u[p + 4], u[p + 5], u[p + 6], u[p + 7]); if (sz === 1) { sz = Number(dv.getBigUint64(p + 8)); hd = 16; } else if (sz === 0) sz = e - p; if (sz < hd || p + sz > e) return null; return { ty, p, sz, hd, end: p + sz }; };
+  while (o + 8 <= u.length) {
+    const m = box(o, u.length); if (!m) break;
+    if (m.ty === 'moof') {
+      let prevEnd = m.p, q = m.p + m.hd;
+      while (q + 8 <= m.end) {
+        const tf = box(q, m.end); if (!tf) break; q = tf.end; if (tf.ty !== 'traf') continue;
+        let id = 0, base = null, dDur = 0, dSize = 0, dFlags = 0, dts = 0, moofBase = false, c = tf.p + tf.hd, cursor = null;
+        const runs = [];
+        while (c + 8 <= tf.end) {
+          const x = box(c, tf.end); if (!x) break; c = x.end; const b0 = x.p + x.hd, fl = dv.getUint32(b0) & 0xFFFFFF;
+          if (x.ty === 'tfhd') { id = dv.getUint32(b0 + 4); let r = b0 + 8; if (fl & 1) { base = Number(dv.getBigUint64(r)); r += 8; } if (fl & 2) r += 4; const tr = trex[id] || {}; dDur = tr.dur || 0; dSize = tr.size || 0; dFlags = tr.flags || 0; if (fl & 8) { dDur = dv.getUint32(r); r += 4; } if (fl & 0x10) { dSize = dv.getUint32(r); r += 4; } if (fl & 0x20) { dFlags = dv.getUint32(r); r += 4; } moofBase = !!(fl & 0x20000); }
+          else if (x.ty === 'tfdt') { const ver = u[b0]; dts = ver === 1 ? Number(dv.getBigUint64(b0 + 4)) : dv.getUint32(b0 + 4); }
+          else if (x.ty === 'trun') runs.push({ b0, fl });
+        }
+        if (base === null) base = moofBase || cursor === null ? (moofBase ? m.p : prevEnd) : cursor;
+        let pos = base; const arr = T[id] || (T[id] = []);
+        for (const r of runs) {
+          const cnt = dv.getUint32(r.b0 + 4); let k = r.b0 + 8; if (r.fl & 1) { pos = base + dv.getInt32(k); k += 4; } let first = null; if (r.fl & 4) { first = dv.getUint32(k); k += 4; }
+          for (let i = 0; i < cnt; i++) {
+            let d = dDur, sz = dSize, f = dFlags, cto = 0;
+            if (r.fl & 0x100) { d = dv.getUint32(k); k += 4; } if (r.fl & 0x200) { sz = dv.getUint32(k); k += 4; } if (r.fl & 0x400) { f = dv.getUint32(k); k += 4; } else if (i === 0 && first !== null) f = first;
+            if (r.fl & 0x800) { cto = r.fl >= 0 && u[r.b0] === 1 ? dv.getInt32(k) : dv.getUint32(k) | 0; k += 4; }
+            arr.push({ offset: pos, size: sz, dts, cts: dts + cto, duration: d, is_sync: !(f & 0x10000) }); pos += sz; dts += d;
+          }
+        }
+        prevEnd = pos;
+      }
+    }
+    o = m.end;
+  }
+  return T;
+}
 async function fillFragmented(file, out, info0) {
   if (file.size > 400 << 20) throw new Error('Gravação fragmentada grande demais para abrir.');
-  const ab = await file.arrayBuffer(); ab.fileStart = 0;
-  const mp4 = MP4Box().createFile(); const S = {}; let info = null, err = null;
-  mp4.onError = e => { err = e; };
-  mp4.onReady = i => { info = i; for (const t of [...i.videoTracks, ...i.audioTracks]) { S[t.id] = []; mp4.setExtractionOptions(t.id, null, { nbSamples: 1000 }); } mp4.start(); };
-  mp4.onSamples = (id, u, ss) => { for (const x of ss) S[id].push({ number: x.number, offset: x.offset, size: x.size, dts: x.dts, cts: x.cts, duration: x.duration, timescale: x.timescale, is_sync: x.is_sync }); };
-  mp4.appendBuffer(ab); mp4.flush();
+  const ab = await file.arrayBuffer(), u = new Uint8Array(ab); ab.fileStart = 0;
+  const mp4 = MP4Box().createFile(); let info = null, err = null;
+  mp4.onError = e => { err = e; }; mp4.onReady = i => { info = i; };
+  const mm = await findMoov(file); if (!mm) throw new Error('Não achei o índice da gravação.');
+  const mb = u.slice(mm.pos, mm.pos + mm.size), ft = new Uint8Array([0, 0, 0, 20, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0, 105, 115, 111, 109]), hb = new Uint8Array(ft.length + mb.length); hb.set(ft); hb.set(mb, ft.length); const hbuf = hb.buffer; hbuf.fileStart = 0;
+  mp4.appendBuffer(hbuf); mp4.flush();
   if (err || !info) throw new Error('Não consegui ler a gravação fragmentada.');
-  const vt = info.videoTracks[0], at = info.audioTracks[0];
-  if (!S[vt.id] || !S[vt.id].length) throw new Error('A gravação não tem imagem.');
-  out.video.samples = S[vt.id]; if (out.audio && at && S[at.id]) out.audio.samples = S[at.id];
-  const end = t => { const a = S[t.id]; if (!a || !a.length) return 0; const l = a[a.length - 1]; return (l.cts + l.duration) / l.timescale; };
+  const trex = {}; { const dv = new DataView(mb.buffer, mb.byteOffset, mb.byteLength); for (let i = 4; i + 28 < mb.length; i++) if (mb[i] === 0x74 && mb[i + 1] === 0x72 && mb[i + 2] === 0x65 && mb[i + 3] === 0x78) { const id = dv.getUint32(i + 8); trex[id] = { dur: dv.getUint32(i + 16), size: dv.getUint32(i + 20), flags: dv.getUint32(i + 24) }; } }
+  const T = parseFragments(u, trex), vt = info.videoTracks[0], at = info.audioTracks[0];
+  if (!T[vt.id] || !T[vt.id].length) throw new Error('A gravação não tem imagem.');
+  const fin = (id, ts) => (T[id] || []).map((x, i) => ({ number: i, offset: x.offset, size: x.size, dts: x.dts, cts: x.cts, duration: x.duration, timescale: ts, is_sync: x.is_sync }));
+  const V = fin(vt.id, vt.timescale), A = at ? fin(at.id, at.timescale) : [];
   // sem quadros reordenados (B), garanto tempos crescentes: o MediaRecorder às vezes repete/recua 1 tick, o que confunde o decodificador
-  // a biblioteca estoura 32 bits quando um fragmento começa 1 tick antes do fim do anterior; volto os tempos ao valor real
-  for (const id in S) for (const x of S[id]) { const d = x.dts % 4294967296, off = x.cts - x.dts; x.dts = d; x.cts = d + off; }
-  { const v = S[vt.id]; if (v.every(x => x.cts === x.dts)) for (let i = 1; i < v.length; i++) if (v[i].dts <= v[i - 1].dts) { v[i].dts = v[i].cts = v[i - 1].dts + 1; } }
-  out.duration = Math.max(end(vt), at ? end(at) : 0) || out.duration;   // o cabeçalho de gravações fragmentadas traz uma duração absurda (ex.: 7 milhões de segundos)
+  if (V.every(x => x.cts === x.dts)) for (let i = 1; i < V.length; i++) if (V[i].dts <= V[i - 1].dts) { V[i].dts = V[i].cts = V[i - 1].dts + 1; }
+  out.video.samples = V; if (out.audio && A.length) out.audio.samples = A;
+  const end = a => { if (!a.length) return 0; const l = a[a.length - 1]; return (l.cts + l.duration) / l.timescale; };
+  out.duration = Math.max(end(V), end(A)) || out.duration;   // o cabeçalho de gravações fragmentadas traz uma duração absurda
 }
 
 // Leitor com janela de 16 MB: lê trechos do arquivo sob demanda.
