@@ -72,7 +72,11 @@ async function fillFragmented(file, out, info0) {
   if (!S[vt.id] || !S[vt.id].length) throw new Error('A gravação não tem imagem.');
   out.video.samples = S[vt.id]; if (out.audio && at && S[at.id]) out.audio.samples = S[at.id];
   const end = t => { const a = S[t.id]; if (!a || !a.length) return 0; const l = a[a.length - 1]; return (l.cts + l.duration) / l.timescale; };
-  out.duration = Math.max(out.duration || 0, end(vt), at ? end(at) : 0);
+  // sem quadros reordenados (B), garanto tempos crescentes: o MediaRecorder às vezes repete/recua 1 tick, o que confunde o decodificador
+  // a biblioteca estoura 32 bits quando um fragmento começa 1 tick antes do fim do anterior; volto os tempos ao valor real
+  for (const id in S) for (const x of S[id]) { const d = x.dts % 4294967296, off = x.cts - x.dts; x.dts = d; x.cts = d + off; }
+  { const v = S[vt.id]; if (v.every(x => x.cts === x.dts)) for (let i = 1; i < v.length; i++) if (v[i].dts <= v[i - 1].dts) { v[i].dts = v[i].cts = v[i - 1].dts + 1; } }
+  out.duration = Math.max(end(vt), at ? end(at) : 0) || out.duration;   // o cabeçalho de gravações fragmentadas traz uma duração absurda (ex.: 7 milhões de segundos)
 }
 
 // Leitor com janela de 16 MB: lê trechos do arquivo sob demanda.

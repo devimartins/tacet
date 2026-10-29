@@ -1,7 +1,7 @@
 // Gravações feitas no navegador (MediaRecorder, principalmente no iPhone) saem como MP4 "fragmentado":
 // o índice não lista as amostras e o editor não acha áudio nem vídeo. Aqui reescrevo o arquivo como MP4 comum,
 // sem recodificar (só reorganiza os pacotes já gravados).
-import { openMedia } from './media.js?v=6';
+import { openMedia } from './media.js?v=7';
 
 const FREQ = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
 const rl = (u, p) => { let n = 0, i = 0, b; do { b = u[p++]; n = (n << 7) | (b & 127); i++; } while ((b & 128) && i < 4); return [n, p]; };
