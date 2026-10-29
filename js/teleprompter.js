@@ -6,7 +6,7 @@ const load = () => { try { const o = JSON.parse(localStorage.getItem(KEY)) || {}
 const save = o => { try { const { text, ...rest } = o; localStorage.setItem(KEY, JSON.stringify(rest)); } catch { /* sem armazenamento */ } };
 
 import { startShotCheck, MSG } from './shotcheck.js?v=3';
-import { canRecordWC, primeAudio, startWcRecording, startPcmTap, wcStage } from './recorder.js?v=5';
+import { canRecordWC, primeAudio, startWcRecording, startPcmTap, wcStage } from './recorder.js?v=6';
 const CSS = `
 #tp{position:fixed;inset:0;z-index:90;background:#0b0b0f;color:#fff;display:flex;flex-direction:column;font:16px/1.4 system-ui,sans-serif}
 #tp *{box-sizing:border-box}

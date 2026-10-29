@@ -170,8 +170,9 @@ async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, mus
   const fi = Math.round((fadeIn || 0) * sr), fo = Math.round((fadeOut || 0) * sr);
   if (fi > 0 || fo > 0) for (let i = 0; i < N; i++) { const g = Math.min(fi > 0 && i < fi ? i / fi : 1, fo > 0 && i > N - fo ? (N - i) / fo : 1); L[i] *= g; R[i] *= g; }
   for (let i = 0; i < N; i++) { L[i] = Math.max(-1, Math.min(1, L[i])); R[i] = Math.max(-1, Math.min(1, R[i])); }
+  const aacAsc = (sr, ch) => { const F = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350], i = Math.max(0, F.indexOf(sr)); return new Uint8Array([(2 << 3) | (i >> 1), ((i & 1) << 7) | (ch << 3)]); };   // AudioSpecificConfig AAC-LC: o Safari não entrega esta descrição junto do áudio codificado
   let first = true, err = null;
-  const enc = new AudioEncoder({ output: (c, m) => { muxer.addAudioChunk(c, first ? m : undefined); first = false; }, error: e => { err = e; } });
+  const enc = new AudioEncoder({ output: (c, m) => { const mm = first ? (m && m.decoderConfig && m.decoderConfig.description ? m : { decoderConfig: { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: 2, description: aacAsc(sr, 2) } }) : undefined; muxer.addAudioChunk(c, mm); first = false; }, error: e => { err = e; } });
   const ecfg = { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: 2, bitrate: 128000 };
   if (!(await AudioEncoder.isConfigSupported(ecfg)).supported) throw new Error('Este navegador não codifica AAC. Remova a música ou use Chrome/Edge atualizado.');
   enc.configure(ecfg);

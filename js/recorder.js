@@ -61,7 +61,9 @@ export async function startWcRecording({ source, audioTrack, ctx, fps = 30, prof
     } catch (e) { fail(e); }
   };
   const venc = new VideoEncoder({ output: vout, error: fail }); venc.configure(vcfg);
-  const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: fail }); aenc.configure(acfg);
+  const aacAsc = (sr, ch) => { const F = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350], i = Math.max(0, F.indexOf(sr)); return new Uint8Array([(2 << 3) | (i >> 1), ((i & 1) << 7) | (ch << 3)]); };   // AudioSpecificConfig AAC-LC: o Safari não entrega esta descrição junto do áudio codificado
+  let aFirst = true;
+  const aenc = new AudioEncoder({ output: (c, m) => { try { const mm = aFirst && !(m && m.decoderConfig && m.decoderConfig.description) && P.a[1] === 'aac' ? { decoderConfig: { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: 1, description: aacAsc(sr, 1) } } : m; aFirst = false; muxer.addAudioChunk(c, mm); } catch (e) { fail(e); } }, error: fail }); aenc.configure(acfg);
   wcStage = 'ligando microfone';
   const srcNode = ctx.createMediaStreamSource(new MediaStream([audioTrack])), sp = ctx.createScriptProcessor(4096, 1, 1), mute = ctx.createGain();
   mute.gain.value = 0; srcNode.connect(sp); sp.connect(mute); mute.connect(ctx.destination);
