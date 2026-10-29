@@ -1,7 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
 import { openMedia, extractAudio } from './media.js?v=7';
 import { ensureProgressive } from './remux.js?v=4';
-import { useBlur, renderClip } from './render.js?v=4';
+import { useBlur, renderClip } from './render.js?v=5';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
@@ -892,14 +892,19 @@ $('#audIn').onchange = async e => {
   catch { flash('Não consegui ler este áudio. Tente MP3, M4A ou WAV.'); }
 };
 S.music = null; let musEl = null;
-function musSync() { if (!musEl) return; musEl.volume = S.music.vol; if (S.playing) { if (musEl.paused) musEl.play().catch(() => { }); } else musEl.pause(); }
+// iPhone ignora audio.volume (fica sempre em 100%): o volume da prévia passa por um ganho do WebAudio
+let musCtx = null, musGain = null;
+function musAttach() {
+  musGain = null; try { const AC = window.AudioContext || window.webkitAudioContext; musCtx = musCtx || new AC(); const src = musCtx.createMediaElementSource(musEl); musGain = musCtx.createGain(); src.connect(musGain); musGain.connect(musCtx.destination); } catch { musGain = null; }
+}
+function musSync() { if (!musEl) return; if (musGain) { musGain.gain.value = S.music.vol; musEl.volume = 1; if (musCtx.state === 'suspended') musCtx.resume().catch(() => { }); } else musEl.volume = S.music.vol; if (S.playing) { if (musEl.paused) musEl.play().catch(() => { }); } else musEl.pause(); }
 async function loadMusic(f, label) {
   const m = $('#musMsg'); m.textContent = 'Lendo o áudio…';
   try {
     const sr = S.media?.audio?.sampleRate || 48000, ac = new AudioContext({ sampleRate: sr });
     const buf = await ac.decodeAudioData(await f.arrayBuffer()); ac.close();
     if (musEl) { musEl.pause(); URL.revokeObjectURL(musEl.src); }
-    musEl = new Audio(URL.createObjectURL(f)); musEl.loop = true; label = label || f.name;
+    musEl = new Audio(URL.createObjectURL(f)); musEl.loop = true; musAttach(); label = label || f.name;
     S.music = { buf, vol: dbLin(+$('#musVol').value), name: label }; $('#musRow').hidden = false; $('#musName').textContent = label; drawTimeline(); m.textContent = 'Música pronta. Será misturada ao gerar o corte.'; musSync();
   } catch (err) { m.textContent = 'Não consegui ler este áudio (' + (err.message || 'formato') + '). Tente MP3, M4A ou WAV.'; }
 }
@@ -908,7 +913,7 @@ $('#toneSel').onchange = e => { S.tone = e.target.value; S.style.tone = S.tone; 
 function toneInfo() { $('#toneAuto').textContent = S.tone === 'auto' && S.words.length ? '(detectado: ' + (TONES[effTone()]?.name || '') + ')' : ''; }
 $('#musGen').onclick = async () => {
   const b = $('#musGen'), t = effTone(); b.disabled = true; b.textContent = 'Criando música…';
-  try { const { generateMusic } = await import('./musicgen.js?v=1'); const blob = await generateMusic(t, 30, 44100); await loadMusic(new File([blob], 'musica.wav', { type: 'audio/wav' }), 'Música ' + TONES[t].name.toLowerCase() + ' (original)'); }
+  try { const { generateMusic } = await import('./musicgen.js?v=2'); const blob = await generateMusic(t, 30, 44100); await loadMusic(new File([blob], 'musica.wav', { type: 'audio/wav' }), 'Música ' + TONES[t].name.toLowerCase() + ' (original)'); }
   catch (e) { $('#musMsg').textContent = 'Não consegui gerar a música neste navegador.'; }
   b.disabled = false; b.textContent = 'Gerar música deste tom';
 };

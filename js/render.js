@@ -49,13 +49,19 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   let bgM = null, bgWarned = false;
   const q = []; let nextT = 0, n = 0, lastT = 0;
   let ci = -1, nout = 0;
-  const dec = new VideoDecoder({ output: f => { nout++; q.push(f); }, error: e => { derr = new Error((e && e.message || 'erro') + ' [amostra ' + ci + ', quadros ' + nout + ', ' + V.codec + ' ' + V.width + 'x' + V.height + ', desc ' + (V.description ? V.description.length : 0) + ']'); } });
   const dcfg = { codec: V.codec, codedWidth: V.width, codedHeight: V.height }; if (V.description) dcfg.description = V.description;
+  let dec = null, swTried = false, lastTa = -1;
+  const mkDec = async pref => {
+    const c = pref ? { ...dcfg, hardwareAcceleration: pref } : dcfg;
+    if (pref) { try { if (!(await VideoDecoder.isConfigSupported(c)).supported) return false; } catch { return false; } }
+    dec = new VideoDecoder({ output: f => { nout++; q.push(f); }, error: e => { derr = new Error((e && e.message || 'erro') + ' [amostra ' + ci + ', quadros ' + nout + ', ' + V.codec + ' ' + V.width + 'x' + V.height + ', desc ' + (V.description ? V.description.length : 0) + (pref ? ', ' + pref : '') + ']'); } });
+    dec.configure(c); return true;
+  };
   if (!(await VideoDecoder.isConfigSupported(dcfg)).supported) throw new Error('O aparelho não decodifica este vídeo (' + V.codec + ').');
-  dec.configure(dcfg);
+  await mkDec(null);
 
   async function process(f) {
-    const ta = f.timestamp / 1e6;
+    const ta = f.timestamp / 1e6; lastTa = ta;
     if (inRange(rem, ta)) { f.close(); return; }
     const t = shift(ta) - base;
     if (t < -0.0005 || t > len || t < nextT - 0.001) { f.close(); return; }
@@ -88,13 +94,25 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const S = V.samples, tm = s => s.cts / s.timescale;
   let i0 = 0; for (let i = 0; i < S.length; i++) { if (tm(S[i]) > start + 2) break; if (S[i].is_sync && tm(S[i]) <= start + 1e-6) i0 = i; }   // último quadro-chave antes do início
   const read = makeReader(file);
-  for (let i = i0; i < S.length; i++) {
-    const s = S[i]; if (s.dts / s.timescale > end + 0.6) break; ci = i;
-    if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
-    dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: await read(s.offset, s.size) }));
-    while (dec.decodeQueueSize > 8 || q.length > 4) { if (q.length) await process(q.shift()); else await new Promise(r => setTimeout(r, 2)); }
+  let i = i0;
+  for (;;) {
+    try {
+      for (; i < S.length; i++) {
+        const s = S[i]; if (s.dts / s.timescale > end + 0.6) break; ci = i;
+        if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
+        dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: await read(s.offset, s.size) }));
+        while (dec.decodeQueueSize > 8 || q.length > 4) { if (q.length) await process(q.shift()); else await new Promise(r => setTimeout(r, 2)); }
+      }
+      await dec.flush(); while (q.length) await process(q.shift()); dec.close(); break;
+    } catch (e) {
+      // o decodificador por hardware do aparelho falhou: recomeço do último quadro-chave já usado, com decodificador por software
+      if (!derr && !eerr && e && /EncodingError|InvalidStateError|OperationError/.test(e.name || '')) derr = new Error(e.message || e.name);
+      if (!derr || eerr || swTried || (opts.signal && opts.signal.aborted)) throw e.message && e.message.startsWith('Falha') ? e : new Error('Falha ao gerar o vídeo: ' + (derr || e).message);
+      swTried = true; const why = derr.message; derr = null; try { dec.close(); } catch { /* já fechado */ } while (q.length) q.shift().close();
+      if (!(await mkDec('prefer-software'))) throw new Error('Falha ao gerar o vídeo: ' + why);
+      let k = i0; for (let j = i0; j < S.length; j++) { if (tm(S[j]) > Math.max(lastTa, start)) break; if (S[j].is_sync) k = j; } i = k; console.warn('decodificador reiniciado em software a partir da amostra', k, why);
+    }
   }
-  await dec.flush(); while (q.length) await process(q.shift()); dec.close();
   await enc.flush(); enc.close(); if (grader) grader.dispose();
   if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
 
