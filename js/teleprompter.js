@@ -307,7 +307,8 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     const type = wcBlob ? 'video/mp4' : (rec.mimeType || mime || 'video/mp4').split(';')[0];
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
     const blob = wcBlob || new Blob(chunks, { type }); url = URL.createObjectURL(blob);
-    const file = new File([blob], 'teleprompter-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.' + ext, { type });
+    const ttl = (cfg.text || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean).slice(0, 6).join(' ').slice(0, 48).trim(), dn = new Date(), stamp = String(dn.getDate()).padStart(2, '0') + '-' + String(dn.getMonth() + 1).padStart(2, '0') + ' ' + String(dn.getHours()).padStart(2, '0') + 'h' + String(dn.getMinutes()).padStart(2, '0');
+    const file = new File([blob], (ttl ? ttl.charAt(0).toUpperCase() + ttl.slice(1) + ' · ' + stamp : 'Teleprompter ' + stamp) + '.' + ext, { type });   // nome vem do começo do roteiro
     if (pcm && pcm.data.length) file.__pcm = pcm;
     if (!file.size) { flash('A gravação saiu vazia. Tente de novo. (' + (dbg.join(' | ') || 'sem detalhe') + '; partes: ' + chunks.length + ')'); camera(); return; }
     h(`<div class="bar"><b>Gravação pronta</b></div>

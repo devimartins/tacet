@@ -33,8 +33,11 @@ const vstore = (() => {
   const idx = () => { try { return JSON.parse(localStorage.getItem('forjaclip.vids') || '[]'); } catch { return []; } };
   const setIdx = a => { try { localStorage.setItem('forjaclip.vids', JSON.stringify(a)); } catch { /* ok */ } };
   return {
-    put: async (pid, file) => { if (!pid || !file) return; const a = [pid, ...idx().filter(x => x !== pid)]; setIdx(a.slice(0, 3)); await run('readwrite', st => st.put({ pid, file }, 'p:' + pid)); for (const old of a.slice(3)) run('readwrite', st => st.delete('p:' + old)); },
-    get: async pid => { const r = await run('readonly', st => st.get('p:' + pid)); if (r?.file) return r; const o = await run('readonly', st => st.get('cur')); return o && o.pid === pid ? o : null; },
+    // iPhone: um Blob guardado no IndexedDB às vezes some ("The object can not be found here"); por isso guardo os bytes (ArrayBuffer) quando o arquivo não é muito grande
+    put: async (pid, file) => { if (!pid || !file) return; const a = [pid, ...idx().filter(x => x !== pid)]; setIdx(a.slice(0, 3));
+      let rec = { pid, file }; if (file.size <= 300 << 20) { try { rec = { pid, ab: await file.arrayBuffer(), name: file.name, type: file.type || 'video/mp4' }; } catch { rec = { pid, file }; } }
+      await run('readwrite', st => st.put(rec, 'p:' + pid)); for (const old of a.slice(3)) run('readwrite', st => st.delete('p:' + old)); },
+    get: async pid => { const r = await run('readonly', st => st.get('p:' + pid)); if (r?.ab) return { pid, file: new File([r.ab], r.name || 'video.mp4', { type: r.type || 'video/mp4' }) }; if (r?.file) return r; const o = await run('readonly', st => st.get('cur')); return o && o.pid === pid ? o : null; },
     del: pid => { setIdx(idx().filter(x => x !== pid)); return run('readwrite', st => st.delete('p:' + pid)); },
     clear: async () => { for (const x of idx()) await run('readwrite', st => st.delete('p:' + x)); setIdx([]); await run('readwrite', st => st.delete('cur')); }
   };
@@ -204,7 +207,7 @@ async function openProject(id) {
   $('#phTxt').textContent = 'Selecione de novo o vídeo deste projeto para pré-visualizar e gerar.';
   status(S.words.length ? 'Projeto carregado. A transcrição e os cortes estão salvos.' : 'Este projeto ainda não tem transcrição. Selecione o vídeo para continuar.');
   const r = await vstore.get(id);   // vídeo guardado neste aparelho: volta sozinho, sem pedir de novo
-  if (r?.file && S.pid === id && !S.file) { $('#phTxt').textContent = 'Carregando o vídeo do projeto…'; if (await attachFile(r.file)) status(S.words.length ? 'Projeto carregado com o vídeo.' : 'Projeto carregado.'); else $('#phTxt').textContent = 'Selecione de novo o vídeo deste projeto para pré-visualizar e gerar.'; }
+  if (r?.file && S.pid === id && !S.file) { $('#phTxt').textContent = 'Carregando o vídeo do projeto…'; if (await attachFile(r.file, true)) status(S.words.length ? 'Projeto carregado com o vídeo.' : 'Projeto carregado.'); else $('#phTxt').textContent = 'Selecione de novo o vídeo deste projeto para pré-visualizar e gerar.'; }
 }
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };
@@ -219,7 +222,7 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=29');
+$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=30');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -229,11 +232,10 @@ $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('on'
 $('#drop').ondrop = e => { e.preventDefault(); $('#drop').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'clips'); };
 $('#drop2').ondragover = e => { e.preventDefault(); $('#drop2').classList.add('on'); }; $('#drop2').ondragleave = () => $('#drop2').classList.remove('on');
 $('#drop2').ondrop = e => { e.preventDefault(); $('#drop2').classList.remove('on'); newVideo(e.dataTransfer.files[0], 'captions'); };
-async function attachFile(f) {
-  f = await ensureProgressive(f);
-  let media; try { media = await openMedia(f); } catch (er) { flash(er.message); return false; }
+async function attachFile(f, fromStore) {
+  let media; try { f = await ensureProgressive(f); media = await openMedia(f); } catch (er) { if (fromStore) return false; flash(/object can not be found|NotFound/i.test(er.message || '') ? 'Não consegui ler o arquivo. Selecione o vídeo de novo.' : er.message); return false; }
   if (S.pid && Math.abs(media.duration - S.dur) > 1.5) { flash('Este arquivo tem duração diferente do projeto. Escolha o mesmo vídeo.'); return false; }
-  S.file = f; S.media = media; if (!S.words.length) { S.dur = media.duration; pipeline(); } setVideo(f); if (S.pid) vstore.put(S.pid, f); return true;
+  S.file = f; S.media = media; if (!S.words.length) { S.dur = media.duration; pipeline(); } setVideo(f); if (S.pid && !fromStore) vstore.put(S.pid, f); return true;
 }
 $('#attach').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) attachFile(f); };
 // ao carregar: volta ao projeto aberto (e ao vídeo, se foi guardado) em vez da tela inicial
@@ -687,7 +689,7 @@ $('#expFull').onclick = async () => {
   $('#expFull').disabled = false; $('#expPg').hidden = true;
   if (c.url) { $('#expMsg').textContent = 'Pronto! Toque em “Salvar vídeo pronto”.'; $('#expSave').hidden = false; $('#shareBox').hidden = false; } else $('#expMsg').textContent = c.state === 'error' ? (c.err || 'Falha ao gerar.') : 'Geração cancelada.';
 };
-$('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) + '.mp4'); };
+$('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48) + '.mp4'); };
 
 // botão X (ícone) para fechar qualquer janela (dialog), inclusive as criadas depois
 {
@@ -1524,7 +1526,7 @@ $('#codeIn').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('
 // ---- compartilhar o vídeo exportado ----
 {
   const txt = () => ($('#descTxt').value || '').trim() || (S.title || '').replace(/\.[^.]+$/, '');
-  const fname = () => 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40) + '.mp4';
+  const fname = () => 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48) + '.mp4';
   const copy = async t => { try { await navigator.clipboard.writeText(t); return true; } catch { return false; } };
   const NET = [
     ['Instagram', () => 'https://www.instagram.com/', 'upload'], ['TikTok', () => 'https://www.tiktok.com/upload', 'upload'], ['YouTube Shorts', () => 'https://studio.youtube.com/', 'upload'], ['Facebook', () => 'https://www.facebook.com/reels/create', 'upload'],
