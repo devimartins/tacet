@@ -23,6 +23,9 @@ function findAsc(mo) {   // vídeos QuickTime (iPhone) guardam o esds numa caixa
   }
   return null;
 }
+function ascFromEs(b) {   // alguns codificadores entregam o descritor ES inteiro (tag 3) em vez do AudioSpecificConfig; extraio o ASC de dentro
+  let l, q, p = 0; if (b[p] !== 3) return null;[l, q] = readLen(b, p + 1); p = q + 3; if (b[p] !== 4) return null;[l, q] = readLen(b, p + 1); p = q + 13; if (b[p] !== 5) return null;[l, q] = readLen(b, p + 1); return b.slice(q, q + l);
+}
 export async function openMedia(file) {
   const m = await findMoov(file);
   if (!m) throw new Error('Não achei o índice do vídeo. Use um arquivo MP4 ou MOV comum (não fragmentado).');
@@ -39,8 +42,8 @@ export async function openMedia(file) {
   if (at) {
     const e = mp4.getTrackById(at.id).mdia.minf.stbl.stsd.entries[0];
     const dsi = e.esds && e.esds.esd.descs[0] && e.esds.esd.descs[0].descs[0];
-    const asc = dsi ? new Uint8Array(dsi.data) : findAsc(mo);
-    const codec = (at.codec.length > 4 || !asc) ? at.codec : 'mp4a.40.' + (asc[0] >> 3);
+    let asc = dsi ? new Uint8Array(dsi.data) : findAsc(mo); if (asc && asc.length > 5 && asc[0] === 3) asc = ascFromEs(asc) || asc;
+    const codec = (/^mp4a\.40\.\d+$/.test(at.codec) || !asc) ? at.codec : /^mp4a/.test(at.codec) ? 'mp4a.40.' + (asc[0] >> 3) : at.codec;
     const FQ = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350], fi = asc && asc.length >= 2 ? ((asc[0] & 7) << 1) | (asc[1] >> 7) : 99, ach = asc && asc.length >= 2 ? (asc[1] >> 3) & 15 : 0;   // o ASC manda: o iPhone grava mono mas o índice diz 2 canais
     out.audio = { codec, sampleRate: fi <= 12 ? FQ[fi] : at.audio.sample_rate, channels: ach > 0 && ach < 8 ? ach : at.audio.channel_count, asc, samples: mp4.getTrackSamplesInfo(at.id) };
   }

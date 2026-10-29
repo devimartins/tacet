@@ -1,7 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
-import { openMedia, extractAudio } from './media.js?v=8';
+import { openMedia, extractAudio } from './media.js?v=9';
 import { ensureProgressive } from './remux.js?v=4';
-import { useBlur, renderClip } from './render.js?v=7';
+import { useBlur, renderClip } from './render.js?v=8';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
@@ -219,7 +219,7 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=28');
+$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=29');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
