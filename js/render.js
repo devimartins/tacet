@@ -54,7 +54,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const mkDec = async pref => {
     const c = pref ? { ...dcfg, hardwareAcceleration: pref } : dcfg;
     if (pref) { try { if (!(await VideoDecoder.isConfigSupported(c)).supported) return false; } catch { return false; } }
-    dec = new VideoDecoder({ output: f => { nout++; q.push(f); }, error: e => { derr = new Error((e && e.message || 'erro') + ' [amostra ' + ci + ', quadros ' + nout + ', ' + V.codec + ' ' + V.width + 'x' + V.height + ', desc ' + (V.description ? V.description.length : 0) + (pref ? ', ' + pref : '') + ']'); } });
+    dec = new VideoDecoder({ output: f => { nout++; q.push(f); }, error: e => { derr = new Error((e && e.message || 'erro') + ' [amostra ' + ci + ', quadros ' + nout + ', ' + V.codec + ' ' + V.width + 'x' + V.height + ', desc ' + (V.description ? V.description.length : 0) + (pref ? ', ' + pref : '') + ', v' + (((document.querySelector('script[src*="app.js"]') || {}).src || '').split('v=')[1] || '?') + ']'); } });
     dec.configure(c); return true;
   };
   if (!(await VideoDecoder.isConfigSupported(dcfg)).supported) throw new Error('O aparelho não decodifica este vídeo (' + V.codec + ').');
@@ -100,7 +100,9 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
       for (; i < S.length; i++) {
         const s = S[i]; if (s.dts / s.timescale > end + 0.6) break; ci = i;
         if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
-        dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: await read(s.offset, s.size) }));
+        const dd = await read(s.offset, s.size);
+        if (dd.length < 5 || (((dd[0] << 24) | (dd[1] << 16) | (dd[2] << 8) | dd[3]) >>> 0) + 4 > dd.length) throw new Error('Falha ao gerar o vídeo: dados do quadro ' + i + ' fora do lugar (posição ' + s.offset + ', tamanho ' + s.size + ', versão ' + ((document.querySelector('script[src*="app.js"]') || {}).src || '').split('v=')[1] + ')');
+        dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: dd }));
         while (dec.decodeQueueSize > 8 || q.length > 4) { if (q.length) await process(q.shift()); else await new Promise(r => setTimeout(r, 2)); }
       }
       await dec.flush(); while (q.length) await process(q.shift()); dec.close(); break;

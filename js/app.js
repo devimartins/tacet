@@ -1,7 +1,7 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
 import { openMedia, extractAudio } from './media.js?v=8';
 import { ensureProgressive } from './remux.js?v=4';
-import { useBlur, renderClip } from './render.js?v=5';
+import { useBlur, renderClip } from './render.js?v=6';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
