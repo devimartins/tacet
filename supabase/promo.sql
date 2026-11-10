@@ -63,6 +63,7 @@ end $$;
 -- admin: concede Pro a vários e-mails; quem ainda não tem conta recebe um convite aplicado no primeiro login
 create or replace function public.admin_grant_bulk(emails text[], d int) returns table (email text, status text)
 language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
 declare e text; uid uuid;
 begin
   if not public.is_admin() then raise exception 'forbidden'; end if;
@@ -75,6 +76,7 @@ begin
   end loop;
 end $$;
 
-revoke all on function public._add_pro(uuid, int), public.redeem_code(text), public.claim_invites(), public.admin_promo_save(text, int, int, timestamptz, text, boolean), public.admin_promo_list(), public.admin_grant_bulk(text[], int) from public, anon;
+-- o Supabase dá EXECUTE a anon e authenticated em toda função nova: _add_pro precisa sair dos dois, senão qualquer usuário logado se daria Pro
+revoke all on function public._add_pro(uuid, int), public.redeem_code(text), public.claim_invites(), public.admin_promo_save(text, int, int, timestamptz, text, boolean), public.admin_promo_list(), public.admin_grant_bulk(text[], int) from public, anon, authenticated;
 grant execute on function public.redeem_code(text), public.claim_invites() to authenticated;
 grant execute on function public.admin_promo_save(text, int, int, timestamptz, text, boolean), public.admin_promo_list(), public.admin_grant_bulk(text[], int) to authenticated;

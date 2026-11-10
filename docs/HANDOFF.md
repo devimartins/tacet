@@ -84,3 +84,11 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - Versões: `sw.js` v201, `app.js?v=205`, `render.js?v=10`, `media.js?v=10`, `remux.js?v=5`, `brollvideo.js?v=5`, `errlog.js?v=1`.
 
 - 10/11/2026 — Claude: o dono conectou o Supabase e o Cloudflare ao Claude. Supabase: o Claude roda SQL e migrações direto no projeto `tacet` (ubxzdibckvbquuevhvap); não precisa mais pedir ao dono. Cloudflare (conector "Workers Bindings", obsoleto): o Claude lê o código do Worker `tacet-ai`, mas não faz deploy por ele.
+
+- 10/11/2026 — Claude: auditoria do Supabase (login, plano Pro, projetos).
+  - `promo.sql` nunca tinha sido aplicado (códigos promocionais e "Liberar Pro em lote" do painel não funcionavam). Corrigida uma brecha antes de aplicar: o Supabase dá EXECUTE a `authenticated` em toda função nova, e o `revoke` só tirava de `public, anon`, então qualquer usuário logado poderia chamar `_add_pro` e se dar Pro. Agora revoga também de `authenticated`; `admin_grant_bulk` ganhou `#variable_conflict use_column`. Aplicado pelo conector e testado (usuário comum bloqueado; admin cria código e libera Pro em lote).
+  - `new_user()` (gatilho) não pode mais ser chamado pela API.
+  - Conferido: `profiles` só tem SELECT do próprio usuário (ninguém muda o próprio plano); `payments`, `usage`, `admins`, `alert_log` sem policies (só o Worker com a service key); `projects` protegido pelo gatilho `guard_project` (não dá para esticar o prazo de 3 dias nem trocar o dono).
+  - `js/app.js`: com 20 projetos guardados (ou qualquer falha ao criar o projeto) o vídeo agora abre e dá para editar e exportar, só sem salvar na nuvem (antes a edição era bloqueada). Falhas ao criar/salvar projeto vão para o registro de erros. O vídeo só é copiado em bytes para o IndexedDB no iPhone/iPad (nos outros aparelhos a cópia ocupava a memória do vídeo inteiro); conexões do IndexedDB são fechadas.
+  - `transcripts.sql` (cache de transcrição por link) continua sem aplicar: depende de publicar `docs/worker-transcript-cache.js` no Worker.
+  - Versões: `sw.js` v202, `app.js?v=206`.

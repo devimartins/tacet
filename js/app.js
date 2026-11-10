@@ -30,13 +30,14 @@ const ls = { get: k => { try { return localStorage.getItem(k); } catch { return 
 const vstore = (() => {
   // um arquivo por projeto (chave = id), guardados os 3 mais recentes; assim voltar pela lista de projetos recupera o vídeo
   const open = () => new Promise((ok, no) => { const r = indexedDB.open('forjaclip', 1); r.onupgradeneeded = () => r.result.createObjectStore('v'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
-  const run = async (mode, fn) => { try { const db = await open(); return await new Promise(ok => { const q = fn(db.transaction('v', mode).objectStore('v')); q.onsuccess = () => ok(q.result); q.onerror = () => ok(null); }); } catch { return null; } };
+  const run = async (mode, fn) => { let db; try { db = await open(); const tx = db.transaction('v', mode); return await new Promise(ok => { const q = fn(tx.objectStore('v')); q.onsuccess = () => ok(q.result); q.onerror = () => ok(null); tx.onabort = () => ok(null); }); } catch { return null; } finally { try { db && db.close(); } catch { /* ok */ } } };
   const idx = () => { try { return JSON.parse(localStorage.getItem('forjaclip.vids') || '[]'); } catch { return []; } };
   const setIdx = a => { try { localStorage.setItem('forjaclip.vids', JSON.stringify(a)); } catch { /* ok */ } };
   return {
     // iPhone: um Blob guardado no IndexedDB às vezes some ("The object can not be found here"); por isso guardo os bytes (ArrayBuffer) quando o arquivo não é muito grande
     put: async (pid, file) => { if (!pid || !file) return; const a = [pid, ...idx().filter(x => x !== pid)]; setIdx(a.slice(0, 3));
-      let rec = { pid, file }; if (file.size <= 300 << 20) { try { rec = { pid, ab: await file.arrayBuffer(), name: file.name, type: file.type || 'video/mp4' }; } catch { rec = { pid, file }; } }
+      // a cópia em bytes ocupa a memória inteira do vídeo: só no iPhone/iPad, onde o Blob pode sumir
+      let rec = { pid, file }; if (/iPhone|iPad|Macintosh.*Mobile/.test(navigator.userAgent) && file.size <= 300 << 20) { try { rec = { pid, ab: await file.arrayBuffer(), name: file.name, type: file.type || 'video/mp4' }; } catch { rec = { pid, file }; } }
       await run('readwrite', st => st.put(rec, 'p:' + pid)); for (const old of a.slice(3)) run('readwrite', st => st.delete('p:' + old)); },
     get: async pid => { const r = await run('readonly', st => st.get('p:' + pid)); if (r?.ab) return { pid, file: new File([r.ab], r.name || 'video.mp4', { type: r.type || 'video/mp4' }) }; if (r?.file) return r; const o = await run('readonly', st => st.get('cur')); return o && o.pid === pid ? o : null; },
     del: pid => { setIdx(idx().filter(x => x !== pid)); return run('readwrite', st => st.delete('p:' + pid)); },
@@ -191,8 +192,10 @@ async function newVideo(f, mode = 'clips') {
   S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.track = null; S.faceOn = false; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
-    if (error) { flash('Não foi possível criar o projeto: ' + error.message); return; }
-    S.pid = data.id; keep(S.pid); vstore.put(S.pid, f);
+    if (error) {   // sem salvar na nuvem o usuário ainda pode editar e exportar; antes a edição era bloqueada
+      S.pid = null; logError('projeto', error, { code: error.code });
+      flash(/limite de 20/.test(error.message) ? 'Você tem 20 projetos guardados. Este vídeo abre sem salvar na nuvem; apague projetos antigos na tela inicial para salvar os próximos.' : 'Não consegui salvar este projeto na nuvem (' + error.message + '). Você pode editar e exportar normalmente.');
+    } else { S.pid = data.id; keep(S.pid); vstore.put(S.pid, f); }
   } else S.pid = null;
   enterEdit(); setVideo(f); rebuild(); sync();
   if (S.ytRef && Date.now() - S.ytRef.t < 3600e3 && media.duration && Math.abs(media.duration - S.ytRef.dur) / S.ytRef.dur > 0.03) flash('Atenção: este arquivo tem ' + tfmt(media.duration) + ' e o vídeo do link tem ' + tfmt(S.ytRef.dur) + '. Confira se é o mesmo vídeo, senão os trechos sugeridos não vão bater.');
@@ -305,7 +308,7 @@ async function part(blob, off) {
   return localPart(blob, off);
 }
 const pend = {};
-function save(patch) { if (!LIVE || !S.pid) return Promise.resolve(); return S.sb.from('projects').update(patch).eq('id', S.pid).then(r => { if (r.error) flash('Não foi possível salvar: ' + r.error.message); }); }
+function save(patch) { if (!LIVE || !S.pid) return Promise.resolve(); return S.sb.from('projects').update(patch).eq('id', S.pid).then(r => { if (r.error) { flash('Não foi possível salvar: ' + r.error.message); logError('salvar', r.error, { code: r.error.code, campos: Object.keys(patch).join(',') }); } }, e => logError('salvar', e)); }
 function saveSoon(key, patch, ms = 900) { clearTimeout(pend[key]); pend[key] = setTimeout(() => save(patch), ms); }
 
 // ---------- editor ----------
