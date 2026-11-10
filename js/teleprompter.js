@@ -6,7 +6,7 @@ const load = () => { try { const o = JSON.parse(localStorage.getItem(KEY)) || {}
 const save = o => { try { const { text, ...rest } = o; localStorage.setItem(KEY, JSON.stringify(rest)); } catch { /* sem armazenamento */ } };
 
 import { startShotCheck, MSG } from './shotcheck.js?v=3';
-import { canRecordWC, primeAudio, startWcRecording, startPcmTap, wcStage } from './recorder.js?v=7';
+import { canRecordWC, primeAudio, startWcRecording, startPcmTap, wcStage } from './recorder.js?v=8';
 const CSS = `
 #tp{position:fixed;inset:0;z-index:90;background:#0b0b0f;color:#fff;display:flex;flex-direction:column;font:16px/1.4 system-ui,sans-serif}
 #tp *{box-sizing:border-box}
@@ -60,11 +60,15 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   const dbg = [];
   let fmt = window.innerHeight > window.innerWidth ? 'v' : 'h', turnOff = () => { }, sc = null, stream = null, view = null, compCv = null, wcRec = null, wcBlob = null, compRaf = 0, zk = Math.min(1, Math.max(0, Number(cfg.zoomK ?? 0.5))), rec = null, pcm = null, chunks = [], raf = 0, y = 0, last = 0, playing = false, wake = null, url = '', mime = '';
 
+  let closed = false;
   const close = () => {
-    turnOff(); cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
+    closed = true; turnOff(); document.removeEventListener('visibilitychange', rewake); cancelAnimationFrame(raf); cancelAnimationFrame(compRaf); stopMeter(); sc && sc.stop(); try { rec && rec.state !== 'inactive' && rec.stop(); } catch { /* já parou */ }
     stream?.getTracks().forEach(t => t.stop()); try { wake?.release(); } catch { /* sem wake lock */ }
     if (url) URL.revokeObjectURL(url); root.remove(); st.remove();
   };
+  // a tela pode apagar sozinha: o navegador solta o bloqueio de tela ao trocar de app; pede de novo ao voltar
+  const rewake = async () => { if (closed || document.visibilityState !== 'visible' || !$('#v')) return; try { wake = await navigator.wakeLock?.request('screen'); } catch { /* opcional */ } };
+  document.addEventListener('visibilitychange', rewake);
   const h = (html) => { root.className = ''; root.innerHTML = html; return root; };
   const $ = s => root.querySelector(s);
 
@@ -123,7 +127,7 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
   }
   async function lobby() {
     const pb = $('#pb'), ps = $('#ps'), pv = $('#pv'); if (!pb) return;
-    const ready = () => { pv.srcObject = stream; pv.play().catch(() => { }); pv.style.display = 'block'; ps.textContent = 'Pronto: câmera e microfone liberados. Fale para testar o nível.'; ps.className = 'ok'; pb.hidden = true; $('#perm').classList.add('okc'); meter(); };
+    const ready = () => { if (!pv.isConnected) return; pv.srcObject = stream; pv.play().catch(() => { }); pv.style.display = 'block'; ps.textContent = 'Pronto: câmera e microfone liberados. Fale para testar o nível.'; ps.className = 'ok'; pb.hidden = true; $('#perm').classList.add('okc'); meter(); };
     const ask = async () => { pb.disabled = true; ps.className = ''; ps.textContent = 'Aguardando você tocar em “Permitir” na janela do navegador…'; const err = await acquire(); pb.disabled = false; if (live()) ready(); else { setBlocked(); permDialog(err && err.name, ask); } };
     const setBlocked = () => { ps.className = 'bad'; ps.textContent = 'Câmera ou microfone bloqueado neste navegador.'; pb.textContent = 'Como liberar'; pb.onclick = () => permDialog('NotAllowedError', ask); };
     if (live()) { ready(); return; }
@@ -198,7 +202,10 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
       <button id="sf" type="button" aria-label="Aumentar velocidade">Mais rápido</button>
     </div>
     <div class="ctl"><button id="zm" type="button">A−</button><button id="zp" type="button">A+</button><button id="gb" type="button" aria-pressed="true">Guia</button><button id="pz" type="button">Pausar texto</button><button id="x" type="button">Cancelar</button></div></div>`);
-    root.classList.add('camv'); $('#x').onclick = () => { close(); };
+    root.classList.add('camv');
+    let xArm = 0; $('#x').onclick = () => {   // durante a gravação, pede um segundo toque para não perder o vídeo sem querer
+      if (rec && rec.state === 'recording' && Date.now() - xArm > 3000) { xArm = Date.now(); flash('Toque em Cancelar de novo para descartar a gravação.'); return; }
+      close(); };
     stopMeter(); const err = await acquire();
     if (!live()) { editor(); permDialog(err && err.name, camera); flash('Não consegui abrir a câmera.'); return; }
     const v = $('#v'); const zi = $('#zk'), zr = $('#zr'), zu = () => { $('#zkv').textContent = zi.value < 15 ? 'Amplo' : zi.value > 85 ? 'Fechado' : zi.value + '%'; };
@@ -250,10 +257,11 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
       let actx = null; if (canRecordWC()) { try { actx = primeAudio(); } catch { actx = null; } }   // iOS: criado dentro do toque
       // contagem regressiva 3-2-1
       rb.disabled = true; const c = $('#c'); c.style.display = 'flex';
-      for (let n = 3; n > 0; n--) { c.textContent = n; await new Promise(r => setTimeout(r, 1000)); }
+      for (let n = 3; n > 0; n--) { c.textContent = n; await new Promise(r => setTimeout(r, 1000)); if (closed) { try { actx && actx.close(); } catch { /* ok */ } return; } }
       c.style.display = 'none'; rb.disabled = false;
       let tm = 0, t0 = 0;
-      const finish = () => { sc && sc.stop(); sc = null; clearInterval(tm); playing = false; cancelAnimationFrame(raf); result(); };
+      const finish = () => { sc && sc.stop(); sc = null; clearInterval(tm); clearTimeout(slim); playing = false; cancelAnimationFrame(raf); if (closed) return; result(); };
+      let slim = 0;
       wcBlob = null; wcRec = null; chunks = [];
       mime = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
       // reserva: o gravador do navegador roda junto; se o gravador próprio falhar, usamos o arquivo dele
@@ -279,6 +287,10 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
         const w = wcRec ? Promise.race([wcRec.stop(), new Promise((_, no) => setTimeout(() => no(new Error('tempo esgotado')), 8000))]).then(bl => { wcBlob = bl; }, e => { (dbg.push(String(e && e.message || e)), console.warn('gravador', e)); wcBlob = null; }) : Promise.resolve();
         Promise.all([w, Promise.race([mrDone, new Promise(r => setTimeout(r, 4000))])]).finally(() => { try { octx && octx.state !== 'closed' && octx.close(); } catch { /* ok */ } finish(); });
       } };
+      // gravação longa com o gravador próprio funcionando: desliga a reserva do navegador para não guardar o vídeo duas vezes na memória (podia travar o celular)
+      if (wcRec && mr) slim = setTimeout(() => { if (rec && rec.state === 'recording' && wcRec && !wcRec.error && wcRec.frames > 60 && wcRec.audioFrames > 0) { try { mr.onstop = null; mr.ondataavailable = null; mr.state !== 'inactive' && mr.stop(); } catch { /* ok */ } mr = null; mrDone = Promise.resolve(); chunks = []; } }, 45000);
+      // câmera ou microfone desligou no meio (outro app, tela bloqueada, fone desconectado): encerra e guarda o que foi gravado
+      stream.getTracks().forEach(t => { t.onended = () => { if (rec && rec.state === 'recording') { flash('A câmera ou o microfone foi desligado. Guardei o que já tinha sido gravado.'); rec.stop(); } }; });
       onStart && onStart(); resetY(); play();
       rb.classList.add('on'); rb.setAttribute('aria-label', 'Parar gravação'); $('#r').style.display = 'flex';
       t0 = Date.now(); tm = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('#rt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 500);

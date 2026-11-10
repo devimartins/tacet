@@ -101,3 +101,13 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - Não deu para chamar o Worker daqui (rede bloqueada); a publicação passou na validação do Cloudflare e não há "issues" registradas. Conferir no app: transcrever um link do YouTube duas vezes (a segunda deve ser instantânea).
 
 - 10/11/2026 — Claude: teto mensal da transcrição por link ativado (pedido do dono). Grátis 3 h/mês (`FREE_MONTHLY_YT_SEC`, padrão 10800), Pro 40 h/mês (`PRO_MONTHLY_YT_SEC`, padrão 144000), admin sem teto; só conta transcrição real (cache não conta); renova no dia 1º (mês UTC). Tabela `yt_monthly` + função `add_yt_month` criadas no Supabase. Worker versão `83e22579-b7b2-4b2b-9158-da67c7f9f1d9` (anterior: `b02c3cc0-1618-4c22-a9d0-4c23868b7a73`). `cortes-youtube.html`: mensagem própria para o limite mensal; FAQ do `index.html` lista os limites. `sw.js` v203.
+
+- 10/11/2026 — Claude: auditoria do teleprompter (`js/teleprompter.js` v31, `js/recorder.js` v8).
+  - Memória: em gravação longa (45 s+) com o gravador próprio funcionando, a gravação reserva do MediaRecorder é desligada (antes o vídeo ficava duas vezes na memória e gravações de vários minutos podiam travar o celular). O áudio guardado para a transcrição já sai em 16 kHz (1/3 da memória); `extractFromPcm` já aceitava qualquer taxa.
+  - Cancelar durante a contagem 3-2-1 não inicia mais a gravação depois de fechado (antes a câmera podia ligar de novo escondida). Fechar durante a gravação não reabre a câmera.
+  - "Cancelar" durante a gravação pede um segundo toque (em até 3 s) para não perder o vídeo sem querer.
+  - Câmera ou microfone desligado no meio (outro app, tela bloqueada, fone desconectado): encerra e guarda o que já foi gravado.
+  - O bloqueio de tela apagada (wake lock) é pedido de novo ao voltar para o app.
+  - Codificadores sempre fechados ao parar (com erro ou não); erro de JS corrigido quando se tocava em "Iniciar TP" antes de a câmera terminar de ativar.
+  - Testado no Chrome headless com câmera/microfone falsos: gravar → usar no editor (com áudio 16 kHz anexado), cancelar na contagem, cancelar com 1 e 2 toques. O gravador próprio (H.264+AAC) não roda no Chrome do Linux (sem AAC); lá cai na reserva, como esperado.
+  - `sw.js` v204, `app.js?v=207`.

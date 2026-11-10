@@ -83,8 +83,10 @@ export async function startWcRecording({ source, audioTrack, ctx, fps = 30, prof
     get frames() { return vf; }, get audioFrames() { return n; }, get error() { return failed; },
     async stop() {
       run = false; cancelAnimationFrame(raf); try { sp.disconnect(); srcNode.disconnect(); mute.disconnect(); } catch { /* ok */ }
-      if (failed) { try { ctx.close(); } catch { /* ok */ } throw failed; }
-      await venc.flush(); await aenc.flush(); venc.close(); aenc.close(); muxer.finalize(); try { ctx.close(); } catch { /* ok */ }
+      const shut = () => { for (const c of [venc, aenc]) { try { if (c.state !== 'closed') c.close(); } catch { /* ok */ } } try { ctx.close(); } catch { /* ok */ } };
+      if (failed) { shut(); throw failed; }
+      try { await Promise.all([venc.flush(), aenc.flush()]); } catch (e) { shut(); throw e; }
+      shut(); muxer.finalize();
       if (!vf) throw new Error('Nenhum quadro gravado.');
       return new Blob([target.buffer], { type: 'video/mp4' });
     },
@@ -95,6 +97,12 @@ export async function startWcRecording({ source, audioTrack, ctx, fps = 30, prof
 export function startPcmTap(ctx, audioTrack) {
   const src = ctx.createMediaStreamSource(new MediaStream([audioTrack])), sp = ctx.createScriptProcessor(4096, 1, 1), mute = ctx.createGain(), parts = []; let len = 0, on = true;
   mute.gain.value = 0; src.connect(sp); sp.connect(mute); mute.connect(ctx.destination);
-  sp.onaudioprocess = e => { if (!on) return; const d = new Float32Array(e.inputBuffer.getChannelData(0)); parts.push(d); len += d.length; };
-  return { stop() { on = false; try { sp.disconnect(); src.disconnect(); mute.disconnect(); } catch { /* ok */ } const data = new Float32Array(len); let o = 0; for (const p of parts) { data.set(p, o); o += p.length; } return { data, sr: ctx.sampleRate }; } };
+  // guarda já em 16 kHz (o que a transcrição usa), com média dos pontos: um terço da memória de antes em gravações longas
+  const OUT = 16000, step = ctx.sampleRate / OUT; let acc = 0, cnt = 0, pos = 0;
+  sp.onaudioprocess = e => {
+    if (!on) return; const d = e.inputBuffer.getChannelData(0), o = new Float32Array(Math.ceil(d.length / step) + 1); let k = 0;
+    for (let i = 0; i < d.length; i++) { acc += d[i]; cnt++; if (++pos >= step) { pos -= step; o[k++] = acc / cnt; acc = 0; cnt = 0; } }
+    if (k) { parts.push(o.subarray(0, k)); len += k; }
+  };
+  return { stop() { on = false; try { sp.disconnect(); src.disconnect(); mute.disconnect(); } catch { /* ok */ } const data = new Float32Array(len); let o = 0; for (const p of parts) { data.set(p, o); o += p.length; } parts.length = 0; return { data, sr: OUT }; } };
 }
