@@ -1,4 +1,4 @@
-// JÁ PUBLICADO no Worker tacet-ai em 10/11/2026 (sem o teto mensal, que não foi ativado). Mantido só como referência.
+// JÁ PUBLICADO no Worker tacet-ai em 10/11/2026, com o teto mensal (grátis 3 h, Pro 40 h). Mantido só como referência.
 // ===== COLE ANTES do bloco if (path === "/transcript") (fora de qualquer função, no nível do arquivo) =====
 // Se o seu Worker já tem uma função que chama o Supabase com a chave de serviço (a mesma usada por use()/add_usage),
 // troque o corpo de sb() para reaproveitá-la. Os nomes SUPABASE_URL e SUPABASE_SERVICE_KEY são os padrões — confira

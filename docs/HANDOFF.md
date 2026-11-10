@@ -99,3 +99,5 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - Removida a rota morta `/transcript-antigo`.
   - `supabase/transcripts.sql` aplicado (tabelas `transcript_cache`, `yt_events`, `app_params`, funções `hit_transcript`, `yt_metrics`; `yt_monthly`/`add_yt_month` não foram criadas).
   - Não deu para chamar o Worker daqui (rede bloqueada); a publicação passou na validação do Cloudflare e não há "issues" registradas. Conferir no app: transcrever um link do YouTube duas vezes (a segunda deve ser instantânea).
+
+- 10/11/2026 — Claude: teto mensal da transcrição por link ativado (pedido do dono). Grátis 3 h/mês (`FREE_MONTHLY_YT_SEC`, padrão 10800), Pro 40 h/mês (`PRO_MONTHLY_YT_SEC`, padrão 144000), admin sem teto; só conta transcrição real (cache não conta); renova no dia 1º (mês UTC). Tabela `yt_monthly` + função `add_yt_month` criadas no Supabase. Worker versão `83e22579-b7b2-4b2b-9158-da67c7f9f1d9` (anterior: `b02c3cc0-1618-4c22-a9d0-4c23868b7a73`). `cortes-youtube.html`: mensagem própria para o limite mensal; FAQ do `index.html` lista os limites. `sw.js` v203.

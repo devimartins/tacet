@@ -496,7 +496,7 @@ const showManual = () => { $('#manual').hidden = false; };
 let A = { id: '', lines: [], i: 0 };
 function failT(i, n, msg, retry) {
   showManual(); const quota = /limite|amanh/i.test(msg); $('#retryB').hidden = quota || !retry; if (quota) $('#manual').open = true;
-  prog(i / n, 'A transcrição automática parou: ' + msg.replace(/\.?$/, '.') + (quota ? ' Para transcrever mais vídeos por dia, assine o Pro (3 horas por dia, em vez de 1). Enquanto isso, você pode colar a transcrição manualmente.' : retry ? ' Toque em “Tentar a transcrição de novo” para continuar de onde parou, ou cole a transcrição manualmente.' : ' Você pode colar a transcrição manualmente.'));
+  prog(i / n, 'A transcrição automática parou: ' + msg.replace(/\.?$/, '.') + (quota ? (/mensal/i.test(msg) ? (/grátis/i.test(msg) ? ' O Pro transcreve até 40 horas por mês.' : '') + ' Enquanto isso, você pode colar a transcrição manualmente.' : ' Para transcrever mais vídeos por dia, assine o Pro (3 horas por dia, em vez de 1). Enquanto isso, você pode colar a transcrição manualmente.') : retry ? ' Toque em “Tentar a transcrição de novo” para continuar de onde parou, ou cole a transcrição manualmente.' : ' Você pode colar a transcrição manualmente.'));
 }
 async function autoT(id, resume) {
   if (!resume && autoFor === id) return; autoFor = id;
