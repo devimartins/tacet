@@ -1,12 +1,25 @@
 // Gera um corte 9:16 com legendas, 100% no navegador: decodifica, recorta, desenha as legendas, codifica e grava o MP4.
 // O áudio original (AAC) é copiado sem recodificar.
 import { drawCaption, chunksOf, perChunk, resolve, loadFont } from './captions.js';
-import { makeReader } from './media.js?v=9';
+import { makeReader } from './media.js?v=10';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
 import { trackAt } from './facetrack.js';
 import { createGrader } from './color.js?v=2';
 import { addEmojis, sfxEvents, addSfx, denoise, denoiseAI } from './extras.js';
+
+// Esperas com limite: um codificador/decodificador que falha ou trava não pode deixar a geração parada para sempre.
+const nap = ms => new Promise(r => setTimeout(r, ms));
+export const until = (p, ms, msg) => { let t; return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(msg)), ms); })]).finally(() => clearTimeout(t)); };
+// espera a fila do codec baixar (evento 'dequeue'), conferindo erro e tempo a cada 100 ms
+export async function drain(codec, max, getErr, ms, msg) {
+  for (const t0 = performance.now(); codec.state !== 'closed' && (codec.encodeQueueSize ?? codec.decodeQueueSize) > max;) {
+    const e = getErr && getErr(); if (e) throw e;
+    if (performance.now() - t0 > ms) throw new Error(msg);
+    await Promise.race([new Promise(r => codec.addEventListener('dequeue', r, { once: true })), nap(100)]);
+  }
+  const e = getErr && getErr(); if (e) throw e;
+}
 
 export async function pickCodec(W, H, fps) {
   if (typeof VideoEncoder === 'undefined') throw new Error('Este navegador não consegue gerar vídeo (VideoEncoder). Use Chrome, Edge ou Safari atualizado.');
@@ -20,7 +33,17 @@ export async function pickCodec(W, H, fps) {
 
 // 'auto': fundo desfocado quando o quadro de saída é bem mais largo que o vídeo (ex.: vertical em 16:9)
 export const useBlur = (fit, dw, dh, W, H) => fit === 'blur' || (fit !== 'cover' && W / H > (dw / dh) * 1.25);
-export async function renderClip({ file, media, clip, words, style, onProgress, W = 1080, H = 1920, fps = 30, opts = {} }) {
+export async function renderClip(args) {
+  const st = { q: [] };   // recursos abertos: fechados se a geração falhar ou for cancelada (senão o decodificador por hardware fica preso e a próxima exportação trava)
+  try { return await renderInner(args, st); }
+  catch (e) {
+    for (const f of st.q.splice(0)) { try { f.close(); } catch { /* já fechado */ } }
+    for (const c of [st.dec, st.enc]) { try { if (c && c.state !== 'closed') c.close(); } catch { /* já fechado */ } }
+    try { st.grader && st.grader.dispose(); } catch { /* ok */ }
+    throw e;
+  }
+}
+async function renderInner({ file, media, clip, words, style, onProgress, W = 1080, H = 1920, fps = 30, opts = {} }, st) {
   const V = media.video; if (!V) throw new Error('O arquivo não tem vídeo.');
   const start = clip.start, end = Math.min(clip.end, media.duration);
   const rem = cutRanges(words, start, end, opts.cutFx || { cut: opts.cutSilence }, opts.allWords || words), shift = makeShift(rem), base = shift(start), len = shift(end) - base;
@@ -36,28 +59,28 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   const rotate = (c, k) => { if (rot === 90) { c.translate(V.height, 0); c.rotate(Math.PI / 2); } else if (rot === 180) { c.translate(V.width, V.height); c.rotate(Math.PI); } else if (rot === 270) { c.translate(0, V.width); c.rotate(-Math.PI / 2); } };
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
 
-  const gP = opts.grade || null, grader = gP ? createGrader(W, H) : null;   // correção de cor em GPU (só se houver ajuste)
+  const gP = opts.grade || null, grader = gP ? createGrader(W, H) : null; st.grader = grader;   // correção de cor em GPU (só se houver ajuste)
   const cssF = gP && !grader ? `brightness(${1 + gP.g.bright * 0.6}) contrast(${1 + gP.g.contrast}) saturate(${1 + gP.g.sat})` : '';
   const { mux, cfg } = await pickCodec(W, H, fps);
   const M = window.Mp4Muxer, target = new M.ArrayBufferTarget(), A = media.audio;
   const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: mux, width: W, height: H, frameRate: fps },
     ...(opts.music || opts.sfx || opts.denoise || opts.fadeIn > 0 || opts.fadeOut > 0 || (opts.tracks && opts.tracks.length) ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: A ? A.sampleRate : 48000 } } : A ? { audio: { codec: 'aac', numberOfChannels: A.channels, sampleRate: A.sampleRate } } : {}) });
   let eerr = null, derr = null;
-  const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { eerr = e; } });
+  const enc = new VideoEncoder({ output: (c, m) => { try { muxer.addVideoChunk(c, m); } catch (e) { eerr = eerr || e; } }, error: e => { eerr = eerr || e; } }); st.enc = enc;
   enc.configure(cfg);
+  const aborted = () => { if (opts.signal && opts.signal.aborted) throw new Error('Geração cancelada.'); };
 
   let bgM = null, bgWarned = false;
-  const q = []; let nextT = 0, n = 0, lastT = 0, lastOk = performance.now();
-  const nap = ms => new Promise(r => setTimeout(r, ms));
+  const q = st.q; let nextT = 0, n = 0, lastT = 0, lastOk = performance.now();
   // decodificador parado (comum no fim, com decodificação por hardware no Windows): marca erro para recomeçar em software
-  const stalled = () => { if (performance.now() - lastOk > 20000) { derr = derr || new Error('o decodificador parou de entregar quadros'); throw derr; } };
+  const stalled = () => { aborted(); if (performance.now() - lastOk > 20000) { derr = derr || new Error('o decodificador parou de entregar quadros'); throw derr; } };
   let ci = -1, nout = 0;
   const dcfg = { codec: V.codec, codedWidth: V.width, codedHeight: V.height }; if (V.description) dcfg.description = V.description;
   let dec = null, swTried = false, lastTa = -1;
   const mkDec = async pref => {
     const c = pref ? { ...dcfg, hardwareAcceleration: pref } : dcfg;
     if (pref) { try { if (!(await VideoDecoder.isConfigSupported(c)).supported) return false; } catch { return false; } }
-    dec = new VideoDecoder({ output: f => { nout++; q.push(f); }, error: e => { derr = new Error((e && e.message || 'erro') + ' [amostra ' + ci + ', quadros ' + nout + ', ' + V.codec + ' ' + V.width + 'x' + V.height + ', desc ' + (V.description ? V.description.length : 0) + (pref ? ', ' + pref : '') + ', v' + (((document.querySelector('script[src*="app.js"]') || {}).src || '').split('v=')[1] || '?') + ']'); } });
+    dec = st.dec = new VideoDecoder({ output: f => { nout++; lastOk = performance.now(); q.push(f); }, error: e => { derr = new Error((e && e.message || 'erro') + ' [amostra ' + ci + ', quadros ' + nout + ', ' + V.codec + ' ' + V.width + 'x' + V.height + ', desc ' + (V.description ? V.description.length : 0) + (pref ? ', ' + pref : '') + ', v' + (((document.querySelector('script[src*="app.js"]') || {}).src || '').split('v=')[1] || '?') + ']'); } });
     dec.configure(c); return true;
   };
   if (!(await VideoDecoder.isConfigSupported(dcfg)).supported) throw new Error('O aparelho não decodifica este vídeo (' + V.codec + ').');
@@ -68,7 +91,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (inRange(rem, ta)) { f.close(); return; }
     const t = shift(ta) - base;
     if (t < -0.0005 || t > len || t < nextT - 0.001) { f.close(); return; }
-    nextT = Math.max(nextT + 1 / fps, t + 0.5 / fps); lastT = t; lastOk = performance.now();
+    nextT = Math.max(nextT + 1 / fps, t + 0.5 / fps); lastT = t;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     const z = opts.zoom ? zoomAt(chunks, t, opts.zoomLevel || 1.1) : 1;
     if (bgc) {   // fundo: o próprio vídeo ampliado e desfocado (reduz a 1/14 e amplia, barato)
@@ -89,12 +112,9 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (opts.fadeIn > 0 || opts.fadeOut > 0) { const a = Math.max(opts.fadeIn > 0 ? 1 - t / opts.fadeIn : 0, opts.fadeOut > 0 ? (t - (len - opts.fadeOut)) / opts.fadeOut : 0); if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a).toFixed(3)})`; ctx.fillRect(0, 0, W, H); } }
     const vf = new VideoFrame(cv, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: n++ % (fps * 2) === 0 }); vf.close();
-    for (let w0 = performance.now(); enc.encodeQueueSize > 6;) {   // espera o codificador, sem ficar presa se ele falhar
-      if (eerr) throw new Error('Falha ao gerar o vídeo: ' + eerr.message);
-      if (performance.now() - w0 > 30000) { eerr = new Error('o codificador de vídeo parou de responder'); throw new Error('Falha ao gerar o vídeo: ' + eerr.message + '. Feche outras abas e tente de novo.'); }
-      await Promise.race([new Promise(r => enc.addEventListener('dequeue', r, { once: true })), nap(100)]);
-    }
-    if (opts.signal && opts.signal.aborted) { try { enc.close(); } catch { /* já fechado */ } throw new Error('Geração cancelada.'); }
+    if (eerr) throw (eerr = new Error(eerr.message || String(eerr)));
+    await drain(enc, 6, () => eerr && (eerr = new Error(eerr.message || String(eerr))), 30000, 'o codificador de vídeo parou de responder. Feche outras abas e tente de novo');
+    lastOk = performance.now(); aborted();
     onProgress && onProgress(Math.min(0.98, t / len));
   }
 
@@ -118,6 +138,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
       while (!flushed || q.length) { if (q.length) await process(q.shift()); else { if (derr) throw derr; stalled(); await nap(2); } }
       await fl; dec.close(); break;
     } catch (e) {
+      if (opts.signal && opts.signal.aborted) throw new Error('Geração cancelada.');
       // o decodificador por hardware do aparelho falhou: recomeço do último quadro-chave já usado, com decodificador por software
       if (!derr && !eerr && e && /EncodingError|InvalidStateError|OperationError/.test(e.name || '')) derr = new Error(e.message || e.name);
       if (!derr || eerr || swTried || (opts.signal && opts.signal.aborted)) throw e.message && e.message.startsWith('Falha') ? e : new Error('Falha ao gerar o vídeo: ' + (derr || e).message);
@@ -126,9 +147,10 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
       let k = i0; for (let j = i0; j < S.length; j++) { if (tm(S[j]) > Math.max(lastTa, start)) break; if (S[j].is_sync) k = j; } i = k; console.warn('decodificador reiniciado em software a partir da amostra', k, why);
     }
   }
-  await enc.flush(); enc.close(); if (grader) grader.dispose();
+  await until(enc.flush(), 60000, 'Falha ao gerar o vídeo: o codificador não terminou. Feche outras abas e tente de novo.'); enc.close(); if (grader) grader.dispose(); st.grader = null;
   if (derr || eerr) throw new Error('Falha ao gerar o vídeo: ' + (derr || eerr).message);
 
+  aborted();
   if (opts.music || opts.sfx || opts.denoise || opts.fadeIn > 0 || opts.fadeOut > 0 || (opts.tracks && opts.tracks.length)) await mixAudio({ file, A, muxer, read, start, end, rem, shift, base, len, tracks: opts.tracks, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, denoise: opts.denoise, music: opts.music, sfx: opts.sfx ? sfxEvents(chunks, opts.overlays, shift, base) : null });
   else if (A) {   // copia os blocos de áudio do trecho, sem recodificar
     let first = true;
@@ -148,6 +170,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
 async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, music, sfx, tracks, fadeIn, fadeOut, denoise: dn }) {
   if (typeof AudioEncoder === 'undefined') throw new Error('Este navegador não codifica áudio. Use Chrome ou Edge atualizado, ou remova a música.');
   const sr = A ? A.sampleRate : 48000, N = Math.ceil(len * sr), L = new Float32Array(N), R = new Float32Array(N);
+  let aerr = null;
   if (A) {
     const dec = new AudioDecoder({ output: ad => {
       const t = ad.timestamp / 1e6, nf = ad.numberOfFrames, nc = ad.numberOfChannels;
@@ -156,15 +179,18 @@ async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, mus
         ad.copyTo(a, { planeIndex: 0, format: 'f32-planar' }); if (nc > 1) ad.copyTo(b, { planeIndex: 1, format: 'f32-planar' });
         for (let i = 0; i < nf; i++) { const k = pos + i; if (k >= 0 && k < N) { L[k] += a[i]; R[k] += b[i]; } }
       }
-      ad.close(); }, error: () => { } });
+      ad.close(); }, error: e => { aerr = aerr || e; } });
     const cfg = { codec: A.codec, sampleRate: A.sampleRate, numberOfChannels: A.channels }; if (A.asc) cfg.description = A.asc;
     dec.configure(cfg);
     for (const s of A.samples) {
       const t = s.cts / s.timescale; if (t < start - 0.1) continue; if (t >= end) break;
+      if (aerr) break;
       dec.decode(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(t * 1e6), data: await read(s.offset, s.size) }));
-      if (dec.decodeQueueSize > 40) await new Promise(r => dec.addEventListener('dequeue', r, { once: true }));
+      await drain(dec, 40, null, 20000, 'Falha no áudio: o decodificador parou de responder.');
     }
-    await dec.flush(); dec.close();
+    if (!aerr) await until(dec.flush(), 30000, 'Falha no áudio: o decodificador não terminou.').catch(e => { if (!aerr) throw e; });
+    if (dec.state !== 'closed') dec.close();
+    if (aerr) throw new Error('Falha no áudio: o aparelho não conseguiu ler o som original (' + (aerr.message || aerr) + '). Tente sem música, efeitos e redução de ruído.');
   }
   if (dn && A) await denoiseAI(L, R, sr);
   if (music) {
@@ -183,7 +209,7 @@ async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, mus
   for (let i = 0; i < N; i++) { L[i] = Math.max(-1, Math.min(1, L[i])); R[i] = Math.max(-1, Math.min(1, R[i])); }
   const aacAsc = (sr, ch) => { const F = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350], i = Math.max(0, F.indexOf(sr)); return new Uint8Array([(2 << 3) | (i >> 1), ((i & 1) << 7) | (ch << 3)]); };   // AudioSpecificConfig AAC-LC: o Safari não entrega esta descrição junto do áudio codificado
   let first = true, err = null;
-  const enc = new AudioEncoder({ output: (c, m) => { const mm = first ? ({ decoderConfig: { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: 2, description: aacAsc(sr, 2) } }) : undefined; muxer.addAudioChunk(c, mm); first = false; }, error: e => { err = e; } });
+  const enc = new AudioEncoder({ output: (c, m) => { if (err) return; const mm = first ? ({ decoderConfig: { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: 2, description: aacAsc(sr, 2) } }) : undefined; try { muxer.addAudioChunk(c, mm); } catch (e) { err = err || e; } first = false; }, error: e => { err = e; } });
   const ecfg = { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: 2, bitrate: 128000 };
   if (!(await AudioEncoder.isConfigSupported(ecfg)).supported) throw new Error('Este navegador não codifica AAC. Remova a música ou use Chrome/Edge atualizado.');
   enc.configure(ecfg);
@@ -191,7 +217,8 @@ async function mixAudio({ A, muxer, read, start, end, rem, shift, base, len, mus
   for (let o = 0; o < N; o += B) {
     const n = Math.min(B, N - o), d = new Float32Array(n * 2); d.set(L.subarray(o, o + n), 0); d.set(R.subarray(o, o + n), n);
     enc.encode(new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(o / sr * 1e6), data: d }));
-    if (enc.encodeQueueSize > 20) await new Promise(r => enc.addEventListener('dequeue', r, { once: true }));
+    await drain(enc, 20, () => err && new Error('Falha no áudio: ' + err.message), 20000, 'Falha no áudio: o codificador parou de responder.');
   }
-  await enc.flush(); enc.close(); if (err) throw new Error('Falha no áudio: ' + err.message);
+  try { await until(enc.flush(), 30000, 'Falha no áudio: o codificador não terminou.'); } finally { if (enc.state !== 'closed') enc.close(); }
+  if (err) throw new Error('Falha no áudio: ' + err.message);
 }

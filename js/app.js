@@ -1,7 +1,8 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
-import { openMedia, extractAudio } from './media.js?v=9';
-import { ensureProgressive } from './remux.js?v=4';
-import { useBlur, renderClip } from './render.js?v=9';
+import { openMedia, extractAudio } from './media.js?v=10';
+import { ensureProgressive } from './remux.js?v=5';
+import { useBlur, renderClip } from './render.js?v=10';
+import { logError, setTokenGetter } from './errlog.js?v=1';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
 import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
@@ -186,7 +187,7 @@ async function newVideo(f, mode = 'clips') {
   if (f.size > max) { flash(pro ? `Este vídeo tem ${mb} MB e o limite do Pro é 1 GB. Tente comprimir o vídeo antes de enviar.` : `Este vídeo tem ${mb} MB. O plano gratuito aceita até 350 MB. Com o Pro você envia até 1 GB, ou pode comprimir o vídeo antes.`, { label: 'Ver Pro', fn: () => $('#nPro').onclick && $('#nPro').onclick() }); return; }
   if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   f = await ensureProgressive(f);   // gravações do navegador (MP4 fragmentado) viram MP4 comum
-  let media; try { media = await openMedia(f); } catch (e) { flash(e.message); return; }
+  let media; try { media = await openMedia(f); } catch (e) { flash(e.message); logError('abrir', e, { size: f.size, type: f.type }); return; }
   S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.track = null; S.faceOn = false; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
@@ -275,8 +276,8 @@ async function pipeline() {
     if (!LIVE) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
     status('Transcrição pronta. Procurando os melhores cortes…'); prog(0);
     try { const cl = await suggestClips(words, S.media.duration, async lines => (await ai('/clips', JSON.stringify({ lines }), 'application/json')).clips, p => prog(p)); S.clips = fill(cl); await save({ clips: S.clips }); clipsUI(); status(S.clips.length ? 'Pronto: transcrição e ' + S.clips.length + (S.clips.length === 1 ? ' corte sugerido.' : ' cortes sugeridos.') + (cl.length < S.clips.length ? ' Alguns são seleção automática.' : '') : 'Transcrição pronta. Não achei trechos; crie um corte manual.'); }
-    catch (e) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status(e.code === 'paid' ? 'Transcrição pronta. Separei trechos relevantes; a seleção por IA faz parte do plano pago.' : 'Transcrição pronta. A IA falhou (' + e.message + '); separei trechos relevantes automaticamente.'); }
-  } catch (e) { status('Não foi possível transcrever: ' + (/fetch|network|import/i.test(e.message) && !LIVE ? 'o download do modelo de voz foi bloqueado neste ambiente (a prévia do Claude não permite). Publique o app (GitHub Pages) ou conecte o Worker.' : e.message)); }
+    catch (e) { if (e.code !== 'paid') logError('cortes-ia', e, { status: e.status }); S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status(e.code === 'paid' ? 'Transcrição pronta. Separei trechos relevantes; a seleção por IA faz parte do plano pago.' : 'Transcrição pronta. A IA falhou (' + e.message + '); separei trechos relevantes automaticamente.'); }
+  } catch (e) { logError('transcricao', e, { status: e.status, dur: S.media && Math.round(S.media.duration), audio: S.media && S.media.audio && S.media.audio.codec }); status('Não foi possível transcrever: ' + (/fetch|network|import/i.test(e.message) && !LIVE ? 'o download do modelo de voz foi bloqueado neste ambiente (a prévia do Claude não permite). Publique o app (GitHub Pages) ou conecte o Worker.' : e.message)); }
   finally { prog(null); S.busy = false; $('#txt').readOnly = false; if (S.mode === 'clips' && S.words.length && !$('#edit').hidden) { tab('clips'); if (S.clips.length && S.file) cutsOpen(); } }
 }
 // Transcrição no próprio aparelho (Whisper via transformers.js): funciona sem servidor e sem conta.
@@ -674,8 +675,11 @@ function expOpen() {
   const d = $('#expD'), real = S.clips.filter(c => c.id !== 'full');
   $('#expCuts').hidden = !real.length; $('#expCuts').textContent = 'Escolher entre os cortes sugeridos (' + real.length + ')';
   $('#expSave').hidden = !(S.expClip && S.expClip.url); $('#shareBox').hidden = $('#expSave').hidden; $('#expMsg').textContent = ''; $('#expPg').hidden = true; $('#expFull').disabled = !!S.busy;
+  const run = S.expClip && S.expClip.state === 'rendering'; $('#expStop').hidden = !run;   // reaberta durante a geração: continua mostrando o progresso
+  if (run) { $('#expPg').hidden = false; $('#expPg').value = S.expClip.p || 0; $('#expMsg').textContent = 'Gerando ' + Math.round((S.expClip.p || 0) * 100) + '%. Mantenha a tela aberta.'; }
   if (!d.open) d.showModal();
 }
+$('#expStop').onclick = () => { if (S.abort) S.abort.abort(); $('#expMsg').textContent = 'Cancelando…'; };
 $('#expBtn').onclick = $('#expBtn2').onclick = expOpen; $('#expX').onclick = () => $('#expD').close();
 $('#expCuts').onclick = () => { $('#expD').close(); cutsOpen(); };
 $('#expFull').onclick = async () => {
@@ -684,9 +688,9 @@ $('#expFull').onclick = async () => {
   if (!c) { c = { id: 'full', start: 0, end: S.dur, title: 'Vídeo completo', reason: '' }; if (S.mode === 'captions') S.clips.unshift(c); else S.fullClip = c; }
   c.start = 0; c.end = S.dur || S.media.duration;
   if (c.end - c.start > 120) { $('#expMsg').textContent = 'No navegador, cada exportação pode ter até 2 minutos. Use um corte menor (aba Ferramentas) ou um vídeo mais curto.'; return; }
-  S.expClip = c; $('#expSave').hidden = true; $('#shareBox').hidden = true; $('#expPg').hidden = false; $('#expPg').value = 0; $('#expMsg').textContent = 'Gerando…'; $('#expFull').disabled = true;
+  S.expClip = c; $('#expSave').hidden = true; $('#shareBox').hidden = true; $('#expPg').hidden = false; $('#expPg').value = 0; $('#expMsg').textContent = 'Gerando…'; $('#expFull').disabled = true; $('#expStop').hidden = false;
   await renderOne(c);
-  $('#expFull').disabled = false; $('#expPg').hidden = true;
+  $('#expFull').disabled = false; $('#expPg').hidden = true; $('#expStop').hidden = true;
   if (c.url) { $('#expMsg').textContent = 'Pronto! Toque em “Salvar vídeo pronto”.'; $('#expSave').hidden = false; $('#shareBox').hidden = false; } else $('#expMsg').textContent = c.state === 'error' ? (c.err || 'Falha ao gerar.') : 'Geração cancelada.';
 };
 $('#expSave').onclick = () => { const c = S.expClip; if (c && c.url) saveVideo(c.url, 'forjaclip-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48) + '.mp4'); };
@@ -717,7 +721,10 @@ async function renderOne(c) {
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
   try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); await Promise.all((S.ov || []).filter(o => o.font).map(o => loadFont(o.font, 700))); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
-  catch (e) { c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.'); }
+  catch (e) {
+    c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.');
+    else { const V = S.media && S.media.video, A = S.media && S.media.audio; logError('exportar', e, { seg: Math.round((c.end - c.start) * 10) / 10, out: dimsNow().join('x'), fps: S.fps, at: Math.round((c.p || 0) * 100), s: Math.round((performance.now() - c.t0) / 1000), v: V && V.codec + ' ' + V.width + 'x' + V.height + ' r' + V.rotation, a: A && A.codec + ' ' + A.sampleRate + '/' + A.channels, mb: S.file && Math.round(S.file.size / 1048576), fx: Object.keys(S.fx || {}).filter(k => S.fx[k]).join(','), fundo: !!S.bgScene, musica: !!S.music, ov: (S.ov || []).length }); }
+  }
   finally { S.busy = false; S.abort = null; if (wl) wl.release().catch(() => { }); clipsUI(); }
 }
 
@@ -783,7 +790,7 @@ async function boot() {
     T.onpointermove = e => { if (dn) at(e); }; T.onpointerup = T.onpointercancel = () => { dn = false; }; }
   await loadFont('Montserrat', 300, 500, 900);
   if (!LIVE) { view('home'); $('#homeSub').textContent = 'Sem conta: a transcrição roda no seu aparelho e nada é salvo. Entre para guardar projetos.'; $('#nOut').hidden = true; return; }
-  S.sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON);
+  S.sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON); setTokenGetter(token);
   const avSet = v => { S.av = v; const a = parseAv(v); $('#avBadge').innerHTML = a ? avatarSvg(a[0], a[1], 28) : ''; $('#nAv').hidden = false; };
   const avOpen = () => {
     const cur = parseAv(S.av) || [0, 0]; let sel = cur[0], bg = cur[1]; const g = $('#avG'), c = $('#avC');
@@ -1053,7 +1060,7 @@ const brUsed = new Set(), brSeen = new Set();
 async function brollFor(qs, secs) {
   qs = [].concat(qs);   // qs: consulta principal + alternativas equivalentes (nunca uma palavra solta: melhor sem B-roll do que B-roll sem relação)
   for (const qq of qs) {
-    if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=4')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
+    if (S.plan === 'pro' && !S.noVid) { try { const v = await (await import('./brollvideo.js?v=5')).findBrollVideo(CFG, await token(), qq, secs, 12, 360, brUsed); if (v) return { vid: v, q: qq }; } catch (e) { if (e.status === 503 || e.status === 402) S.noVid = true; } }
     const img = await findBroll(qq).catch(() => null); if (img) return { img, q: qq };
   }
   return null;
@@ -1210,7 +1217,21 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
     }
     T.replaceChildren(t); if (!data?.length) M.textContent = 'Nenhum usuário encontrado.';
   }
-  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); promos(); };
+  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); promos(); errs(); };
+  async function errs() {
+    const L = $('#erL'), { data, error } = await S.sb.rpc('admin_errors', { days: 7, lim: 100 });
+    if (error) { L.textContent = 'Rode supabase/errors.sql no Supabase para ativar o registro de erros.'; return; }
+    if (!data?.length) { L.textContent = 'Nenhum erro registrado nos últimos 7 dias.'; return; }
+    const t = document.createElement('table'), hr = t.insertRow(); for (const h of ['Último', 'Tipo', 'Erro', 'Vezes', 'Usuários', 'Versão']) { const th = document.createElement('th'); th.textContent = h; hr.append(th); }
+    for (const x of data) {
+      const r = t.insertRow(); [new Date(x.last_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }), x.kind, x.message, x.total, x.users, x.version || '–'].forEach(v => { r.insertCell().textContent = v; });
+      r.style.cursor = 'pointer'; r.tabIndex = 0; r.title = 'Ver detalhes';
+      const open = () => { const n = r.nextElementSibling; if (n && n.dataset.det) { n.remove(); return; } const dr = t.insertRow(r.rowIndex + 1); dr.dataset.det = '1'; const c = dr.insertCell(); c.colSpan = 6; const pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;word-break:break-word;font-size:11px;margin:0'; pre.textContent = [x.ua, x.extra ? JSON.stringify(x.extra, null, 1) : '', x.stack || ''].filter(Boolean).join('\n\n'); c.append(pre); };
+      r.onclick = open; r.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+    }
+    L.replaceChildren(t);
+  }
+  $('#erGo').onclick = () => errs();
   async function promos() {
     const { data, error } = await S.sb.rpc('admin_promo_list'); if (error) { $('#pcL').textContent = 'Rode supabase/promo.sql no Supabase para ativar os códigos.'; return; }
     const t = document.createElement('table'), hr = t.insertRow(); for (const h of ['Código', 'Dias', 'Usos', 'Validade', 'Nota', '']) { const th = document.createElement('th'); th.textContent = h; hr.append(th); }

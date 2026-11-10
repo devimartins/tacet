@@ -155,11 +155,15 @@ async function extractAudioWC(file, media, secs, onChunk, onProgress) {
     if (derr) throw new Error('Falha ao decodificar o áudio: ' + derr.message);
     const s = A.samples[i];
     dec.decode(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.cts * 1e6 / s.timescale), data: await read(s.offset, s.size) }));
-    if (dec.decodeQueueSize > 40) await new Promise(res => dec.addEventListener('dequeue', res, { once: true }));
+    for (const t0 = Date.now(); dec.decodeQueueSize > 40 && !derr && dec.state !== 'closed';) {   // espera com limite: um decodificador que falha não dispara mais 'dequeue'
+      if (Date.now() - t0 > 20000) throw new Error('Falha ao decodificar o áudio: o decodificador parou de responder.');
+      await Promise.race([new Promise(res => dec.addEventListener('dequeue', res, { once: true })), new Promise(res => setTimeout(res, 100))]);
+    }
     if (i % 800 === 0) { onProgress && onProgress(i / A.samples.length); await new Promise(res => setTimeout(res)); }
     if (pending.then) await pending;   // transcreve cada bloco antes de seguir (limita a memória)
   }
-  await dec.flush(); dec.close();
+  if (derr) throw new Error('Falha ao decodificar o áudio: ' + derr.message);
+  let tf; await Promise.race([dec.flush(), new Promise((_, no) => { tf = setTimeout(() => no(new Error('Falha ao decodificar o áudio: o decodificador não terminou.')), 30000); })]).finally(() => clearTimeout(tf)); dec.close();
   if (k > 0) { const blob = wav(buf.subarray(0, k)), o = idx * secs; pending = pending.then(() => onChunk(blob, o)); }
   await pending; onProgress && onProgress(1);
 }

@@ -1,6 +1,6 @@
 // B-roll em vídeo (Pexels, plano pago): o Worker busca e guarda em cache; o app baixa um arquivo pequeno (SD)
 // e guarda só alguns quadros reduzidos na memória (12 por segundo, até ~2,5 s) para a prévia e para a exportação.
-import { openMedia, makeReader } from './media.js?v=9';
+import { openMedia, makeReader } from './media.js?v=10';
 
 export async function findBrollVideo(CFG, token, query, secs = 2.5, fps = 12, outW = 360, used = new Set()) {
   const r = await fetch(CFG.AI + '/broll', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ q: query }) });
@@ -36,8 +36,8 @@ async function grab(blob, secs, fps, outW) {
   for (const s of V.samples) {
     if (derr) break; const cts = s.cts / s.timescale; if (cts > end && s.is_sync) break;
     dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(cts * 1e6), data: await read(s.offset, s.size) }));
-    if (dec.decodeQueueSize > 20) await new Promise(res => dec.addEventListener('dequeue', res, { once: true }));
+    for (const t0 = Date.now(); dec.decodeQueueSize > 20 && !derr && dec.state !== 'closed' && Date.now() - t0 < 15000;) await Promise.race([new Promise(res => dec.addEventListener('dequeue', res, { once: true })), new Promise(res => setTimeout(res, 100))]);
   }
-  try { await dec.flush(); } catch { /* fim */ } dec.close(); await Promise.all(pend);
+  try { let tf; await Promise.race([dec.flush(), new Promise((_, no) => { tf = setTimeout(() => no(new Error('tempo')), 20000); })]).finally(() => clearTimeout(tf)); } catch { /* fim */ } if (dec.state !== 'closed') dec.close(); await Promise.all(pend);
   return frames.slice(0, Math.ceil(secs * fps));
 }
