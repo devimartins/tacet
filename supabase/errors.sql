@@ -36,7 +36,7 @@ begin
            (array_agg(e.extra order by e.created_at desc))[1],
            (array_agg(e.stack order by e.created_at desc))[1]
     from public.app_errors e
-    where e.created_at > now() - make_interval(days => greatest(1, least(coalesce(days, 7), 30)))
+    where e.created_at > now() - make_interval(days => greatest(1, least(coalesce(admin_errors.days, 7), 30)))
     group by e.kind, e.message
     order by max(e.created_at) desc
     limit least(coalesce(lim, 100), 300);

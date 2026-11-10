@@ -79,6 +79,8 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - `js/media.js` (transcrição) e `js/brollvideo.js`: mesmas esperas com limite.
   - Janela Exportar: botão "Cancelar geração"; reabrir a janela durante a geração mostra o progresso.
   - Registro de erros: `js/errlog.js` grava na tabela `app_errors` do Supabase (só inserção pela chave anon; leitura só pela função `admin_errors`). Captura erros não tratados dos nossos arquivos e falhas de abrir vídeo, transcrição, cortes por IA e exportação (com codec, resolução, efeitos ligados e % em que parou). Máx. 15 por aba, sem repetir mensagem, ignora anúncios/extensões. Painel do criador ganhou "Erros dos usuários (7 dias)". Registros com mais de 30 dias são apagados ao abrir o painel. Política de privacidade atualizada.
-  - **Pendência do dono:** rodar `supabase/errors.sql` no SQL Editor do Supabase (até lá o app tenta gravar e o Supabase recusa, sem afetar o usuário).
+  - `supabase/errors.sql` aplicado no projeto Supabase `tacet` pelo conector (10/11); testado: anon insere e não lê; `admin_errors` funciona para o admin.
   - Testado no Chrome headless com vídeo H.264 + AAC de 10 s: exportação normal ok (299 quadros), cancelamento ok, decodificador que trava 1x recomeça em software e conclui, travamento permanente e codificador parado viram mensagem de erro. Mistura de áudio (música/efeitos) não testada: o Chrome do Linux não codifica AAC.
   - Versões: `sw.js` v201, `app.js?v=205`, `render.js?v=10`, `media.js?v=10`, `remux.js?v=5`, `brollvideo.js?v=5`, `errlog.js?v=1`.
+
+- 10/11/2026 — Claude: o dono conectou o Supabase e o Cloudflare ao Claude. Supabase: o Claude roda SQL e migrações direto no projeto `tacet` (ubxzdibckvbquuevhvap); não precisa mais pedir ao dono. Cloudflare (conector "Workers Bindings", obsoleto): o Claude lê o código do Worker `tacet-ai`, mas não faz deploy por ele.
