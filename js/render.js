@@ -47,7 +47,10 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
   enc.configure(cfg);
 
   let bgM = null, bgWarned = false;
-  const q = []; let nextT = 0, n = 0, lastT = 0;
+  const q = []; let nextT = 0, n = 0, lastT = 0, lastOk = performance.now();
+  const nap = ms => new Promise(r => setTimeout(r, ms));
+  // decodificador parado (comum no fim, com decodificação por hardware no Windows): marca erro para recomeçar em software
+  const stalled = () => { if (performance.now() - lastOk > 20000) { derr = derr || new Error('o decodificador parou de entregar quadros'); throw derr; } };
   let ci = -1, nout = 0;
   const dcfg = { codec: V.codec, codedWidth: V.width, codedHeight: V.height }; if (V.description) dcfg.description = V.description;
   let dec = null, swTried = false, lastTa = -1;
@@ -65,7 +68,7 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (inRange(rem, ta)) { f.close(); return; }
     const t = shift(ta) - base;
     if (t < -0.0005 || t > len || t < nextT - 0.001) { f.close(); return; }
-    nextT = Math.max(nextT + 1 / fps, t + 0.5 / fps); lastT = t;
+    nextT = Math.max(nextT + 1 / fps, t + 0.5 / fps); lastT = t; lastOk = performance.now();
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     const z = opts.zoom ? zoomAt(chunks, t, opts.zoomLevel || 1.1) : 1;
     if (bgc) {   // fundo: o próprio vídeo ampliado e desfocado (reduz a 1/14 e amplia, barato)
@@ -86,7 +89,11 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
     if (opts.fadeIn > 0 || opts.fadeOut > 0) { const a = Math.max(opts.fadeIn > 0 ? 1 - t / opts.fadeIn : 0, opts.fadeOut > 0 ? (t - (len - opts.fadeOut)) / opts.fadeOut : 0); if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a).toFixed(3)})`; ctx.fillRect(0, 0, W, H); } }
     const vf = new VideoFrame(cv, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: n++ % (fps * 2) === 0 }); vf.close();
-    while (enc.encodeQueueSize > 6) await new Promise(r => enc.addEventListener('dequeue', r, { once: true }));
+    for (let w0 = performance.now(); enc.encodeQueueSize > 6;) {   // espera o codificador, sem ficar presa se ele falhar
+      if (eerr) throw new Error('Falha ao gerar o vídeo: ' + eerr.message);
+      if (performance.now() - w0 > 30000) { eerr = new Error('o codificador de vídeo parou de responder'); throw new Error('Falha ao gerar o vídeo: ' + eerr.message + '. Feche outras abas e tente de novo.'); }
+      await Promise.race([new Promise(r => enc.addEventListener('dequeue', r, { once: true })), nap(100)]);
+    }
     if (opts.signal && opts.signal.aborted) { try { enc.close(); } catch { /* já fechado */ } throw new Error('Geração cancelada.'); }
     onProgress && onProgress(Math.min(0.98, t / len));
   }
@@ -103,14 +110,18 @@ export async function renderClip({ file, media, clip, words, style, onProgress, 
         const dd = await read(s.offset, s.size);
         if (dd.length < 5 || (((dd[0] << 24) | (dd[1] << 16) | (dd[2] << 8) | dd[3]) >>> 0) + 4 > dd.length) throw new Error('Falha ao gerar o vídeo: dados do quadro ' + i + ' fora do lugar (posição ' + s.offset + ', tamanho ' + s.size + ', versão ' + ((document.querySelector('script[src*="app.js"]') || {}).src || '').split('v=')[1] + ')');
         dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: dd }));
-        while (dec.decodeQueueSize > 8 || q.length > 4) { if (q.length) await process(q.shift()); else await new Promise(r => setTimeout(r, 2)); }
+        while (dec.decodeQueueSize > 8 || q.length > 4) { if (q.length) await process(q.shift()); else { stalled(); await nap(2); } }
       }
-      await dec.flush(); while (q.length) await process(q.shift()); dec.close(); break;
+      // esvazia a fila enquanto o flush acontece: alguns decodificadores por hardware só liberam os últimos quadros
+      // quando os anteriores são fechados; esperar o flush antes de processar a fila travava a geração perto do fim
+      let flushed = false; const fl = dec.flush(); fl.then(() => { flushed = true; }, () => { flushed = true; });
+      while (!flushed || q.length) { if (q.length) await process(q.shift()); else { if (derr) throw derr; stalled(); await nap(2); } }
+      await fl; dec.close(); break;
     } catch (e) {
       // o decodificador por hardware do aparelho falhou: recomeço do último quadro-chave já usado, com decodificador por software
       if (!derr && !eerr && e && /EncodingError|InvalidStateError|OperationError/.test(e.name || '')) derr = new Error(e.message || e.name);
       if (!derr || eerr || swTried || (opts.signal && opts.signal.aborted)) throw e.message && e.message.startsWith('Falha') ? e : new Error('Falha ao gerar o vídeo: ' + (derr || e).message);
-      swTried = true; const why = derr.message; derr = null; try { dec.close(); } catch { /* já fechado */ } while (q.length) q.shift().close();
+      swTried = true; const why = derr.message; derr = null; lastOk = performance.now(); try { dec.close(); } catch { /* já fechado */ } while (q.length) q.shift().close();
       if (!(await mkDec('prefer-software'))) throw new Error('Falha ao gerar o vídeo: ' + why);
       let k = i0; for (let j = i0; j < S.length; j++) { if (tm(S[j]) > Math.max(lastTa, start)) break; if (S[j].is_sync) k = j; } i = k; console.warn('decodificador reiniciado em software a partir da amostra', k, why);
     }
