@@ -92,3 +92,10 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - `js/app.js`: com 20 projetos guardados (ou qualquer falha ao criar o projeto) o vídeo agora abre e dá para editar e exportar, só sem salvar na nuvem (antes a edição era bloqueada). Falhas ao criar/salvar projeto vão para o registro de erros. O vídeo só é copiado em bytes para o IndexedDB no iPhone/iPad (nos outros aparelhos a cópia ocupava a memória do vídeo inteiro); conexões do IndexedDB são fechadas.
   - `transcripts.sql` (cache de transcrição por link) continua sem aplicar: depende de publicar `docs/worker-transcript-cache.js` no Worker.
   - Versões: `sw.js` v202, `app.js?v=206`.
+
+- 10/11/2026 — Claude: Worker `tacet-ai` publicado pela API do Cloudflare (conector "Cloudflare API"; o deploy pelo Claude funciona). Versão anterior, para voltar atrás: `fe8bd9d5-58b1-4620-8e75-cf12c4fbd95b` (painel do Worker > Deployments > Rollback). Versão nova: `b02c3cc0-1618-4c22-a9d0-4c23868b7a73`. Segredos, variáveis e o cron `*/30 * * * *` mantidos (a publicação troca só o código).
+  - Webhook: pagamento com status `refunded` ou `charged_back` (estorno/contestação direto no Mercado Pago) marca `refunded_at` e tira os 31 ou 366 dias daquele pagamento do `pro_until` (nunca para antes de agora). O reembolso pelo app continua igual e não é descontado duas vezes.
+  - `/transcript` (cortes do YouTube pelo link): cache por vídeo + início + duração em `transcript_cache`; trecho já transcrito volta na hora, sem gastar a cota do usuário nem o Gemini. Cada pedido vai para `yt_events` (métricas: `select * from yt_metrics();`). O teto mensal do rascunho em `docs/` NÃO foi ativado (só os limites diários de sempre).
+  - Removida a rota morta `/transcript-antigo`.
+  - `supabase/transcripts.sql` aplicado (tabelas `transcript_cache`, `yt_events`, `app_params`, funções `hit_transcript`, `yt_metrics`; `yt_monthly`/`add_yt_month` não foram criadas).
+  - Não deu para chamar o Worker daqui (rede bloqueada); a publicação passou na validação do Cloudflare e não há "issues" registradas. Conferir no app: transcrever um link do YouTube duas vezes (a segunda deve ser instantânea).
