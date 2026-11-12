@@ -142,6 +142,8 @@ async function home() {
   if (!LIVE) { $('#plist').replaceChildren(); $('#pempty').hidden = false; $('#pempty').textContent = S.guest ? 'Modo teste: nada é salvo. Crie sua conta grátis para guardar seus projetos.' : 'Modo demonstração: os projetos não são salvos.'; return; }
   const { data, error } = await S.sb.from('projects').select('id,title,duration,expires_at,created_at').order('created_at', { ascending: false });
   if (error) { flash('Não foi possível listar os projetos: ' + error.message); return; }
+  // quem volta vê os projetos logo abaixo do título; quem não tem projetos vê primeiro os caminhos para começar
+  if (data && data.length) $('#recent').append($('#projH'), $('#pwrap')); else $('#projSlot').after($('#projH'), $('#pwrap'));
   PJ.mode = false; PJ.sel.clear(); const ul = $('#plist'); ul.replaceChildren(); $('#pempty').hidden = data.length > 0; $('#pempty').textContent = 'Nenhum projeto ainda.';
   for (const [i, p] of data.entries()) {
     const days = Math.max(0, Math.ceil((new Date(p.expires_at) - Date.now()) / 864e5));
@@ -288,7 +290,27 @@ async function ai(path, body, type) {
     const e = new Error(j.error || 'Erro ' + r.status); e.status = r.status; e.code = j.code; e.fatal = [401, 402, 413, 429].includes(r.status); throw e;
   }
 }
-const prog = p => { const b = $('#pg'); b.hidden = p == null; if (p != null) b.value = p; };
+const prog = p => { const b = $('#pg'); b.hidden = p == null; if (p != null) b.value = p; if (JOB.on) document.title = p != null ? '(' + Math.round(p * 100) + '%) ForjaClip' : JOB.title; };
+// ---------- espera de vídeos longos: etapas, tempo estimado, título da aba e aviso ao terminar ----------
+const JOB = { on: false, t0: 0, title: document.title, notify: false };
+const fmtLeft = sec => sec < 60 ? 'menos de 1 min' : sec < 3600 ? 'cerca de ' + Math.round(sec / 60) + ' min' : 'cerca de ' + (sec / 3600).toFixed(1).replace('.', ',') + ' h';
+const jobEta = p => { const el = (performance.now() - JOB.t0) / 1000; return p > 0.04 && el > 10 ? ' · faltam ' + fmtLeft(el * (1 - p) / p) : ''; };
+function jobStart(dur) {
+  Object.assign(JOB, { on: true, t0: performance.now(), title: document.title.replace(/^(\(\d+%\)|✓ Pronto ·) /, ''), notify: false });
+  const long = dur > 240, can = 'Notification' in window && Notification.permission !== 'denied';
+  $('#jobTip').hidden = !long; $('#jobTip').textContent = 'Pode usar outras abas enquanto isso; só não feche esta.';
+  if (long && can && Notification.permission === 'granted') { JOB.notify = true; $('#jobTip').textContent += ' Vamos te avisar quando terminar.'; }
+  $('#notifyBtn').hidden = !(long && can && Notification.permission === 'default');
+}
+$('#notifyBtn').onclick = async () => { try { if (await Notification.requestPermission() === 'granted') { JOB.notify = true; $('#jobTip').textContent = 'Pode usar outras abas enquanto isso; só não feche esta. Vamos te avisar quando terminar.'; } } catch { /* sem notificação */ } $('#notifyBtn').hidden = true; };
+function jobEnd(ok, msg) {
+  if (!JOB.on) return; JOB.on = false; $('#notifyBtn').hidden = true; $('#jobTip').hidden = true;
+  if (document.hidden) {
+    document.title = (ok ? '✓ Pronto · ' : '⚠ ') + JOB.title;
+    const back = () => { if (!document.hidden) { document.title = JOB.title; document.removeEventListener('visibilitychange', back); } }; document.addEventListener('visibilitychange', back);
+    if (JOB.notify) { try { const n = new Notification(ok ? 'Seu vídeo está pronto no ForjaClip' : 'O ForjaClip precisa de você', { body: msg, icon: 'icon-192.png', tag: 'forjaclip-job' }); n.onclick = () => { window.focus(); n.close(); }; } catch { /* sem notificação */ } }
+  } else document.title = JOB.title;
+}
 const status = m => { $('#status').textContent = m; };
 // ---------- enquadramento em quem fala (roda no aparelho, corte por corte, em segundo plano) ----------
 let frameJob = null;
@@ -346,7 +368,7 @@ async function makeCuts(words = S.words) {
   const keep = S.clips.filter(c => c.status === 'ok' || /^[mk]/.test(c.id)), keepFree = c => keep.every(k => c.end <= k.start || c.start >= k.end);
   S.aiFail = '';
   if (!LIVE) { S.clips = fillCuts(words, [], keep); await save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
-  status('Transcrição pronta. A IA está lendo o vídeo inteiro para escolher os melhores cortes…'); prog(0.15);
+  status((S.mode === 'clips' && JOB.on ? 'Etapa 2 de 2 · ' : '') + 'A IA está lendo o vídeo inteiro para escolher os melhores cortes (cerca de 1 min)…'); prog(0.15);
   try {
     const cl = (await suggestClipsFull(words, S.media.duration, async body => (await ai('/clips-v2', JSON.stringify(body), 'application/json')).clips, S.cutOpts)).filter(keepFree).map((c, k) => ({ ...c, id: 'g' + Date.now().toString(36) + k }));
     S.clips = fillCuts(words, cl, keep); await save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI();
@@ -363,10 +385,11 @@ async function makeCuts(words = S.words) {
 async function pipeline() {
   if (S.busy) return; S.busy = true; $('#txt').readOnly = true;
   try {
-    const parts = Math.max(1, Math.ceil(S.media.duration / 600)); let n = 0, words = [];
-    status('Lendo o áudio do vídeo…'); prog(0);
+    const parts = Math.max(1, Math.ceil(S.media.duration / 600)), steps = S.mode === 'clips' ? 2 : 1; let n = 0, words = [];
+    const step = steps > 1 ? 'Etapa 1 de 2 · ' : ''; jobStart(S.media.duration);
+    status(step + 'Lendo o áudio do vídeo…'); prog(0);
     await extractAudio(S.file, S.media, 600, async (blob, off) => {
-      n++; status(`Transcrevendo automaticamente (parte ${n} de ${parts})…`);
+      n++; const p0 = (n - 1) / parts; status(step + `Transcrevendo (parte ${n} de ${parts})` + jobEta(p0) + '…'); prog(Math.max(p0, 0.01));
       words = words.concat(await part(blob, off));
     }, p => prog(p));
     if (!words.length) throw new Error('Não encontrei fala neste vídeo.');
@@ -375,7 +398,7 @@ async function pipeline() {
     if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); if (S.autoEdit) { S.autoEdit = false; S.offerBg = true; if (canPro() && aeVertical()) $('#aeD').showModal(); else offerBg(); } return; }
     await makeCuts(words);
   } catch (e) { logError('transcricao', e, { status: e.status, dur: S.media && Math.round(S.media.duration), audio: S.media && S.media.audio && S.media.audio.codec }); status('Não foi possível transcrever: ' + (/fetch|network|import/i.test(e.message) && !LIVE ? 'o download do modelo de voz foi bloqueado neste ambiente (a prévia do Claude não permite). Publique o app (GitHub Pages) ou conecte o Worker.' : e.message)); }
-  finally { prog(null); S.busy = false; $('#txt').readOnly = false; if (S.mode === 'clips' && S.words.length && !$('#edit').hidden) { tab('clips'); if (S.clips.length && S.file) cutsOpen(); } }
+  finally { prog(null); S.busy = false; $('#txt').readOnly = false; jobEnd(!!S.words.length, S.mode === 'clips' ? (S.clips.length ? S.clips.length + ' cortes sugeridos em “' + (S.title || 'seu vídeo') + '”.' : 'Veja o resultado.') : 'As legendas de “' + (S.title || 'seu vídeo') + '” estão prontas.'); if (S.mode === 'clips' && S.words.length && !$('#edit').hidden) { tab('clips'); if (S.clips.length && S.file) cutsOpen(); } }
 }
 // Transcrição no próprio aparelho (Whisper via transformers.js): funciona sem servidor e sem conta.
 let ASR = null;

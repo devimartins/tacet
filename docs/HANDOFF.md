@@ -131,3 +131,11 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - Corrigido: o "x" das janelas continuava com 36 px (a regra `dialog .dx` vencia); agora 44 px.
   - Testado no Chrome headless (390 e 1280 px): login fechado ao carregar, abre no "Começar grátis" com foco no e-mail, Esc fecha; modo teste abre a tela inicial e o editor com um vídeo de 10 s; nenhum estouro horizontal nem erro de JS. O download do modelo de voz é bloqueado aqui; no navegador do usuário baixa (~80 MB na primeira vez).
   - `sw.js` v207, `app.js?v=209`.
+
+- 12/11/2026 — Claude: itens 4 a 9 da auditoria de UI/UX.
+  - Tela inicial: título "O que vamos criar hoje?" no mesmo estilo do título da página de apresentação (antes herdava o h2 em maiúsculas e cor apagada); "Cortes com IA" é o primeiro cartão, maior e com borda de destaque; quem tem projetos vê "Seus projetos" logo abaixo do título (`#recent`), quem não tem vê primeiro os caminhos para começar.
+  - Espera de vídeos longos: "Etapa 1 de 2 · Transcrevendo (parte n de N) · faltam cerca de X min", "Etapa 2 de 2 · A IA está lendo o vídeo inteiro…"; porcentagem no título da aba; vídeo com mais de 4 min mostra "Pode usar outras abas…" e o botão "Avise-me quando terminar" (notificação do navegador); ao terminar com a aba em segundo plano, o título vira "✓ Pronto · …" e sai a notificação (se permitida).
+  - Barra de ferramentas do celular: "Exportar" fica sempre visível no fim (sticky), com sombra indicando que há mais ferramentas para arrastar.
+  - Esferas decorativas da página de apresentação menores, fora da coluna de texto e escondidas abaixo de 1180 px; `html,body{overflow-x:clip}`. A frase que "acende" ao rolar não fica mais borrada (só muda a cor).
+  - Barra do modo teste escondida no editor do celular (ocupava altura da prévia).
+  - Testado no Chrome headless em 6 larguras: sem rolagem lateral, sem erro de JS. `sw.js` v208, `app.js?v=210`.
