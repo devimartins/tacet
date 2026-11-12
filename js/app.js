@@ -21,7 +21,7 @@ import { addEmojis } from './extras.js';
 import { detectTone, TONES } from './musicgen.js';
 
 const $ = s => document.querySelector(s), CFG = window.CFG || {};
-const LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);
+let LIVE = !!(CFG.AI && CFG.SB_URL && CFG.SB_ANON && window.supabase);   // vira false no "Testar sem cadastro" (tudo no aparelho, nada salvo)
 const MB = 1024 ** 2, LIMIT = { free: 350 * MB, pro: 1024 * MB }, SAMPLE = 'o segredo não é trabalhar mais horas. é escolher melhor onde colocar a sua energia todos os dias.';
 const el = (t, a = {}, ...c) => { const e = document.createElement(t); Object.assign(e, a); c.forEach(x => e.append(x)); return e; };
 const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
@@ -59,7 +59,7 @@ const tpUsed = () => { try { if (localStorage.getItem('forjaclip.tptrial')) retu
 const tpTrial = () => !canPro() && !tpUsed();
 const tpLabel = () => { const f = $('#tpOpen .fb'); if (f) f.textContent = tpTrial() ? '1 TESTE GRÁTIS' : 'PRO · EXCLUSIVO'; };
 const tpMark = () => { if (canPro()) return; try { localStorage.setItem('forjaclip.tptrial', '1'); } catch { /* ok */ } try { S.sb?.auth.updateUser({ data: { tp_trial: 1 } }).catch(() => { }); } catch { /* ok */ } if (S.user) S.user.user_metadata = { ...S.user.user_metadata, tp_trial: 1 }; tpLabel(); };
-const flash = (m, cta) => { const f = $('#flash'); f.textContent = m; if (cta) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = cta.label; b.style.marginLeft = '10px'; b.onclick = () => { f.hidden = true; cta.fn(); }; f.append(b); } f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 6000); };
+const flash = (m, cta) => { const f = $('#flash'); f.textContent = m; if (cta) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = cta.label; b.style.marginLeft = '10px'; b.onclick = () => { f.hidden = true; cta.fn(); }; f.append(b); } f.hidden = false; clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, cta ? 10000 : 6000); };
 
 // ---------- tema ----------
 function theme(t) { if (t) { document.documentElement.dataset.theme = t; ls.set('theme', t); } const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches; $('#themeLbl').textContent = dark ? 'Tema claro' : 'Tema escuro'; if (t) { document.querySelectorAll('meta[name=theme-color]').forEach(m => m.remove()); const m = document.createElement('meta'); m.name = 'theme-color'; m.content = dark ? '#0f0a08' : '#fbf6f1'; document.head.append(m); } return dark; }
@@ -111,9 +111,35 @@ for (const [id, name, ic] of PROVIDERS.filter(p => !CFG.PROVIDERS || CFG.PROVIDE
 }
 
 // ---------- projetos ----------
+// ---------- Login como janela por cima da página de apresentação ----------
+let lgBack = null;
+function openLogin() {
+  if ($('#login').hidden) return;   // já está logado (ou no modo teste)
+  lgBack = document.activeElement; document.body.classList.add('lgOpen');
+  setTimeout(() => { const i = $('#login input[type=email]') || $('#login button:not(#lgX)'); i && i.focus(); }, 30);
+}
+function closeLogin() { if (!document.body.classList.contains('lgOpen')) return; document.body.classList.remove('lgOpen'); if (location.hash === '#login') history.replaceState(null, '', location.pathname + location.search); lgBack && lgBack.focus && lgBack.focus(); }
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href="#login"]'); if (a) { e.preventDefault(); openLogin(); return; }
+  if (e.target.closest('[data-guest]')) { e.preventDefault(); startGuest(); }
+});
+$('#lgX').onclick = closeLogin; $('#gUp').onclick = signup;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('lgOpen')) closeLogin(); });
+$('#login').addEventListener('click', e => { if (e.target === $('#login')) closeLogin(); });   // clique fora do formulário fecha
+const wantLogin = () => { let w = location.hash === '#login'; try { if (sessionStorage.getItem('fc.login')) { w = true; sessionStorage.removeItem('fc.login'); } } catch { /* ok */ } return w; };
+
+// ---------- Testar sem cadastro: legenda um vídeo curto no próprio aparelho, sem conta e sem salvar nada ----------
+const GUEST_MAX = 180;
+function signup() { try { sessionStorage.setItem('fc.login', '1'); } catch { /* ok */ } location.href = location.pathname; }   // recarrega já com o login aberto
+function needAccount(msg) { flash(msg + ' Crie sua conta grátis em segundos.', { label: 'Criar conta', fn: signup }); }
+function startGuest() {
+  S.guest = true; LIVE = false; useLocal = true; document.body.classList.add('guest');
+  closeLogin(); $('#gBar').hidden = false; home();
+  $('#homeSub').textContent = 'Modo teste sem cadastro: escolha um vídeo seu de até 3 minutos. A fala vira legenda animada aqui no seu aparelho, e nada é enviado nem salvo.';
+}
 async function home() {
   view('home'); S.pid = null; stopPlay(); forget();
-  if (!LIVE) { $('#plist').replaceChildren(); $('#pempty').hidden = false; $('#pempty').textContent = 'Modo demonstração: os projetos não são salvos.'; return; }
+  if (!LIVE) { $('#plist').replaceChildren(); $('#pempty').hidden = false; $('#pempty').textContent = S.guest ? 'Modo teste: nada é salvo. Crie sua conta grátis para guardar seus projetos.' : 'Modo demonstração: os projetos não são salvos.'; return; }
   const { data, error } = await S.sb.from('projects').select('id,title,duration,expires_at,created_at').order('created_at', { ascending: false });
   if (error) { flash('Não foi possível listar os projetos: ' + error.message); return; }
   PJ.mode = false; PJ.sel.clear(); const ul = $('#plist'); ul.replaceChildren(); $('#pempty').hidden = data.length > 0; $('#pempty').textContent = 'Nenhum projeto ainda.';
@@ -190,6 +216,7 @@ async function newVideo(f, mode = 'clips') {
   if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   f = await ensureProgressive(f);   // gravações do navegador (MP4 fragmentado) viram MP4 comum
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); logError('abrir', e, { size: f.size, type: f.type }); return; }
+  if (S.guest && media.duration > GUEST_MAX) { flash('No teste sem cadastro, use um vídeo de até 3 minutos (a transcrição roda no seu aparelho). Crie sua conta grátis para vídeos longos e cortes com IA.', { label: 'Criar conta', fn: signup }); return; }
   if (frameJob) frameJob.abort(); S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.track = null; S.faceOn = false; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
@@ -222,12 +249,12 @@ const tfmt = t => { t = Math.max(0, Math.round(t)); const h = Math.floor(t / 360
 // Registro da declaração de direitos (quem aceitou, quando e sobre qual vídeo). Falha de rede não bloqueia o uso.
 async function logRights(kind, ref, s, e) { try { if (!S.sb || !S.user) return; await S.sb.from('rights_log').insert({ kind, video_ref: ref, start_s: s, end_s: e, termo: 'v1', ua: navigator.userAgent.slice(0, 200) }); } catch { /* sem registro */ } }
 $('#ytForm').onsubmit = e => {
-  e.preventDefault(); const u = $('#ytUrl').value.trim(), id = ytId(u), m = $('#ytMsg');
+  e.preventDefault(); if (S.guest) { needAccount('Os cortes do YouTube precisam de uma conta (a transcrição é feita no servidor).'); return; } const u = $('#ytUrl').value.trim(), id = ytId(u), m = $('#ytMsg');
   if (!id) { m.textContent = 'Cole um link do YouTube válido (youtube.com ou youtu.be).'; m.style.color = '#ff6a6a'; m.style.fontWeight = '600'; return; }
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=31');
+$('#tpOpen').onclick = async () => { if (S.guest) { needAccount('O teleprompter precisa de uma conta grátis (é onde fica o seu teste).'); return; } if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=31');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -899,8 +926,8 @@ async function boot() {
   };
   $('#nAv').onclick = avOpen;
   const apply = async s => {
-    if (!s) { S.user = null; forget(); vstore.clear(); view('login'); return; }
-    if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
+    if (!s) { if (S.guest) return; S.user = null; forget(); vstore.clear(); view('login'); if (wantLogin()) openLogin(); return; }
+    closeLogin(); if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
     try { const iv = await S.sb.rpc('claim_invites'); if (iv.data > 0) setTimeout(() => flash('Você ganhou ' + iv.data + ' dias de Pro!'), 1200); } catch { /* sem convite */ }
     const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; setTimeout(tpLabel, 0); try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
@@ -1222,9 +1249,11 @@ if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
   }
   if (!standalone && root.requestFullscreen && document.fullscreenEnabled) {   // iPhone não oferece esta API: lá o caminho é instalar na tela de início
     fsB.hidden = false;
-    const tip = $('#fsTip'), seen = () => { try { return sessionStorage.getItem('fc.fstip'); } catch { return null; } };
-    const upd = () => { tip.hidden = !!document.fullscreenElement || !!seen() || $('#home').hidden; };
-    $('#fsTipGo').onclick = () => fsB.click(); $('#fsTipX').onclick = () => { try { sessionStorage.setItem('fc.fstip', '1'); } catch { /* ok */ } upd(); };
+    // o convite para tela cheia aparece uma vez só (não volta a cada visita) e só em tela de toque, onde faz diferença
+    const tip = $('#fsTip'), touch = matchMedia('(pointer: coarse)').matches, first = (() => { try { return !localStorage.getItem('fc.fstip'); } catch { return false; } })();
+    let off = !touch || !first; const markSeen = () => { try { localStorage.setItem('fc.fstip', '1'); } catch { /* ok */ } };
+    const upd = () => { tip.hidden = off || !!document.fullscreenElement || $('#home').hidden; if (!tip.hidden) markSeen(); };
+    $('#fsTipGo').onclick = () => { off = true; fsB.click(); upd(); }; $('#fsTipX').onclick = () => { off = true; markSeen(); upd(); };
     document.addEventListener('fullscreenchange', upd); new MutationObserver(upd).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] }); upd();
     fsB.onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen({ navigationUI: 'hide' }).catch(() => flash('Seu navegador não liberou a tela cheia.')); };
     document.addEventListener('fullscreenchange', () => { $('#fsL').textContent = document.fullscreenElement ? 'Sair da tela cheia' : 'Tela cheia'; });
@@ -1354,7 +1383,8 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
 const tourSeen = k => { try { return !!localStorage.getItem('forjaclip.tour.' + k); } catch { return true; } };
 const tourMark = k => { try { localStorage.setItem('forjaclip.tour.' + k, '1'); } catch { /* ok */ } };
 async function tourRun(k) { const m = tourMod = await import('./tour.js?v=4'); tourMark(k); return m.startTour(k, k === 'edit' ? m.EDIT : m.HOME); }
-function tourAuto(k, view) { if (tourSeen(k)) return; setTimeout(() => { if ($('#' + view).hidden || document.querySelector('dialog[open]')) return; tourRun(k); }, 1600); }
+// o tour não começa sozinho: na primeira visita aparece um convite, e a pessoa decide (também fica no botão de tour)
+function tourAuto(k, view) { if (tourSeen(k)) return; setTimeout(() => { if ($('#' + view).hidden || document.querySelector('dialog[open]') || tourSeen(k)) return; tourMark(k); flash(k === 'edit' ? 'Primeira vez no editor? Veja em 30 segundos onde fica cada coisa.' : 'Primeira vez aqui? Faça um tour rápido de 30 segundos.', { label: 'Fazer o tour', fn: () => tourRun(k) }); }, 1600); }
 $('#nTour').onclick = () => tourRun($('#edit').hidden ? 'home' : 'edit');
 new MutationObserver(() => { if (!$('#home').hidden) tourAuto('home', 'home'); else if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#home'), { attributes: true, attributeFilter: ['hidden'] });
 new MutationObserver(() => { if (!$('#edit').hidden) tourAuto('edit', 'edit'); }).observe($('#edit'), { attributes: true, attributeFilter: ['hidden'] });
