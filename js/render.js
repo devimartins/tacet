@@ -5,6 +5,7 @@ import { makeReader } from './media.js?v=10';
 import { drawOverlays, drawBroll } from './overlays.js';
 import { cutRanges, makeShift, inRange, zoomAt } from './edit.js';
 import { trackAt } from './facetrack.js';
+import { splitRects } from './speaker.js?v=1';
 import { createGrader } from './color.js?v=2';
 import { addEmojis, sfxEvents, addSfx, denoise, denoiseAI } from './extras.js';
 
@@ -56,6 +57,7 @@ async function renderInner({ file, media, clip, words, style, onProgress, W = 10
   const rot = V.rotation, swap = rot === 90 || rot === 270, dw = swap ? V.height : V.width, dh = swap ? V.width : V.height;
   const blur = useBlur(style.fit || 'auto', dw, dh, W, H), sc = blur ? Math.min(W / dw, H / dh) : Math.max(W / dw, H / dh), sw = W / sc, sh = H / sc, sx = (dw - sw) * (blur ? 0.5 : rs.cropX), sy = (dh - sh) / 2;
   const scB = Math.max(W / dw, H / dh), bgc = blur && !opts.bgScene ? document.createElement('canvas') : null; if (bgc) { bgc.width = Math.ceil(W / 14); bgc.height = Math.ceil(H / 14); }
+  const split = !blur && !rot && opts.split ? splitRects(opts.split, dw, dh, W, H) : null;   // tela dividida: duas pessoas empilhadas
   const rotate = (c, k) => { if (rot === 90) { c.translate(V.height, 0); c.rotate(Math.PI / 2); } else if (rot === 180) { c.translate(V.width, V.height); c.rotate(Math.PI); } else if (rot === 270) { c.translate(0, V.width); c.rotate(-Math.PI / 2); } };
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
 
@@ -102,7 +104,12 @@ async function renderInner({ file, media, clip, words, style, onProgress, W = 10
     ctx.transform(sc, 0, 0, sc, -sxF * sc, -sy * sc);
     rotate(ctx);
     if (cssF && 'filter' in ctx) ctx.filter = cssF;
-    ctx.drawImage(f, 0, 0); f.close();
+    if (split) {   // cada pessoa na sua metade; uma linha fina separa as duas
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      split.forEach((r, k) => ctx.drawImage(f, r.sx, r.sy, r.sw, r.sh, 0, k * H / 2, W, H / 2));
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, H / 2 - Math.max(1, H / 640), W, Math.max(2, H / 320));
+    } else ctx.drawImage(f, 0, 0);
+    f.close();
     ctx.setTransform(1, 0, 0, 1, 0, 0); if (cssF && 'filter' in ctx) ctx.filter = 'none';
     if (opts.bgScene) { try { if (!bgM) { bgM = await import('./bgswap.js?v=2'); bgM.resetMask(); } await bgM.swapOn(ctx, cv, W, H, opts.bgScene); } catch (e) { if (!bgWarned) { bgWarned = true; console.warn('fundo', e); } } }
     if (grader) { try { ctx.drawImage(grader.apply(cv, gP.g, gP.lut), 0, 0); } catch { /* segue sem cor */ } }

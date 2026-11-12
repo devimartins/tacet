@@ -1,13 +1,9 @@
 // Seguir o rosto no reenquadramento (MediaPipe Face Detection, Apache 2.0, roda local em WebAssembly).
 // Amostra o vídeo a cada `step` s, acha o rosto maior e devolve [[t, x]] (x = centro do rosto, 0..1), já suavizado.
-let det = null, lastRes = null;
-function loadScript(src) { return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => no(new Error('Não consegui carregar o detector de rosto.')); document.head.append(s); }); }
-async function getDetector() {
-  if (det) return det;
-  await loadScript('vendor/face/face_detection.js');
-  const d = new window.FaceDetection({ locateFile: f => 'vendor/face/' + f });
-  d.setOptions({ model: 'short', minDetectionConfidence: 0.5 }); d.onResults(r => { lastRes = r; }); await d.initialize(); return (det = d);
-}
+// usa o mesmo detector do enquadramento em quem fala (um só na página; "full range" acha rostos pequenos)
+import { detector, onDetect } from './speaker.js?v=1';
+let lastRes = null; onDetect(r => { lastRes = r; });
+const getDetector = detector;
 export async function trackFaces(file, from, to, { step = 0.5, onProgress, signal } = {}) {
   const d = await getDetector(), v = document.createElement('video'), url = URL.createObjectURL(file); v.muted = true; v.preload = 'auto'; v.src = url; v.playsInline = true;
   await new Promise((ok, no) => { v.onloadeddata = ok; v.onerror = () => no(new Error('Não consegui ler o vídeo.')); });

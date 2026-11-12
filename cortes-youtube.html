@@ -165,7 +165,7 @@ body{padding-left:calc(64px + env(safe-area-inset-left,0px))}
 </div>
 <script defer src="config.js"></script><script defer src="vendor/supabase.js"></script>
 <script type="module">
-import { localClips, suggestClips, cutsWanted, sentences } from './js/clips.js?v=4';
+import { localClips, suggestClipsFull, cutsWanted, sentences } from './js/clips.js?v=5';
 import { PRESETS, resolve, chunksOf, perChunk, drawCaption, fontsUrl, loadFont } from './js/captions.js';
 const $ = s => document.querySelector(s), say = (m, er) => { const e = $('#st'); e.textContent = m; e.classList.toggle('er', !!er); };
 const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1).slice(0, 11) || null; if (/(^|\.)youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };
@@ -233,8 +233,8 @@ function toWords(cues) {
 }
 // ---- IA (opcional: só com login no ForjaClip). Sem login, seleção automática no aparelho.
 async function token() { try { if (!window.CFG?.AI || !window.supabase) return null; const sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON); const { data } = await sb.auth.getSession(); return data.session?.access_token || null; } catch { return null; } }
-async function ask(tk, lines) {
-  const r = await fetch(CFG.AI + '/clips', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ lines }) });
+async function ask(tk, body) {   // a IA lê a transcrição inteira de uma vez (Gemini) e escolhe os assuntos mais fortes do vídeo todo
+  const r = await fetch(CFG.AI + '/clips-v2', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || 'Erro ' + r.status); e.fatal = [401, 402, 413, 429].includes(r.status); throw e; } return j.clips;
 }
 // ---- quem fala + prévia das legendas do ForjaClip sobre o player
@@ -540,7 +540,7 @@ $('#f').onsubmit = async e => {
   const dur = words[words.length - 1].e, want = cutsWanted(dur); btn.disabled = true; say('Analisando a transcrição…'); prog(.03, 'Analisando a transcrição…');
   try {
     let cl = [], note = ''; const tk = await token();
-    if (tk) { try { cl = await suggestClips(words, dur, lines => ask(tk, lines), p => { say('A IA está escolhendo trechos… ' + Math.round(p * 100) + '%'); prog(.05 + p * .9, 'A IA está escolhendo trechos… ' + Math.round(p * 100) + '%'); }); } catch (x) { note = ' A IA não respondeu (' + x.message + '); usei a seleção automática.'; } } else note = ' Seleção automática no aparelho. Entre no ForjaClip para a IA ranquear os trechos.';
+    if (tk) { try { say('A IA está lendo o vídeo inteiro para escolher os trechos…'); prog(.3, 'A IA está lendo o vídeo inteiro…'); cl = await suggestClipsFull(words, dur, body => ask(tk, body), { len: 'auto' }); } catch (x) { note = ' A IA não respondeu (' + x.message + '); usei a seleção automática.'; } } else note = ' Seleção automática no aparelho. Entre no ForjaClip para a IA ranquear os trechos.';
     let all = cl.slice(); if (all.length < want) all = all.concat(localClips(words, dur, all, want - all.length));
     all.sort((x, y) => x.start - y.start);
     if (!all.length) { $('#g').replaceChildren(); $('#outH').hidden = true; return say('Transcrição curta demais para sugerir trechos de 20 a 60 s.', 1); }

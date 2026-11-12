@@ -1,11 +1,11 @@
 import { CATS, FONTS, fontsUrl, loadFont, PRESETS, PLATFORMS, DEFAULT_STYLE, resolve, chunksOf, perChunk, drawCaption, safeRect, outsideSafe, segKey } from './captions.js';
 import { openMedia, extractAudio } from './media.js?v=10';
 import { ensureProgressive } from './remux.js?v=5';
-import { useBlur, renderClip } from './render.js?v=10';
+import { useBlur, renderClip } from './render.js?v=11';
 import { logError, setTokenGetter } from './errlog.js?v=1';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
-import { suggestClips, localClips, cutsWanted } from './clips.js?v=4';
+import { suggestClipsFull, localClips, cutsCount, LENS } from './clips.js?v=5';
 import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=3';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
@@ -14,6 +14,7 @@ import { findBroll } from './broll.js';
 const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1, 12) || null; if (/(^|\.)youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };
 import { initGuide } from './guide.js';
 import { trackFaces, trackAt } from './facetrack.js';
+import { analyzeCuts, splitRects, frameAt } from './speaker.js?v=1';
 import { avatarSvg, parseAv, AV_COUNT, BG_COUNT } from './avatar.js?v=2';
 import { assist, translateWords, toLines } from './ai.js';
 import { addEmojis } from './extras.js';
@@ -189,7 +190,7 @@ async function newVideo(f, mode = 'clips') {
   if (/iPhone|iPad/.test(navigator.userAgent) && f.size > 500 * MB) flash('Vídeo grande para o iPhone (' + mb + ' MB). Se travar, tente no computador ou use um trecho menor.');
   f = await ensureProgressive(f);   // gravações do navegador (MP4 fragmentado) viram MP4 comum
   let media; try { media = await openMedia(f); } catch (e) { flash(e.message); logError('abrir', e, { size: f.size, type: f.type }); return; }
-  S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.track = null; S.faceOn = false; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
+  if (frameJob) frameJob.abort(); S.file = f; S.media = media; S.title = f.name; S.words = []; S.clips = []; S.dur = media.duration; S.style = { ...structuredClone(DEFAULT_STYLE), preset: S.homePreset || 'iman' }; S.fx = { cut: 0, zoom: 0 }; S.track = null; S.faceOn = false; S.tone = 'auto'; $('#toneSel').value = 'auto'; S.hid = new Set(); S.ratio = '9:16'; S.ov = [];
   if (LIVE) {
     const { data, error } = await S.sb.from('projects').insert({ title: f.name, fingerprint: fp(f), duration: media.duration, style: S.style }).select('id').single();
     if (error) {   // sem salvar na nuvem o usuário ainda pode editar e exportar; antes a edição era bloqueada
@@ -262,6 +263,76 @@ async function ai(path, body, type) {
 }
 const prog = p => { const b = $('#pg'); b.hidden = p == null; if (p != null) b.value = p; };
 const status = m => { $('#status').textContent = m; };
+// ---------- enquadramento em quem fala (roda no aparelho, corte por corte, em segundo plano) ----------
+let frameJob = null;
+const layout = () => S.style.layout || 'follow';
+function needsCrop() {   // só vale quando o vídeo é mais largo que o formato de saída (ex.: 16:9 para 9:16)
+  const V = S.media && S.media.video; if (!V) return false; const swp = V.rotation === 90 || V.rotation === 270, dw = swp ? V.height : V.width, dh = swp ? V.width : V.height, [W, H] = dimsNow();
+  return dw / dh > (W / H) * 1.15 && !S.blurOn;
+}
+const frameMsg = m => { const e = $('#cutsFrame'); if (e) { e.textContent = m; e.hidden = !m; } };
+async function frameCuts() {
+  if (frameJob || !S.file || !S.words.length || layout() === 'center' || !needsCrop()) return;
+  const todo = S.clips.filter(c => !c.frame && c.status !== 'no').sort((a, b) => (b.status === 'ok') - (a.status === 'ok') || (b.score || 0) - (a.score || 0));
+  if (!todo.length) return;
+  const ac = new AbortController(), file = S.file; frameJob = ac; let k = 0;
+  frameMsg('Enquadrando quem fala em cada corte: 0 de ' + todo.length + '…');
+  try {
+    await analyzeCuts(file, todo, S.words, { signal: ac.signal, onClip: (c, r) => {
+      if (S.file !== file) return; c.frame = r; k++;
+      frameMsg(k < todo.length ? 'Enquadrando quem fala em cada corte: ' + k + ' de ' + todo.length + '…' : '');
+      document.querySelectorAll('#cutsGrid .cvid').forEach(b => { if (b._c === c && b._draw) b._draw(); });
+      cutSave();
+    } });
+    frameMsg('');
+  } catch (e) { if (!ac.signal.aborted) { frameMsg('Não consegui analisar os rostos (' + (e.message || 'erro') + '). A prévia fica no centro do vídeo.'); logError('enquadrar', e, { n: todo.length }); } else frameMsg(''); }
+  finally { if (frameJob === ac) frameJob = null; }
+}
+// desenha o quadro de um corte num canvas: segue quem fala, tela dividida ou fixo; com as legendas por cima
+function paintCut(x, v, c, W, H, t, caps = true) {
+  const vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) return;
+  x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+  const sp = layout() === 'split' && c && c.frame && c.frame.people && c.frame.people.length >= 2 && !S.blurOn ? splitRects(c.frame.people, vw, vh, W, H) : null;
+  if (sp) { sp.forEach((r, k) => x.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, k * H / 2, W, H / 2)); x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(0, H / 2 - 1, W, 2); }
+  else {
+    const k = Math.max(W / vw, H / vh), sw = W / k, sh = H / k;
+    let fx = S.faceOn && S.track ? trackAt(S.track, t) : layout() === 'follow' && c && c.frame && c.frame.track ? trackAt(c.frame.track, t) : null;
+    const sx = vw > sw ? (fx != null ? Math.min(vw - sw, Math.max(0, fx * vw - sw / 2)) : (vw - sw) * (rs().cropX ?? 0.5)) : (vw - sw) / 2;
+    x.drawImage(v, sx, (vh - sh) / 2, sw, sh, 0, 0, W, H);
+  }
+  if (caps && S.chunks && S.chunks.length) { try { drawCaption(x, W, H, S.chunks, t, rs()); } catch { /* sem legenda */ } }
+}
+
+// ---------- cortes sugeridos: IA com o vídeo inteiro, duração e tema escolhidos ----------
+const CUTOPT = 'fc_cutopts';
+S.cutOpts = (() => { try { return { len: 'auto', topic: '', ...JSON.parse(localStorage.getItem(CUTOPT) || '{}') }; } catch { return { len: 'auto', topic: '' }; } })();
+const saveCutOpts = () => { try { localStorage.setItem(CUTOPT, JSON.stringify({ len: S.cutOpts.len })); } catch { /* sem armazenamento */ } };   // o tema vale só para este vídeo
+// preenche com seleção automática quando a IA trouxe poucos (ou nenhum) cortes
+function fillCuts(words, cl = [], keep = []) {
+  const R = LENS[S.cutOpts.len] || LENS.auto, w = cutsCount(S.media.duration), base = [...keep, ...cl];
+  let all = base.slice(); if (all.length < w) all = all.concat(localClips(words, S.media.duration, all, w - all.length, R).map((c, k) => ({ ...c, id: 'l' + Date.now().toString(36) + k })));
+  return all.sort((x, y) => x.start - y.start);
+}
+// gera (ou refaz) as sugestões; cortes aprovados e manuais são mantidos
+async function makeCuts(words = S.words) {
+  if (frameJob) frameJob.abort();
+  const keep = S.clips.filter(c => c.status === 'ok' || /^[mk]/.test(c.id)), keepFree = c => keep.every(k => c.end <= k.start || c.start >= k.end);
+  S.aiFail = '';
+  if (!LIVE) { S.clips = fillCuts(words, [], keep); await save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
+  status('Transcrição pronta. A IA está lendo o vídeo inteiro para escolher os melhores cortes…'); prog(0.15);
+  try {
+    const cl = (await suggestClipsFull(words, S.media.duration, async body => (await ai('/clips-v2', JSON.stringify(body), 'application/json')).clips, S.cutOpts)).filter(keepFree).map((c, k) => ({ ...c, id: 'g' + Date.now().toString(36) + k }));
+    S.clips = fillCuts(words, cl, keep); await save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI();
+    const nAi = cl.length;
+    status(nAi ? 'Pronto: ' + nAi + (nAi === 1 ? ' corte escolhido' : ' cortes escolhidos') + ' pela IA' + (S.clips.length - keep.length > nAi ? ', mais alguns de seleção automática.' : '.') : 'A IA não achou trechos fortes ' + (S.cutOpts.topic ? 'sobre “' + S.cutOpts.topic + '”' : 'nesta faixa de duração') + '. Separei trechos automaticamente.');
+    if (!nAi) S.aiFail = 'A IA não achou trechos fortes ' + (S.cutOpts.topic ? 'sobre “' + S.cutOpts.topic + '”.' : 'nesta faixa de duração.') + ' Os cortes abaixo são de seleção automática.';
+  } catch (e) {
+    if (e.code !== 'paid') logError('cortes-ia', e, { status: e.status, dur: Math.round(S.media.duration), len: S.cutOpts.len, tema: !!S.cutOpts.topic });
+    S.clips = fillCuts(words, [], keep); await save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI();
+    S.aiFail = e.code === 'paid' ? 'A escolha de cortes pela IA faz parte do plano Pro. Os cortes abaixo são de seleção automática.' : 'A IA não conseguiu analisar agora (' + e.message.replace(/\.$/, '') + '). Os cortes abaixo são de seleção automática; toque em Refazer sugestões para tentar de novo.';
+    status(S.aiFail);
+  } finally { prog(null); if ($('#cuts').open) cutsUI(); frameCuts(); }
+}
 async function pipeline() {
   if (S.busy) return; S.busy = true; $('#txt').readOnly = true;
   try {
@@ -275,11 +346,7 @@ async function pipeline() {
     words = fixCase(words); S.words = words; $('#txt').value = words.map(w => w.w).join(' '); rebuild();
     await save({ transcript: { words }, duration: S.media.duration });
     if (S.mode === 'captions') { S.clips = [{ id: 'full', start: 0, end: S.media.duration, title: 'Vídeo completo', reason: '' }]; await save({ clips: S.clips }); clipsUI(); status(S.media.duration > 120 ? 'Transcrição pronta. A exportação no navegador vai até 2 minutos: crie cortes de até 2 min na aba Ferramentas.' : 'Transcrição pronta. Escolha o estilo e exporte na aba Ferramentas.'); if (S.autoEdit) { S.autoEdit = false; S.offerBg = true; if (canPro() && aeVertical()) $('#aeD').showModal(); else offerBg(); } return; }
-    const fill = (cl = []) => { const w = cutsWanted(S.media.duration); let all = cl.slice(); if (all.length < w) all = all.concat(localClips(words, S.media.duration, all, w - all.length).map((c, k) => ({ ...c, id: 'l' + (k + 1) }))); return all.sort((x, y) => x.start - y.start); };
-    if (!LIVE) { S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
-    status('Transcrição pronta. Procurando os melhores cortes…'); prog(0);
-    try { const cl = await suggestClips(words, S.media.duration, async lines => (await ai('/clips', JSON.stringify({ lines }), 'application/json')).clips, p => prog(p)); S.clips = fill(cl); await save({ clips: S.clips }); clipsUI(); status(S.clips.length ? 'Pronto: transcrição e ' + S.clips.length + (S.clips.length === 1 ? ' corte sugerido.' : ' cortes sugeridos.') + (cl.length < S.clips.length ? ' Alguns são seleção automática.' : '') : 'Transcrição pronta. Não achei trechos; crie um corte manual.'); }
-    catch (e) { if (e.code !== 'paid') logError('cortes-ia', e, { status: e.status }); S.clips = fill(); await save({ clips: S.clips }); clipsUI(); status(e.code === 'paid' ? 'Transcrição pronta. Separei trechos relevantes; a seleção por IA faz parte do plano pago.' : 'Transcrição pronta. A IA falhou (' + e.message + '); separei trechos relevantes automaticamente.'); }
+    await makeCuts(words);
   } catch (e) { logError('transcricao', e, { status: e.status, dur: S.media && Math.round(S.media.duration), audio: S.media && S.media.audio && S.media.audio.codec }); status('Não foi possível transcrever: ' + (/fetch|network|import/i.test(e.message) && !LIVE ? 'o download do modelo de voz foi bloqueado neste ambiente (a prévia do Claude não permite). Publique o app (GitHub Pages) ou conecte o Worker.' : e.message)); }
   finally { prog(null); S.busy = false; $('#txt').readOnly = false; if (S.mode === 'clips' && S.words.length && !$('#edit').hidden) { tab('clips'); if (S.clips.length && S.file) cutsOpen(); } }
 }
@@ -329,10 +396,10 @@ function rebuild() { S.chunks = chunksOf(S.fx.emoji ? addEmojis(visible(), 2.5, 
 function setO(k, v) { if (['x', 'y', 'cropX'].includes(k)) S.style[k] = v; else S.style.o = { ...S.style.o, [k]: v }; rebuild(); applyCrop(); saveSoon('style', { style: S.style }); }
 function applyFit() {   // fundo desfocado (prévia): vídeo inteiro por cima de uma cópia pequena e desfocada
   const v = $('#vid'); if (!v.videoWidth) return; const [W, H] = DIMS[S.ratio], on = useBlur(S.style.fit || 'auto', v.videoWidth, v.videoHeight, W, H);
-  S.blurOn = on; v.style.objectFit = on ? 'contain' : 'cover'; $('#bgv').style.display = on ? 'block' : 'none'; $('#fitSel').value = S.style.fit || 'auto';
+  S.blurOn = on; v.style.objectFit = on ? 'contain' : 'cover'; $('#bgv').style.display = on ? 'block' : 'none'; $('#fitSel').value = S.style.fit || 'auto'; $('#laySel').value = S.style.layout || 'follow';
 }
 let bgT = 0; function drawBg() { if (!S.blurOn) return; const n = performance.now(); if (n - bgT < 120) return; bgT = n; const v = $('#vid'), c = $('#bgv'); try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch { /* sem quadro */ } }
-$('#fitSel').onchange = e => { S.style.fit = e.target.value; applyFit(); saveSoon('style', { style: S.style }); };
+$('#fitSel').onchange = e => { S.style.fit = e.target.value; applyFit(); saveSoon('style', { style: S.style }); frameCuts(); };
 function applyCrop() { $('#vid').style.objectPosition = rs().cropX * 100 + '% 50%'; }
 let rows = [];
 const sync = () => { rows.forEach(f => f()); EG && EG.mark(); };
@@ -615,7 +682,7 @@ function clipsUI() {
 // ---------- tela de cortes sugeridos (grade 9:16: o usuário aprova, rejeita, ajusta ou baixa) ----------
 let cutsF = 'all';
 const cutSave = () => save({ clips: S.clips.map(({ url, state, p, err, t0, ...c }) => c) });
-function cutsOpen() { if (!S.clips.length) { flash('Ainda não há cortes. Crie um manual.'); return; } cutsUI(); if (!$('#cuts').open) $('#cuts').showModal(); }
+function cutsOpen() { if (!S.clips.length) { flash('Ainda não há cortes. Crie um manual.'); return; } cutsUI(); if (!$('#cuts').open) $('#cuts').showModal(); frameCuts(); }
 function cutsClose() { if (miniOn) miniStop(miniOn); $('#cuts').close(); }
 async function cutDl(c) {
   if (!c.url) await renderOne(c);
@@ -632,16 +699,24 @@ function cutCard(c, i) {
     btn('⬇', c.url ? 'Baixar o corte' : 'Gerar e baixar o corte', () => cutDl(c)),
     btn('✓', 'Aprovar', () => { c.status = c.status === 'ok' ? '' : 'ok'; cutSave(); cutsUI(); }, c.status === 'ok' ? 'on' : ''),
     btn('✕', 'Rejeitar', () => { c.status = c.status === 'no' ? '' : 'no'; cutSave(); cutsUI(); }, c.status === 'no' ? 'x on' : 'x'));
-  const sc = el('span', { className: 'cs' + (c.auto ? ' a' : ''), textContent: c.auto ? 'Relevante' : c.score != null ? c.score + '%' : 'Manual' });
+  const sc = el('span', { className: 'cs' + (c.auto ? ' a' : ''), textContent: c.auto ? 'Automático' : c.score != null && !/^[mk]/.test(c.id) ? 'Nota ' + c.score : 'Manual' });
+  if (c.auto) sc.title = 'Seleção automática no aparelho, sem a IA';
   const pr = el('progress', { max: 1, value: c.p || 0 });
-  box.append(v, sc, el('span', { className: 'cb', textContent: 'Prévia' }), pl, el('span', { className: 'cd', textContent: mmss(c.end - c.start) }), tool, pr);
+  const pc = el('canvas', { className: 'cvc' }); pc.setAttribute('aria-hidden', 'true');
+  box.append(v, pc, sc, el('span', { className: 'cb', textContent: 'Prévia' }), pl, el('span', { className: 'cd', textContent: mmss(c.end - c.start) }), tool, pr);
+  // a prévia é desenhada num canvas: mostra quem fala (ou a tela dividida) e as legendas, como no vídeo exportado
+  let raf = 0; box._draw = () => { const d = Math.min(2, devicePixelRatio || 1), W = Math.round(box.clientWidth * d), H = Math.round(box.clientHeight * d); if (!W || !H || !v.videoWidth) return; if (pc.width !== W || pc.height !== H) { pc.width = W; pc.height = H; } paintCut(pc.getContext('2d'), v, c, W, H, v.currentTime); };
+  const tick = () => { box._draw(); if (!v.paused && !v.ended) raf = requestAnimationFrame(tick); };
+  v.addEventListener('play', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); });
+  for (const ev of ['loadeddata', 'seeked', 'canplay']) v.addEventListener(ev, () => box._draw());
   v.ontimeupdate = () => { if (v.currentTime >= c.end) miniStop(box); };
   let ht = 0; const hover = matchMedia('(hover:hover)').matches && !matchMedia('(prefers-reduced-motion:reduce)').matches;
   if (hover) { box.onmouseenter = () => { ht = setTimeout(() => miniPlay(box, false), 300); }; box.onmouseleave = () => { clearTimeout(ht); if (box.classList.contains('on') && v.muted) miniStop(box); }; }
   box.onclick = () => { clearTimeout(ht); if (box.classList.contains('on') && !v.muted) miniStop(box); else miniPlay(box, true); };
   box.onkeydown = e => { if (e.key === 'Escape') miniStop(box); };
   if (src) { if (miniIO) miniIO.observe(box); else v.src = src + '#t=' + c.start; }
-  card.append(box, el('h3', { textContent: c.title || 'Corte ' + (i + 1) }), el('p', { textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.reason ? ' · ' + c.reason : '') }));
+  card.append(box, el('h3', { textContent: c.title || 'Corte ' + (i + 1) }), el('p', { textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.topic ? ' · ' + c.topic : '') + (c.reason ? ' · ' + c.reason : '') }));
+  if (c.parts) card.append(el('p', { className: 'cpt', textContent: 'Gancho ' + c.parts.hook + ' · Fechamento ' + c.parts.flow + ' · Valor ' + c.parts.value + ' · Interesse ' + c.parts.trend }));
   return card;
 }
 function cutsUI() {
@@ -649,6 +724,8 @@ function cutsUI() {
   const all = S.clips, n = { all: all.length, ok: all.filter(c => c.status === 'ok').length, no: all.filter(c => c.status === 'no').length };
   document.querySelectorAll('#cutsTabs button').forEach(b => { const f = b.dataset.f; b.textContent = { all: 'Todos', ok: 'Aprovados', no: 'Rejeitados' }[f] + ' (' + n[f] + ')'; b.setAttribute('aria-selected', String(f === cutsF)); b.onclick = () => { cutsF = f; cutsUI(); }; });
   $('#cutsSub').textContent = (S.title || '') + ' · ' + n.all + ' trechos separados. Você decide quais usar.';
+  const al = $('#cutsAlert'); al.hidden = !S.aiFail; al.textContent = S.aiFail || '';
+  $('#cutsLen').value = S.cutOpts.len; $('#cutsLay').value = layout(); if (document.activeElement !== $('#cutsTopic')) $('#cutsTopic').value = S.cutOpts.topic || '';
   const g = $('#cutsGrid'); g.replaceChildren();
   const list = all.map((c, i) => [c, i]).filter(([c]) => cutsF === 'all' || (c.status || '') === cutsF);
   if (!list.length) g.append(el('p', { className: 'mut', textContent: 'Nenhum corte nesta aba.' }));
@@ -661,11 +738,23 @@ function cutEdit(c) {
     const s0 = tsec($('#ceS').value), e0 = tsec($('#ceE').value);
     if (!(e0 - s0 >= 3) || e0 > S.dur + 0.5) { $('#ceM').textContent = 'O corte precisa ter pelo menos 3 segundos e ficar dentro do vídeo (' + tfmt(S.dur) + ').'; return; }
     if (e0 - s0 > 120) { $('#ceM').textContent = 'No navegador, cada corte pode ter até 2 minutos.'; return; }
-    c.title = $('#ceT').value.trim().slice(0, 80) || c.title; c.start = s0; c.end = e0; if (c.url) { URL.revokeObjectURL(c.url); delete c.url; c.state = 'idle'; } cutSave(); d.close(); cutsUI(); drawTimeline();
+    c.title = $('#ceT').value.trim().slice(0, 80) || c.title; if (c.start !== s0 || c.end !== e0) delete c.frame; c.start = s0; c.end = e0; if (c.url) { URL.revokeObjectURL(c.url); delete c.url; c.state = 'idle'; } cutSave(); d.close(); cutsUI(); drawTimeline(); frameCuts();
   };
 }
 $('#cutsX').onclick = cutsClose; $('#cuts').addEventListener('close', () => { if (miniOn) miniStop(miniOn); });
 $('#cutsOpen').onclick = cutsOpen;
+$('#cutsLen').onchange = () => { S.cutOpts.len = $('#cutsLen').value; saveCutOpts(); };
+const setLayout = v => { S.style.layout = v; saveSoon('style', { style: S.style }); $('#cutsLay').value = v; $('#laySel').value = v; document.querySelectorAll('#cutsGrid .cvid').forEach(b => b._draw && b._draw()); if (v !== 'center') frameCuts(); };
+$('#cutsLay').onchange = () => setLayout($('#cutsLay').value); $('#laySel').onchange = () => setLayout($('#laySel').value);
+$('#cutsTopic').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#cutsRe').click(); } };
+$('#cutsRe').onclick = async () => {
+  const b = $('#cutsRe');
+  if (S.busy) { flash('Aguarde: o vídeo ainda está sendo processado.'); return; }
+  if (!S.words.length || !S.media) { flash('Ainda não há transcrição para escolher cortes.'); return; }
+  S.cutOpts.len = $('#cutsLen').value; S.cutOpts.topic = $('#cutsTopic').value.trim().slice(0, 120); saveCutOpts();
+  S.busy = true; b.disabled = true; b.textContent = 'Escolhendo…'; S.aiFail = ''; $('#cutsAlert').hidden = false; $('#cutsAlert').textContent = 'A IA está lendo o vídeo inteiro. Isso pode levar até um minuto.';
+  try { await makeCuts(); } finally { S.busy = false; b.disabled = false; b.textContent = 'Refazer sugestões'; cutsUI(); }
+};
 $('#cutsMan').onclick = () => { cutsClose(); tab('clips'); try { $('#ms').scrollIntoView({ block: 'center' }); $('#ms').focus(); } catch { /* ok */ } };
 
 // ---------- exportar (botão sempre visível no editor) ----------
@@ -723,7 +812,11 @@ async function renderOne(c) {
   if (!S.file) { flash('Selecione o vídeo original para gerar o corte.'); $('#ph').hidden = false; return; }
   if (c.end - c.start > 120) { flash('No navegador, cada corte pode ter até 2 minutos.'); return; }
   S.busy = true; c.state = 'rendering'; c.p = 0; c.t0 = performance.now(); S.abort = new AbortController(); clipsUI(); let wl; try { wl = await navigator.wakeLock.request('screen'); } catch { /* sem wake lock */ }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); await Promise.all((S.ov || []).filter(o => o.font).map(o => loadFont(o.font, 700))); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  if (!c.frame && !S.faceOn && layout() !== 'center' && needsCrop()) {   // corte ainda sem enquadramento: analisa antes de gerar
+    if ($('#expMsg')) $('#expMsg').textContent = 'Enquadrando quem fala…';
+    try { await analyzeCuts(S.file, [c], S.words, { signal: S.abort.signal, onClip: (cc, r) => { cc.frame = r; } }); cutSave(); } catch (e) { if (!S.abort.signal.aborted) logError('enquadrar', e); }
+  }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); await Promise.all((S.ov || []).filter(o => o.font).map(o => loadFont(o.font, 700))); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : (layout() === 'follow' && c.frame && c.frame.track) || null, split: layout() === 'split' && c.frame && c.frame.people && c.frame.people.length >= 2 ? c.frame.people : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
   catch (e) {
     c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.');
     else { const V = S.media && S.media.video, A = S.media && S.media.audio; logError('exportar', e, { seg: Math.round((c.end - c.start) * 10) / 10, out: dimsNow().join('x'), fps: S.fps, at: Math.round((c.p || 0) * 100), s: Math.round((performance.now() - c.t0) / 1000), v: V && V.codec + ' ' + V.width + 'x' + V.height + ' r' + V.rotation, a: A && A.codec + ' ' + A.sampleRate + '/' + A.channels, mb: S.file && Math.round(S.file.size / 1048576), fx: Object.keys(S.fx || {}).filter(k => S.fx[k]).join(','), fundo: !!S.bgScene, musica: !!S.music, ov: (S.ov || []).length }); }
@@ -750,10 +843,12 @@ function frame(now) {
     if (hasVid()) S.cur = vid.currentTime; else if (S.playing) S.cur += dt;
     if (S.prev && S.cur >= S.prev.e) seek(S.prev.s); else if (S.prev && S.prevRem && S.prevRem.length && S.prevRem.some(([a, b]) => S.cur >= a && S.cur < b)) seek(S.prevRem.find(([a, b]) => S.cur >= a && S.cur < b)[1]); else if (!hasVid() && S.cur >= S.dur) S.cur = 0;
     vid.style.transform = S.fx.zoom ? 'scale(' + zoomAt(S.chunks, S.cur, ZL[S.fx.zoomL || 2]).toFixed(3) + ')' : '';
-    if (S.faceOn && S.track && hasVid() && !S.blurOn) { const fx = trackAt(S.track, S.cur), vw = vid.videoWidth, vh = vid.videoHeight, st = $('#stage').getBoundingClientRect(); if (fx != null && vw && st.height) { const sw = vh * st.width / st.height; vid.style.objectPosition = (vw > sw ? Math.min(1, Math.max(0, (fx * vw - sw / 2) / (vw - sw))) * 100 : 50) + '% 50%'; } }
+    const fc = !S.faceOn && hasVid() && !S.blurOn && layout() !== 'center' ? frameAt(S.clips, S.cur) : null, ftr = S.faceOn && S.track ? S.track : fc && layout() === 'follow' && fc.frame.track ? fc.frame.track : null;
+    if (ftr && hasVid() && !S.blurOn) { const fx = trackAt(ftr, S.cur), vw = vid.videoWidth, vh = vid.videoHeight, st = $('#stage').getBoundingClientRect(); if (fx != null && vw && st.height) { const sw = vh * st.width / st.height; vid.style.objectPosition = (vw > sw ? Math.min(1, Math.max(0, (fx * vw - sw / 2) / (vw - sw))) * 100 : 50) + '% 50%'; S.fxOn = true; } } else if (S.fxOn) { S.fxOn = false; applyCrop(); }
     if (colorUI) colorUI.preview(); drawBg(); segPrev();
     $('#scrub').value = S.cur; $('#scrub').style.setProperty('--p', (S.cur / Math.max(S.dur, 1) * 100).toFixed(2) + '%'); $('#ph2').style.left = Math.min(100, S.cur / Math.max(S.dur, 1) * 100) + '%'; if (S.tlz > 1 && S.playing) { const sc = $('#twS'), x = S.cur / Math.max(S.dur, 1) * sc.scrollWidth; if (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth * 0.9) sc.scrollLeft = x - sc.clientWidth * 0.2; } $('#tm').textContent = mmss(S.cur) + ' / ' + mmss(S.dur);
     fit(); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
+    if (fc && layout() === 'split' && fc.frame.people && fc.frame.people.length >= 2 && vid.videoWidth) paintCut(ctx, vid, fc, W, H, S.cur, false);   // tela dividida: desenhada por cima do vídeo
     const r = rs(); if (S.ov.length) drawBroll(ctx, W, H, S.ov, S.cur); S.bbox = drawCaption(ctx, W, H, S.chunks, S.cur, r); if (S.ov.length || S.logo) drawOverlays(ctx, W, H, ovAll(), S.cur, r.font);
     const out = S.bbox && outsideSafe(S.bbox, S.safeP, W, H);
     if (drag && S.guides && S.guides.length) { ctx.save(); ctx.lineWidth = Math.max(1.5, W / 540); for (const g of S.guides) { ctx.strokeStyle = g.k === 'c' ? '#2fa8ff' : '#ff3fa4'; ctx.setLineDash([]); ctx.beginPath(); if (g.v) { ctx.moveTo(g.p, 0); ctx.lineTo(g.p, H); } else { ctx.moveTo(0, g.p); ctx.lineTo(W, g.p); } ctx.stroke(); } ctx.restore(); }

@@ -48,22 +48,43 @@ export function tailTo(S, j, i, max = 80) {   // avança até a ideia fechar (re
   return j;
 }
 // Ajusta o corte sugerido: começa no início de uma frase (voltando se ela depender da anterior) e termina no ponto final.
-export function snap(words, c, S = sentences(words)) {
+// Faixas de duração que o usuário escolhe antes de gerar (segundos).
+export const LENS = { auto: { min: 20, max: 75, label: 'Automático' }, s: { min: 15, max: 30, label: '15 a 30 s' }, m: { min: 30, max: 60, label: '30 a 60 s' }, l: { min: 60, max: 90, label: '60 a 90 s' } };
+export function snap(words, c, S = sentences(words), R = { min: 15, max: 78 }) {
   const s0 = Number(c.start), e0 = Number(c.end);
-  if (!Number.isFinite(s0) || !Number.isFinite(e0) || !(e0 - s0 >= 12 && e0 - s0 <= 90) || !S.length) return null;
+  if (!Number.isFinite(s0) || !Number.isFinite(e0) || !(e0 - s0 >= Math.min(10, R.min * 0.6) && e0 - s0 <= R.max * 1.5) || !S.length) return null;
   let i = S.findIndex(x => x.e > s0 + 0.05); if (i < 0) return null;
   i = lead(S, i);
   let j = i; for (let k = i; k < S.length; k++) if (Math.abs(S[k].e - e0) < Math.abs(S[j].e - e0)) j = k;
-  while (j < S.length - 1 && S[j].e - S[i].s < 15) j++;
-  j = tailTo(S, j, i, 78);
-  const len = S[j].e - S[i].s; if (len < 10 || len > 80) return null;
-  const { start, end } = padEdges(S, i, j);
-  return { start, end, title: String(c.title || '').slice(0, 80), reason: String(c.reason || '').slice(0, 200), score: Math.max(0, Math.min(100, Math.round(Number(c.score) || 0))) };
+  while (j < S.length - 1 && S[j].e - S[i].s < R.min) j++;
+  j = tailTo(S, j, i, R.max + 5);
+  const len = S[j].e - S[i].s; if (len < Math.min(10, R.min * 0.7) || len > R.max * 1.15) return null;
+  const { start, end } = padEdges(S, i, j), n = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+  const out = { start, end, title: String(c.title || '').slice(0, 80), reason: String(c.reason || '').slice(0, 220), score: n(c.score) };
+  if (c.topic) out.topic = String(c.topic).slice(0, 40);
+  if (c.hook != null) out.parts = { hook: n(c.hook), flow: n(c.flow), value: n(c.value), trend: n(c.trend) };
+  return out;
 }
-export function pick(cands, dur) {
+export function pick(cands, dur, max = Math.max(5, Math.min(20, Math.round(dur / 200)))) {
   const sorted = [...cands].sort((a, b) => b.score - a.score), keep = [];
   for (const c of sorted) if (keep.every(k => c.end <= k.start || c.start >= k.end)) keep.push(c);
-  return keep.slice(0, Math.max(5, Math.min(20, Math.round(dur / 200)))).sort((a, b) => a.start - b.start).map((c, i) => ({ ...c, id: 'c' + (i + 1) }));
+  return keep.slice(0, max).sort((a, b) => a.start - b.start).map((c, i) => ({ ...c, id: 'c' + (i + 1) }));
+}
+// Quantos cortes pedir: cresce com a duração do vídeo.
+export const cutsCount = dur => Math.max(4, Math.min(20, Math.round(dur / 240)));
+// Linhas da transcrição INTEIRA (a IA escolhe os assuntos mais fortes do vídeo todo, não de cada janela de 8 min).
+// Uma frase por linha, com o tempo de início; frases longas quebram em 40 palavras.
+export function allLines(words, S = sentences(words)) {
+  const out = [];
+  for (const x of S) for (let i = x.a; i <= x.b; i += 40) out.push(`[${words[i].s.toFixed(1)}] ` + words.slice(i, Math.min(x.b + 1, i + 40)).map(y => y.w).join(' '));
+  return out.join('\n');
+}
+// Cortes pela IA com o vídeo inteiro de uma vez. opts: { len: 'auto'|'s'|'m'|'l', topic }
+export async function suggestClipsFull(words, dur, ask, opts = {}) {
+  const R = LENS[opts.len] || LENS.auto, S = sentences(words), want = cutsCount(dur);
+  const raw = await ask({ lines: allLines(words, S), min: R.min, max: R.max, count: want, topic: opts.topic || '', duration: Math.round(dur) });
+  const cands = []; for (const c of raw || []) { const s = snap(words, c, S, R); if (s) cands.push(s); }
+  return pick(cands, dur, want);
 }
 export async function suggestClips(words, dur, ask, onProgress) {
   const cands = [], S = sentences(words); let t0 = 0, n = 0; const total = Math.max(1, Math.ceil(dur / STEP));
@@ -78,14 +99,15 @@ export async function suggestClips(words, dur, ask, onProgress) {
 // Seleção local (sem IA): janelas de 25 a 60 s em limites de frase, pontuadas por gancho, densidade de fala e pausas.
 const HOOK = /^(voc[eê]|ningu[eé]m|nunca|sempre|segredo|erro|verdade|cuidado|aten[cç][aã]o|por que|porque|como|quando|o que|quem|n[aã]o|sabe|imagine|entenda|lembre|pare|olha)\b/i;
 const STRONG = /(deus|vida|amor|f[eé]|dinheiro|medo|sucesso|verdade|tempo|segredo|erro|valor|esperan[cç]a|mudar|mudan[cç]a|importante|principal|exemplo|problema|solu[cç][aã]o)/i;
-export function localClips(words, dur, taken = [], want = 8) {
+export function localClips(words, dur, taken = [], want = 8, R = { min: 25, max: 60 }) {
   if (!words.length) return [];
   const sent = sentences(words);
   const cands = [];
   for (let i = 0; i < sent.length; i++) {
     if (CONN.test(sent[i].w) || sent[i].n < 5) continue;
-    let j = i; while (j < sent.length - 1 && sent[j].e - sent[i].s < 25) j++;
-    const len = sent[j].e - sent[i].s; if (len < 20 || len > 60) continue;
+    const goal = R.min + (R.max - R.min) * 0.35;   // um pouco acima do mínimo da faixa
+    let j = i; while (j < sent.length - 1 && sent[j].e - sent[i].s < goal) j++;
+    const len = sent[j].e - sent[i].s; if (len < R.min * 0.85 || len > R.max) continue;
     const ws = words.slice(sent[i].a, sent[j].b + 1), txt = ws.map(x => x.w).join(' ');
     let pauses = 0; for (let k = 1; k < ws.length; k++) if (ws[k].s - ws[k - 1].e > 0.8) pauses++;
     const rate = ws.length / len, first = ws.slice(0, 14).map(x => x.w).join(' ');
