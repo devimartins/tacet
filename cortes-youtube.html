@@ -167,7 +167,7 @@ body{padding-left:calc(64px + env(safe-area-inset-left,0px))}
 <script type="module">
 import { logError, setTokenGetter } from './js/errlog.js?v=1';   // falhas desta página também vão para o registro de erros
 setTokenGetter(() => token());
-import { localClips, suggestClipsFull, cutsWanted, sentences } from './js/clips.js?v=5';
+import { localClips, suggestClipsFull, cutsWanted, sentences } from './js/clips.js?v=6';
 import { PRESETS, resolve, chunksOf, perChunk, drawCaption, fontsUrl, loadFont } from './js/captions.js';
 const $ = s => document.querySelector(s), say = (m, er) => { const e = $('#st'); e.textContent = m; e.classList.toggle('er', !!er); };
 const ytId = u => { try { const x = new URL(u); if (x.hostname === 'youtu.be') return x.pathname.slice(1).slice(0, 11) || null; if (/(^|\.)youtube\.com$/.test(x.hostname)) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || null; } catch {} return null; };

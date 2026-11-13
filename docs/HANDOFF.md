@@ -149,3 +149,11 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - Os projetos de 10 a 12/11 sumiram porque foram excluídos pelo botão "Excluir selecionados" (DELETE às 01:12 UTC de 13/11 nos logs do Supabase).
   - Recomendação pendente com o dono: ativar o faturamento no Google AI Studio (plano pago) — o gratuito não sustenta um SaaS.
   - `sw.js` v209, `app.js?v=211`.
+
+- 13/11/2026 — Claude: mais cota grátis de IA sem perder precisão nos cortes (aprovado pelo dono).
+  - Worker versão `9ca4fa3c-51c9-4bc7-bea3-c63605ca7932` (anterior para rollback: `df76e8c1-983c-45bd-a889-fd830ad20d96`). Ganhou a binding `AI` (Workers AI); variáveis e segredos mantidos (`keep_bindings`), cron */30 conferido.
+  - Transcrição por link (`/transcript`): `ytModels()` começa pelos Flash-Lite (gemini-3.5-flash-lite, gemini-3.1-flash-lite, gemini-flash-lite-latest; cerca de 500 pedidos/dia grátis contra 20 do Flash) e cai para a lista do Flash. Variável opcional `GEMINI_YT_MODEL` força o primeiro.
+  - Escolha dos cortes (`/clips-v2`): continua no Flash primeiro (é onde a qualidade pesa). Resultado guardado em `clips_cache` (SHA-256 da transcrição + opções; `supabase/clips_cache.sql`, aplicado): mesma transcrição e opções devolvem na hora sem gastar cota; "Refazer sugestões" manda `fresh: true` e grava a análise nova.
+  - Transcrição de arquivos (`/transcribe`): se a Groq responder 429/5xx, usa o mesmo modelo (`@cf/openai/whisper-large-v3-turbo`) na Cloudflare, cota grátis de cerca de 3,5 h/dia; se também falhar, o app já cai para a transcrição no aparelho (Whisper base). NÃO testado com fala real (sem acesso de rede ao Worker daqui).
+  - Descartado: pedir ao Gemini o vídeo inteiro numa chamada só. Um vídeo de 1 h passa de 300 mil tokens mesmo em baixa resolução, acima do limite por minuto do plano grátis (250 mil); o fluxo em partes de 10 min com cache por trecho continua.
+  - `sw.js` v210, `app.js?v=212`, `clips.js?v=6`.

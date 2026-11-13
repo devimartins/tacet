@@ -82,7 +82,7 @@ export function allLines(words, S = sentences(words)) {
 // Cortes pela IA com o vídeo inteiro de uma vez. opts: { len: 'auto'|'s'|'m'|'l', topic }
 export async function suggestClipsFull(words, dur, ask, opts = {}) {
   const R = LENS[opts.len] || LENS.auto, S = sentences(words), want = cutsCount(dur);
-  const raw = await ask({ lines: allLines(words, S), min: R.min, max: R.max, count: want, topic: opts.topic || '', duration: Math.round(dur) });
+  const raw = await ask({ lines: allLines(words, S), min: R.min, max: R.max, count: want, topic: opts.topic || '', duration: Math.round(dur), ...(opts.fresh ? { fresh: true } : {}) });
   const cands = []; for (const c of raw || []) { const s = snap(words, c, S, R); if (s) cands.push(s); }
   return pick(cands, dur, want);
 }

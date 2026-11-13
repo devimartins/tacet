@@ -5,7 +5,7 @@ import { useBlur, renderClip } from './render.js?v=11';
 import { logError, setTokenGetter } from './errlog.js?v=1';
 import { helpBtn } from './help.js?v=1';
 import { silences, zoomAt, autoCuts, cutRanges } from './edit.js';
-import { suggestClipsFull, localClips, cutsCount, LENS } from './clips.js?v=5';
+import { suggestClipsFull, localClips, cutsCount, LENS } from './clips.js?v=6';
 import { retime, tokens, fromWhisper, fixCase } from './transcript.js?v=3';
 import { ICONS } from './icons.js';
 import { drawOverlays, drawBroll, hookTitle } from './overlays.js';
@@ -366,14 +366,14 @@ function fillCuts(words, cl = [], keep = []) {
   return all.sort((x, y) => x.start - y.start);
 }
 // gera (ou refaz) as sugestões; cortes aprovados e manuais são mantidos
-async function makeCuts(words = S.words) {
+async function makeCuts(words = S.words, fresh = false) {
   if (frameJob) frameJob.abort();
   const keep = S.clips.filter(c => c.status === 'ok' || /^[mk]/.test(c.id)), keepFree = c => keep.every(k => c.end <= k.start || c.start >= k.end);
   S.aiFail = '';
   if (!LIVE) { S.clips = fillCuts(words, [], keep); await save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI(); status('Transcrição pronta. ' + S.clips.length + ' trechos relevantes separados para você decidir.'); return; }
   status((S.mode === 'clips' && JOB.on ? 'Etapa 2 de 2 · ' : '') + 'A IA está lendo o vídeo inteiro para escolher os melhores cortes (cerca de 1 min)…'); prog(0.15);
   try {
-    const cl = (await suggestClipsFull(words, S.media.duration, async body => (await ai('/clips-v2', JSON.stringify(body), 'application/json')).clips, S.cutOpts)).filter(keepFree).map((c, k) => ({ ...c, id: 'g' + Date.now().toString(36) + k }));
+    const cl = (await suggestClipsFull(words, S.media.duration, async body => (await ai('/clips-v2', JSON.stringify(body), 'application/json')).clips, { ...S.cutOpts, fresh })).filter(keepFree).map((c, k) => ({ ...c, id: 'g' + Date.now().toString(36) + k }));
     S.clips = fillCuts(words, cl, keep); await save({ clips: S.clips.map(({ url, state, p, err, ...c }) => c) }); clipsUI();
     const nAi = cl.length;
     status(nAi ? 'Pronto: ' + nAi + (nAi === 1 ? ' corte escolhido' : ' cortes escolhidos') + ' pela IA' + (S.clips.length - keep.length > nAi ? ', mais alguns de seleção automática.' : '.') : 'A IA não achou trechos fortes ' + (S.cutOpts.topic ? 'sobre “' + S.cutOpts.topic + '”' : 'nesta faixa de duração') + '. Separei trechos automaticamente.');
@@ -806,7 +806,7 @@ $('#cutsRe').onclick = async () => {
   if (!S.words.length || !S.media) { flash('Ainda não há transcrição para escolher cortes.'); return; }
   S.cutOpts.len = $('#cutsLen').value; S.cutOpts.topic = $('#cutsTopic').value.trim().slice(0, 120); saveCutOpts();
   S.busy = true; b.disabled = true; b.textContent = 'Escolhendo…'; S.aiFail = ''; $('#cutsAlert').hidden = false; $('#cutsAlert').textContent = 'A IA está lendo o vídeo inteiro. Isso pode levar até um minuto.';
-  try { await makeCuts(); } finally { S.busy = false; b.disabled = false; b.textContent = 'Refazer sugestões'; cutsUI(); }
+  try { await makeCuts(S.words, true); } finally { S.busy = false; b.disabled = false; b.textContent = 'Refazer sugestões'; cutsUI(); }
 };
 $('#cutsMan').onclick = () => { cutsClose(); tab('clips'); try { $('#ms').scrollIntoView({ block: 'center' }); $('#ms').focus(); } catch { /* ok */ } };
 
