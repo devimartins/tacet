@@ -165,6 +165,8 @@ body{padding-left:calc(64px + env(safe-area-inset-left,0px))}
 </div>
 <script defer src="config.js"></script><script defer src="vendor/supabase.js"></script>
 <script type="module">
+import { logError, setTokenGetter } from './js/errlog.js?v=1';   // falhas desta página também vão para o registro de erros
+setTokenGetter(() => token());
 import { localClips, suggestClipsFull, cutsWanted, sentences } from './js/clips.js?v=5';
 import { PRESETS, resolve, chunksOf, perChunk, drawCaption, fontsUrl, loadFont } from './js/captions.js';
 const $ = s => document.querySelector(s), say = (m, er) => { const e = $('#st'); e.textContent = m; e.classList.toggle('er', !!er); };
@@ -519,7 +521,7 @@ async function autoT(id, resume) {
       for (const g of d.segments || []) lines.push(fmt(g.s) + '\n' + g.text);
       for (const [pk, pv] of Object.entries(d.positions || {})) if (!(pk in autoPos) && Number.isFinite(Number(pv))) autoPos[pk] = Math.max(0, Math.min(100, Number(pv)));
       $('#t').value = lines.join('\n'); A.i = i + 1;
-    } catch (e) { ok = false; A.i = i; if (run === autoRun) { $('#go').disabled = !$('#t').value.trim(); failT(i, n, e.message || 'falha de conexão.', true); } break; } finally { clearInterval(iv); }
+    } catch (e) { ok = false; A.i = i; logError('yt-transcricao', e, { parte: i, de: n }); if (run === autoRun) { $('#go').disabled = !$('#t').value.trim(); failT(i, n, e.message || 'falha de conexão.', true); } break; } finally { clearInterval(iv); }
   }
   if (run === autoRun) { $('#go').disabled = false; if (ok) { if (!lines.length) { showManual(); prog(0, 'Não encontrei fala neste vídeo. Você pode colar a transcrição manualmente.'); } else { coverage(); prog(1, 'Transcrição automática concluída (' + lines.length + (lines.length === 1 ? ' linha' : ' linhas') + '). Clique em Sugerir trechos.', true); } } }
 }

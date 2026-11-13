@@ -41,6 +41,7 @@ const vstore = (() => {
       let rec = { pid, file }; if (/iPhone|iPad|Macintosh.*Mobile/.test(navigator.userAgent) && file.size <= 300 << 20) { try { rec = { pid, ab: await file.arrayBuffer(), name: file.name, type: file.type || 'video/mp4' }; } catch { rec = { pid, file }; } }
       await run('readwrite', st => st.put(rec, 'p:' + pid)); for (const old of a.slice(3)) run('readwrite', st => st.delete('p:' + old)); },
     get: async pid => { const r = await run('readonly', st => st.get('p:' + pid)); if (r?.ab) return { pid, file: new File([r.ab], r.name || 'video.mp4', { type: r.type || 'video/mp4' }) }; if (r?.file) return r; const o = await run('readonly', st => st.get('cur')); return o && o.pid === pid ? o : null; },
+    has: pid => idx().includes(pid),   // o vídeo deste projeto está guardado neste aparelho?
     del: pid => { setIdx(idx().filter(x => x !== pid)); return run('readwrite', st => st.delete('p:' + pid)); },
     clear: async () => { for (const x of idx()) await run('readwrite', st => st.delete('p:' + x)); setIdx([]); await run('readwrite', st => st.delete('cur')); }
   };
@@ -151,7 +152,7 @@ async function home() {
     const ico = el('span', { className: 'pic' }); ico.innerHTML = '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><use href="#fc-mark"/></svg>';
     const cb = el('input', { type: 'checkbox', className: 'psel', hidden: true }); cb.setAttribute('aria-label', 'Selecionar ' + (p.title || 'projeto')); cb.onchange = () => pjToggle(p.id, cb.checked);
     const li = el('li', { className: 'item pj' }, cb, ...(th ? [el('img', { className: 'th', src: th, alt: '' })] : [ico]),
-      el('div', { className: 'grow' }, el('b', { textContent: p.title || 'Sem título' }), el('div', { className: 'mut pm' }, el('span', { textContent: p.duration ? mmss(p.duration) : 'Projeto' }), el('span', { className: 'exp' + (days <= 1 ? ' soon' : ''), textContent: 'expira em ' + days + (days === 1 ? ' dia' : ' dias') }))),
+      el('div', { className: 'grow' }, el('b', { textContent: p.title || 'Sem título' }), el('div', { className: 'mut pm' }, el('span', { textContent: p.duration ? mmss(p.duration) : 'Projeto' }), el('span', { className: 'exp' + (days <= 1 ? ' soon' : ''), textContent: 'expira em ' + days + (days === 1 ? ' dia' : ' dias') }), el('span', { className: 'pdev' + (vstore.has(p.id) ? ' here' : ''), textContent: vstore.has(p.id) ? 'vídeo neste aparelho' : 'vídeo em outro aparelho' }))),
       el('div', { className: 'pa' },
         el('button', { className: 'btn pri', textContent: 'Abrir', onclick: () => openProject(p.id) }),
         el('button', { className: 'btn', textContent: 'Excluir', onclick: () => { if (PJ.mode) pjToggle(p.id, !PJ.sel.has(p.id)); else { PJ.mode = true; PJ.sel = new Set([p.id]); pjSel(); } } })),
@@ -237,11 +238,13 @@ async function openProject(id) {
   if (error) { flash('Não foi possível abrir: ' + error.message); return; }
   S.pid = id; keep(id); S.file = null; S.media = null; S.title = p.title || ''; S.dur = p.duration || 8; S.words = p.transcript?.words || []; S.clips = (p.clips || []).map(c => ({ ...c }));
   S.style = { ...structuredClone(DEFAULT_STYLE), ...(p.style || {}) }; if (!PRESETS[S.style.preset]) S.style.preset = 'iman'; S.fp = p.fingerprint; S.fx = { cut: 0, zoom: 0, ...(p.style?.fx || {}) }; S.track = null; S.faceOn = false; S.tone = p.style?.tone || 'auto'; $('#toneSel').value = S.tone; S.ratio = p.style?.ratio || '9:16'; S.hid = new Set(p.style?.hid || []);
+  { const v = $('#vid'); v.pause(); if (v.src) { URL.revokeObjectURL(v.src); v.removeAttribute('src'); v.load(); } v.style.display = 'none'; $('#ph').hidden = false; }   // não mostra o vídeo de outro projeto
   enterEdit(); rebuild(); sync(); clipsUI(); $('#txt').value = S.words.map(w => w.w).join(' ');
-  $('#phTxt').textContent = 'Selecione de novo o vídeo deste projeto para pré-visualizar e gerar.';
+  $('#phTxt').textContent = vstore.has(id) ? 'Carregando o vídeo do projeto…' : 'O vídeo deste projeto ficou no aparelho onde ele foi enviado: o ForjaClip não guarda vídeos no servidor. A legenda e os cortes estão salvos. Selecione o mesmo vídeo aqui para continuar.';
   status(S.words.length ? 'Projeto carregado. A transcrição e os cortes estão salvos.' : 'Este projeto ainda não tem transcrição. Selecione o vídeo para continuar.');
   const r = await vstore.get(id);   // vídeo guardado neste aparelho: volta sozinho, sem pedir de novo
-  if (r?.file && S.pid === id && !S.file) { $('#phTxt').textContent = 'Carregando o vídeo do projeto…'; if (await attachFile(r.file, true)) status(S.words.length ? 'Projeto carregado com o vídeo.' : 'Projeto carregado.'); else $('#phTxt').textContent = 'Selecione de novo o vídeo deste projeto para pré-visualizar e gerar.'; }
+  if (!r?.file && S.pid === id && !S.file) $('#phTxt').textContent = 'O vídeo deste projeto ficou no aparelho onde ele foi enviado: o ForjaClip não guarda vídeos no servidor. A legenda e os cortes estão salvos. Selecione o mesmo vídeo aqui para continuar.';
+  if (r?.file && S.pid === id && !S.file) { $('#phTxt').textContent = 'Carregando o vídeo do projeto…'; if (await attachFile(r.file, true)) status(S.words.length ? 'Projeto carregado com o vídeo.' : 'Projeto carregado.'); else $('#phTxt').textContent = 'Não consegui abrir o vídeo guardado neste aparelho. A legenda e os cortes estão salvos: selecione o mesmo vídeo para continuar.'; }
 }
 $('#newfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'clips'); };
 $('#newfile2').onchange = e => { const f = e.target.files[0]; e.target.value = ''; newVideo(f, 'captions'); };

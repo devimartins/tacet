@@ -139,3 +139,13 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - Esferas decorativas da página de apresentação menores, fora da coluna de texto e escondidas abaixo de 1180 px; `html,body{overflow-x:clip}`. A frase que "acende" ao rolar não fica mais borrada (só muda a cor).
   - Barra do modo teste escondida no editor do celular (ocupava altura da prévia).
   - Testado no Chrome headless em 6 larguras: sem rolagem lateral, sem erro de JS. `sw.js` v208, `app.js?v=210`.
+
+- 13/11/2026 — Claude: transcrição por link do YouTube falhando (iPhone, 4 tentativas) e projeto abrindo escuro.
+  - Causa (log de diagnóstico no Worker): `GEMINI_MODEL` = `gemini-3.8-flash` no plano GRATUITO do Google (20 pedidos/dia por modelo, cota esgotada) e a reserva `gemini-2.5-flash-lite` foi aposentada para contas novas (404). Toda falha virava 502.
+  - Worker versão `df76e8c1-983c-45bd-a889-fd830ad20d96`: `gemModels()` com cadeia de modelos atuais (GEMINI_MODEL, gemini-3.5-flash, gemini-flash-latest, gemini-3.5-flash-lite, gemini-flash-lite-latest, gemini-3.1-flash-lite); 404 ou 429 de cota diária passa para o próximo modelo (cada um tem cota própria); mensagem clara quando a cota diária de todos acaba; `/clips-v2` sem `thinkingBudget` (o Gemini 3 não aceita) e com log do erro. Diagnóstico temporário removido.
+  - Uso diário "yt" zerado para 13/11 (uma tentativa cancelada pelo iPhone tinha ficado contada).
+  - Projeto aberto em outro aparelho: o vídeo nunca vai para o servidor (só a legenda e os cortes). Agora, ao abrir, o vídeo do projeto anterior é descarregado (antes ficava a tela preta), e a prévia explica que o vídeo ficou no aparelho de origem e pede o mesmo arquivo; a lista de projetos mostra "vídeo neste aparelho" ou "vídeo em outro aparelho" (`vstore.has`). Texto do aviso na prévia maior (era 11 px no celular).
+  - `cortes-youtube.html` agora carrega `js/errlog.js` e registra falhas de transcrição.
+  - Os projetos de 10 a 12/11 sumiram porque foram excluídos pelo botão "Excluir selecionados" (DELETE às 01:12 UTC de 13/11 nos logs do Supabase).
+  - Recomendação pendente com o dono: ativar o faturamento no Google AI Studio (plano pago) — o gratuito não sustenta um SaaS.
+  - `sw.js` v209, `app.js?v=211`.
