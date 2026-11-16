@@ -167,3 +167,9 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
   - **Enquadramento**: `shotsOf()` agrupa frases seguidas com o rosto no mesmo lugar em "planos" e o recorte muda só quando o plano muda (troca de câmera ou de pessoa), inclusive com uma pessoa só. Sem `x` (transcrição colada ou cache antigo) continua a posição fixa por pessoa. "Acompanhar quem fala" fica disponível e marcado sempre que há `x`.
   - Textos da página, do FAQ e de `ferramentas/legenda-do-youtube-pelo-link.html` deixaram de dizer que nada é gravado.
   - **Testado** só com Worker e YouTube simulados (390 e 1280 px, claro e escuro, sem erros no console): paralelismo, retomada e troca de recorte. **Não testado**: a resposta real do Gemini (se aceita `fps`, a qualidade do `x`, o tempo por bloco) e o limite por minuto com 4 blocos em paralelo. Conferir em `yt_events` e em `transcript_cache.segments` depois do primeiro uso real. `sw.js` v212, `app.js?v=213`.
+
+## 16/11/2026 — Cortes do YouTube no celular + extras (sw v213)
+- Pesquisa: getDisplayMedia não existe no Safari/Chrome do celular (caniuse/MDN), então o MP4 por captura de aba só sai no Chrome/Edge do computador. VDClip, Submagic e Captions baixam o vídeo nos servidores deles; isso NÃO foi implementado aqui (baixar o YouTube no servidor contorna a proteção do YouTube).
+- Em qualquer aparelho: "Baixar legendas (.srt)" (tempo relativo ao início do corte, frases em linhas de até 8 palavras) e "Texto para publicar" (Worker /assist task=describe: título, descrição, hashtags; precisa de login) com "Copiar tudo".
+- Sem captura de aba (celular): botão MP4 some; aparece "Enviar para o computador" (Web Share ou copia o link ?u=) e aviso explicando o motivo.
+- Não testado em aparelho real; testado com Playwright (desktop 1280 e 390 com getDisplayMedia removido).
