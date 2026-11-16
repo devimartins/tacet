@@ -40,8 +40,20 @@ const CSS = `
 #tp .ctl{display:flex;gap:8px;align-items:center;justify-content:center;padding:10px 12px;flex-wrap:wrap}
 #tp .recb{width:68px;height:68px;border-radius:50%;background:#fff;border:5px solid #888;padding:0}
 #tp .recb.on{background:#f33;border-color:#fff}
-#tp .tip{padding:0 12px 10px;color:#aab;font-size:13px}
-#tp .perm{display:flex;gap:12px;align-items:center;margin:0 12px 10px;padding:10px;border:1px solid #3a3a46;border-radius:14px;background:#14141a}#tp .perm.okc{border-color:#2f8f5b}
+#tp .tip{padding:0 12px 10px;color:#aab;font-size:13px;margin:0}
+#tp .tpw{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:760px;margin:0 auto;overflow-y:auto}
+#tp .bar{max-width:760px;width:100%;margin:0 auto;border-bottom:1px solid #24242c}#tp.camv .bar{max-width:none}
+#tp .th{display:flex;align-items:baseline;gap:10px;padding:12px 12px 6px;font-size:14px}#tp .th label{font-weight:700}#tp .tc{flex:1;color:#aab;font-size:13px;font-variant-numeric:tabular-nums}
+#tp button.lk{background:none;border:0;min-height:32px;padding:4px 6px;color:#ffb48f;text-decoration:underline;font-size:13px}
+#tp .opts label{font-size:14px}#tp .opts span{color:#aab;font-size:13px;min-width:74px;text-align:right;font-variant-numeric:tabular-nums}
+#tp .opts input[type=checkbox]{width:22px;height:22px;justify-self:start;accent-color:#ff5a1f}#tp input[type=range]{accent-color:#ff5a1f}
+#tp .ft{width:100%;max-width:760px;margin:0 auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #24242c;display:grid;gap:6px}
+#tp .ft .pri{width:100%;min-height:52px;font-size:17px;border-radius:14px}#tp .ft .pri.dim{opacity:.55}
+#tp .fh{margin:0;text-align:center;color:#aab;font-size:12px}
+#tp .perm[hidden]{display:none}
+#tp button:focus-visible,#tp textarea:focus-visible,#tp input:focus-visible{outline:2px solid #ffb48f;outline-offset:2px}
+#tp textarea:focus{border-color:#ff5a1f}
+#tp .perm{display:flex;gap:12px;align-items:center;margin:12px 12px 0;padding:10px;border:1px solid #3a3a46;border-radius:14px;background:#14141a}#tp .perm.okc{border-color:#2f8f5b}
 #tp .perm video{position:static;transform:scaleX(-1);width:54px;height:72px;border-radius:8px;background:#000;object-fit:cover;display:none;flex:none}
 #tp .pi{flex:1;min-width:0;display:grid;gap:4px;font-size:13px}#tp .pi b{font-size:14px}#tp .pi span{color:#aab}#tp .pi .ok{color:#5be08f}#tp .pi .bad{color:#ffb454}
 #tp .lvl{height:6px;border-radius:3px;background:#2a2a33;overflow:hidden}#tp .lvl i{display:block;height:100%;width:0;background:#5be08f;transition:width .08s}
@@ -126,40 +138,49 @@ export function openTeleprompter({ onUse, flash, ai, onStart }) {
     try { const r = await Promise.all(['camera', 'microphone'].map(n => navigator.permissions.query({ name: n }))); return r.some(x => x.state === 'denied') ? 'denied' : r.every(x => x.state === 'granted') ? 'granted' : 'prompt'; } catch { return 'unknown'; }
   }
   async function lobby() {
-    const pb = $('#pb'), ps = $('#ps'), pv = $('#pv'); if (!pb) return;
-    const ready = () => { if (!pv.isConnected) return; pv.srcObject = stream; pv.play().catch(() => { }); pv.style.display = 'block'; ps.textContent = 'Pronto: câmera e microfone liberados. Fale para testar o nível.'; ps.className = 'ok'; pb.hidden = true; $('#perm').classList.add('okc'); meter(); };
-    const ask = async () => { pb.disabled = true; ps.className = ''; ps.textContent = 'Aguardando você tocar em “Permitir” na janela do navegador…'; const err = await acquire(); pb.disabled = false; if (live()) ready(); else { setBlocked(); permDialog(err && err.name, ask); } };
-    const setBlocked = () => { ps.className = 'bad'; ps.textContent = 'Câmera ou microfone bloqueado neste navegador.'; pb.textContent = 'Como liberar'; pb.onclick = () => permDialog('NotAllowedError', ask); };
+    // A câmera e o microfone são pedidos ao tocar em "Iniciar TP". Aqui só aparece o teste (se já estiver liberado) ou a ajuda (se estiver bloqueado).
+    const pb = $('#pb'), ps = $('#ps'), pv = $('#pv'), box = $('#perm'); if (!pb) return;
+    const ready = () => { if (!pv.isConnected) return; box.hidden = false; pv.srcObject = stream; pv.play().catch(() => { }); pv.style.display = 'block'; ps.textContent = 'Câmera e microfone prontos. Fale para testar o nível.'; ps.className = 'ok'; pb.hidden = true; box.classList.add('okc'); const fh = $('#fh'); if (fh) fh.textContent = 'Câmera e microfone já liberados. O vídeo fica só no seu aparelho.'; meter(); };
+    const retry = async () => { const err = await acquire(); if (live()) ready(); else permDialog(err && err.name, retry); };
+    const setBlocked = () => { box.hidden = false; ps.className = 'bad'; ps.textContent = 'Câmera ou microfone bloqueado neste navegador.'; pb.hidden = false; pb.onclick = () => permDialog('NotAllowedError', retry); };
     if (live()) { ready(); return; }
-    pb.onclick = ask; ps.textContent = 'Toque no botão e escolha “Permitir” quando o navegador perguntar.';
     const st = await permState();
-    if (st === 'granted') { ps.textContent = 'Ativando…'; await acquire(); if (live()) ready(); }
+    if (st === 'granted') { await acquire(); if (live()) ready(); }
     else if (st === 'denied') setBlocked();
   }
 
   // ---------- 1. texto e ajustes ----------
   function editor() {
     h(`<div class="bar"><b>Teleprompter</b>${ai ? '<button id="sug" type="button">✨ Sugerir roteiro</button>' : ''}<button id="x" type="button">Fechar</button></div>
-    <div class="perm" id="perm"><video id="pv" playsinline muted></video><div class="pi"><b>Câmera e microfone</b><span id="ps">Verificando…</span><div class="lvl" aria-hidden="true"><i id="pl"></i></div></div><button class="pri" id="pb" type="button">Ativar câmera e microfone</button></div>
-    <textarea id="t" placeholder="Cole aqui o seu texto" aria-label="Texto do teleprompter"></textarea>
+    <div class="tpw">
+    <div class="perm" id="perm" hidden><video id="pv" playsinline muted></video><div class="pi"><b>Câmera e microfone</b><span id="ps" role="status"></span><div class="lvl" aria-hidden="true"><i id="pl"></i></div></div><button id="pb" type="button" hidden>Como liberar</button></div>
+    <div class="th"><label for="t">Seu texto</label><span class="tc" id="tc" role="status"></span><button class="lk" id="tcl" type="button" hidden>Limpar</button></div>
+    <textarea id="t" placeholder="Cole ou escreva aqui o que você vai falar"></textarea>
     <div class="opts">
       <label for="w">Velocidade</label><input id="w" type="range" min="60" max="220" step="5"><span id="wv"></span>
       <label for="s">Tamanho do texto</label><input id="s" type="range" min="22" max="64" step="2"><span id="sv"></span>
       <label for="m">Espelhar texto</label><input id="m" type="checkbox"><span></span>
     </div>
-    <p class="tip">Dica: o texto aparece perto da lente para você olhar quase direto para a câmera. Fale com naturalidade e deixe a luz de frente para o rosto.</p>
-    <div class="ctl"><button class="pri" id="go" type="button">Iniciar TP</button></div>`);
+    <p class="tip">O texto aparece perto da lente para você olhar quase direto para a câmera. Deixe a luz de frente para o rosto.</p>
+    </div>
+    <div class="ft"><button class="pri" id="go" type="button">Iniciar TP</button><p class="fh" id="fh">O navegador pede a câmera e o microfone ao iniciar. O vídeo fica só no seu aparelho.</p></div>`);
     const t = $('#t'), w = $('#w'), s = $('#s'), m = $('#m');
     t.value = cfg.text; w.value = cfg.wpm; s.value = cfg.size; m.checked = cfg.mirror;
-    const upd = () => { $('#wv').textContent = w.value + ' pal/min'; $('#sv').textContent = s.value + ' px'; };
-    upd(); w.oninput = s.oninput = upd;
+    const upd = () => {
+      $('#wv').textContent = w.value + ' pal/min'; $('#sv').textContent = s.value + ' px';
+      const n = (t.value.trim().match(/\S+/g) || []).length, sec = Math.round(n / +w.value * 60);
+      $('#tc').textContent = n ? n + (n === 1 ? ' palavra' : ' palavras') + ' · cerca de ' + (sec >= 60 ? Math.floor(sec / 60) + ' min ' + (sec % 60 ? sec % 60 + ' s' : '') : sec + ' s') : 'Vazio';
+      $('#tcl').hidden = !n; $('#go').classList.toggle('dim', !n);
+    };
+    upd(); w.oninput = s.oninput = t.oninput = upd;
+    $('#tcl').onclick = () => { if (t.value.trim().length > 80 && !confirm('Apagar o texto?')) return; t.value = ''; upd(); t.focus(); };
     $('#x').onclick = close; lobby();
     if (ai) $('#sug').onclick = async () => {
       const m = await import('./roteiro.js?v=1');
       m.openScriptHelper({ host: root, api: ai, flash, onUse: text => { t.value = text; cfg.text = text; save(cfg); flash('Roteiro colocado no teleprompter. Revise e toque em Iniciar TP.'); } });
     };
     $('#go').onclick = () => {
-      if (!t.value.trim()) { flash('Escreva o texto primeiro.'); return; }
+      if (!t.value.trim()) { flash('Escreva o texto primeiro.'); t.focus(); return; }
       Object.assign(cfg, { text: t.value, wpm: +w.value, size: +s.value, mirror: m.checked }); save(cfg); camera();
     };
   }

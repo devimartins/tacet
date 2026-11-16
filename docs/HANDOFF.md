@@ -179,3 +179,10 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
 - Worker tacet-ai (publicado pela API): /transcript exige Pro (402 code paid); /clips-v2 exige Pro só com `src:'yt'`; cortes com IA do editor (/clips-v2 sem src e rota antiga) ficaram grátis, com o limite diário LLM_DAILY_CALLS. Admin continua liberado.
 - Textos: selo PRO na home, lista do plano, FAQ, ferramentas/cortes-com-ia, legenda-para-shorts e legenda-do-youtube-pelo-link.
 - Download do YouTube em servidor (como clipto/ytdown/VDClip) NÃO foi implementado, por decisão do assistente: exige burlar a proteção do YouTube.
+
+## 16/11/2026 — Cortes com IA (editor) e Teleprompter (sw v215, app.js v214)
+- Cortes do YouTube: NÃO alterado nesta entrega.
+- Tela "Cortes sugeridos" (#cuts): ordenar (nota / ordem do vídeo / mais curtos), nota mínima, "Gerar aprovados/todos" em fila (`cutsBatch`, usa `renderOne` um por vez, barra geral e Cancelar), "Baixar todos" (`cutsZipAll`: no celular abre a folha de compartilhamento com os MP4; no computador gera um .zip sem compressão via js/zip.js com MP4 + .srt + texto de publicação). Em cada cartão: Gerar/Baixar MP4, Legendas .srt (`cutSrt`, tempo relativo ao corte) e Texto para publicar (`cutPub`, guarda em `c.pub`).
+- Limite conhecido: se "Remover silêncios" estiver ligado, o .srt do corte segue o tempo original e pode desalinhar do MP4 exportado.
+- Teleprompter: removido o botão "Ativar câmera e microfone" (o pedido de permissão acontece em "Iniciar TP", dentro do toque). O cartão de câmera só aparece quando já está liberada (prévia + nível do microfone) ou bloqueada (botão "Como liberar"). Novos: contador de palavras e duração estimada, "Limpar", botão principal fixo no rodapé, largura máxima de 760 px no computador, foco visível.
+- Testado com Playwright (390 e 1280, claro/escuro, câmera falsa). Não testado: fila de geração com vídeo real e teleprompter em iPhone real.

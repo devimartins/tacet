@@ -259,7 +259,7 @@ $('#ytForm').onsubmit = e => {
   location.href = 'cortes-youtube.html?u=' + encodeURIComponent(u);
 };
 
-$('#tpOpen').onclick = async () => { if (S.guest) { needAccount('O teleprompter precisa de uma conta grátis (é onde fica o seu teste).'); return; } if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=31');
+$('#tpOpen').onclick = async () => { if (S.guest) { needAccount('O teleprompter precisa de uma conta grátis (é onde fica o seu teste).'); return; } if (!canPro() && !tpTrial()) { flash('Você já usou seu teste grátis do teleprompter. Assine o Pro para gravar sempre.'); $('#pay').showModal(); return; } if (tpTrial()) flash('Teste grátis: você pode gravar uma vez com o teleprompter.'); const m = await import('./teleprompter.js?v=32');
   const ai = LIVE && S.user ? {
     script: async body => { const r = await fetch(CFG.AI + '/script', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na IA (' + r.status + ').'); return j; },
     transcribe: async wav => { const r = await fetch(CFG.AI + '/transcribe?lang=pt', { method: 'POST', headers: { authorization: 'Bearer ' + await token(), 'content-type': 'audio/wav' }, body: wav }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Falha na transcrição (' + r.status + ').'); return j.text || ''; },
@@ -733,13 +733,58 @@ function clipsUI() {
   });
 }
 // ---------- tela de cortes sugeridos (grade 9:16: o usuário aprova, rejeita, ajusta ou baixa) ----------
-let cutsF = 'all';
+let cutsF = 'all', cutsSort = 'score', cutsMin = 0, batch = null;
+const cutName = (c, ext) => 'forjaclip-' + String(S.clips.indexOf(c) + 1).padStart(2, '0') + '-' + ((c.title || 'corte').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40).toLowerCase() || 'corte') + '.' + ext;
+// legenda só deste corte, com o tempo contado a partir do início dele
+function cutSrt(c) {
+  const w = visible().filter(x => x.s >= c.start - 0.05 && x.s < c.end); if (!w.length) return '';
+  const ts = t => { const ms = Math.max(0, Math.round((t - c.start) * 1000)), p2 = (n, k = 2) => String(n).padStart(k, '0'); return p2(Math.floor(ms / 3600000)) + ':' + p2(Math.floor(ms / 60000) % 60) + ':' + p2(Math.floor(ms / 1000) % 60) + ',' + p2(ms % 1000, 3); };
+  const L = toLines(w, 8, 0.7).map(l => ({ s: l[0].s, e: Math.min(c.end, l[l.length - 1].e), t: l.map(x => x.w).join(' ') }));
+  L.forEach((l, i) => { const n = L[i + 1]; if (n && l.e > n.s) l.e = n.s - 0.01; if (l.e - l.s < 0.4) l.e = l.s + 0.4; });
+  return L.map((l, i) => (i + 1) + '\n' + ts(l.s) + ' --> ' + ts(l.e) + '\n' + l.t + '\n').join('\n');
+}
+function dlBlob(blob, name) { const u = URL.createObjectURL(blob), a = el('a', { href: u, download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); }
+async function cutPub(c, btn) {
+  if (c.pub) { $('#descTxt').value = c.pub; $('#desc').showModal(); return; }
+  await describeClip(c, btn); if ($('#desc').open && $('#descTxt').value.trim()) { c.pub = $('#descTxt').value; cutSave(); }
+}
+// fila: gera os aprovados (ou todos os não rejeitados) um após o outro, no aparelho
+const batchList = () => { const live = S.clips.filter(c => c.id !== 'full' && c.status !== 'no'), ok = live.filter(c => c.status === 'ok'); return ok.length ? ok : live; };
+function batchPaint() {
+  const bp = $('#cutsBp'); bp.hidden = !batch; if (!batch) return;
+  const p = (batch.i + (batch.cur && batch.cur.p || 0)) / batch.n; $('#cutsPg').value = Math.min(1, p);
+  $('#cutsPt').textContent = batch.stop ? 'Cancelando…' : 'Gerando ' + Math.min(batch.n, batch.i + 1) + ' de ' + batch.n + ' · ' + Math.round(p * 100) + '%. Mantenha esta tela aberta.';
+}
+async function cutsBatch() {
+  if (batch) return; if (S.busy) { flash('Aguarde: já há um vídeo sendo gerado.'); return; }
+  if (!S.file) { flash('Selecione o vídeo original para gerar os cortes.'); $('#ph').hidden = false; return; }
+  const list = batchList().filter(c => !c.url && c.end - c.start <= 120);
+  if (!list.length) { flash('Esses cortes já estão gerados. Use “Baixar todos”.'); return; }
+  batch = { n: list.length, i: 0, cur: null, stop: false }; const tm = setInterval(batchPaint, 300);
+  try {
+    for (const c of list) { if (batch.stop) break; batch.cur = c; batchPaint(); await renderOne(c); if (!c.url && c.state !== 'error') break; batch.i++; }
+  } finally { clearInterval(tm); const done = list.filter(c => c.url).length, fail = list.filter(c => c.state === 'error').length; batch = null; cutsUI(); flash(done + ' de ' + list.length + (list.length === 1 ? ' corte pronto.' : ' cortes prontos.') + (fail ? ' ' + fail + ' com erro: tente gerar de novo.' : '')); }
+}
+async function cutsZipAll() {
+  const ready = S.clips.filter(c => c.url); if (!ready.length) return; const b = $('#cutsZip'), old = b.textContent; b.disabled = true; b.textContent = 'Preparando…';
+  try {
+    const vids = []; for (const c of ready) vids.push({ c, blob: await (await fetch(c.url)).blob() });
+    if (/iPhone|iPad|Android/.test(navigator.userAgent)) {   // no celular: a folha de compartilhamento salva todos os vídeos na galeria
+      const fs = vids.map(v => new File([v.blob], cutName(v.c, 'mp4'), { type: 'video/mp4' }));
+      try { if (navigator.canShare?.({ files: fs })) { await navigator.share({ files: fs }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    const files = []; for (const v of vids) { files.push({ name: cutName(v.c, 'mp4'), data: v.blob }); const srt = cutSrt(v.c); if (srt) files.push({ name: cutName(v.c, 'srt'), data: srt }); if (v.c.pub) files.push({ name: cutName(v.c, 'txt'), data: v.c.pub }); }
+    const { zipStore } = await import('./zip.js?v=1'); dlBlob(await zipStore(files), 'forjaclip-cortes-' + (S.title || 'video').replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 40) + '.zip');
+    flash(ready.length + (ready.length === 1 ? ' corte baixado' : ' cortes baixados') + ' em um arquivo .zip, com as legendas .srt.');
+  } catch (e) { logError('zip-cortes', e); flash('Não consegui juntar os cortes. Baixe um por um.'); }
+  finally { b.disabled = false; b.textContent = old; }
+}
 const cutSave = () => save({ clips: S.clips.map(({ url, state, p, err, t0, ...c }) => c) });
 function cutsOpen() { if (!S.clips.length) { flash('Ainda não há cortes. Crie um manual.'); return; } cutsUI(); if (!$('#cuts').open) $('#cuts').showModal(); frameCuts(); }
 function cutsClose() { if (miniOn) miniStop(miniOn); $('#cuts').close(); }
 async function cutDl(c) {
   if (!c.url) await renderOne(c);
-  if (c.url) { const a = el('a', { href: c.url, download: `forjaclip-corte-${S.clips.indexOf(c) + 1}.mp4` }); document.body.append(a); a.click(); a.remove(); }
+  if (c.url) await saveVideo(c.url, cutName(c, 'mp4'));
 }
 function cutCard(c, i) {
   const src = $('#vid').src, card = el('div', { className: 'cc' + (c.status === 'no' ? ' no' : '') }); card.dataset.id = c.id;
@@ -770,6 +815,13 @@ function cutCard(c, i) {
   if (src) { if (miniIO) miniIO.observe(box); else v.src = src + '#t=' + c.start; }
   card.append(box, el('h3', { textContent: c.title || 'Corte ' + (i + 1) }), el('p', { textContent: mmss(c.start) + ' a ' + mmss(c.end) + (c.topic ? ' · ' + c.topic : '') + (c.reason ? ' · ' + c.reason : '') }));
   if (c.parts) card.append(el('p', { className: 'cpt', textContent: 'Gancho ' + c.parts.hook + ' · Fechamento ' + c.parts.flow + ' · Valor ' + c.parts.value + ' · Interesse ' + c.parts.trend }));
+  if (c.id !== 'full') {
+    const act = el('div', { className: 'cact' }), ab = (txt, fn, cls = '') => { const b = el('button', { type: 'button', textContent: txt, className: cls }); b.onclick = () => fn(b); return b; };
+    const mp4 = ab(c.state === 'rendering' ? 'Gerando…' : c.url ? 'Baixar MP4' : 'Gerar MP4', () => cutDl(c), c.url ? 'rdy' : ''); mp4.disabled = c.state === 'rendering' || (S.busy && !c.url);
+    act.append(mp4, ab('Legendas .srt', () => { const t = cutSrt(c); if (!t) { flash('Este corte não tem fala para legendar.'); return; } dlBlob(new Blob([t], { type: 'application/x-subrip' }), cutName(c, 'srt')); }), ab(c.pub ? 'Ver texto para publicar' : 'Texto para publicar', b => cutPub(c, b)));
+    if (c.state === 'error' && c.err) card.append(el('p', { className: 'warn', textContent: c.err }));
+    card.append(act);
+  }
   return card;
 }
 function cutsUI() {
@@ -780,8 +832,13 @@ function cutsUI() {
   const al = $('#cutsAlert'); al.hidden = !S.aiFail; al.textContent = S.aiFail || '';
   $('#cutsLen').value = S.cutOpts.len; $('#cutsLay').value = layout(); if (document.activeElement !== $('#cutsTopic')) $('#cutsTopic').value = S.cutOpts.topic || '';
   const g = $('#cutsGrid'); g.replaceChildren();
-  const list = all.map((c, i) => [c, i]).filter(([c]) => cutsF === 'all' || (c.status || '') === cutsF);
-  if (!list.length) g.append(el('p', { className: 'mut', textContent: 'Nenhum corte nesta aba.' }));
+  const list = all.map((c, i) => [c, i]).filter(([c]) => (cutsF === 'all' || (c.status || '') === cutsF) && (c.score == null || /^[mk]/.test(c.id) || c.score >= cutsMin));
+  if (cutsSort === 'score') list.sort((a, b) => (b[0].score ?? -1) - (a[0].score ?? -1) || a[0].start - b[0].start); else if (cutsSort === 'len') list.sort((a, b) => (a[0].end - a[0].start) - (b[0].end - b[0].start)); else list.sort((a, b) => a[0].start - b[0].start);
+  $('#cutsSort').value = cutsSort; $('#cutsMin').value = String(cutsMin);
+  { const bl = batchList(), nOk = all.filter(c => c.status === 'ok').length, todo = bl.filter(c => !c.url).length, rdy = all.filter(c => c.url).length, ba = $('#cutsAll'), bz = $('#cutsZip');
+    ba.textContent = batch ? 'Gerando…' : !todo && bl.length ? 'Tudo gerado' : nOk ? 'Gerar aprovados (' + todo + ')' : 'Gerar todos (' + todo + ')'; ba.disabled = !!batch || !todo || S.busy;
+    bz.hidden = !rdy; bz.textContent = rdy > 1 ? 'Baixar todos (' + rdy + ')' : 'Baixar o corte pronto'; batchPaint(); }
+  if (!list.length) g.append(el('p', { className: 'mut', textContent: cutsMin && cutsF === 'all' ? 'Nenhum corte com essa nota mínima.' : 'Nenhum corte nesta aba.' }));
   for (const [c, i] of list) g.append(cutCard(c, i));
 }
 function cutEdit(c) {
@@ -794,6 +851,8 @@ function cutEdit(c) {
     c.title = $('#ceT').value.trim().slice(0, 80) || c.title; if (c.start !== s0 || c.end !== e0) delete c.frame; c.start = s0; c.end = e0; if (c.url) { URL.revokeObjectURL(c.url); delete c.url; c.state = 'idle'; } cutSave(); d.close(); cutsUI(); drawTimeline(); frameCuts();
   };
 }
+$('#cutsSort').onchange = () => { cutsSort = $('#cutsSort').value; cutsUI(); }; $('#cutsMin').onchange = () => { cutsMin = +$('#cutsMin').value; cutsUI(); };
+$('#cutsAll').onclick = cutsBatch; $('#cutsZip').onclick = cutsZipAll; $('#cutsStop').onclick = () => { if (batch) { batch.stop = true; batchPaint(); } if (S.abort) S.abort.abort(); };
 $('#cutsX').onclick = cutsClose; $('#cuts').addEventListener('close', () => { if (miniOn) miniStop(miniOn); });
 $('#cutsOpen').onclick = cutsOpen;
 $('#cutsLen').onchange = () => { S.cutOpts.len = $('#cutsLen').value; saveCutOpts(); };
