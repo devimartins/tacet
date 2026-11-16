@@ -173,3 +173,9 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
 - Em qualquer aparelho: "Baixar legendas (.srt)" (tempo relativo ao início do corte, frases em linhas de até 8 palavras) e "Texto para publicar" (Worker /assist task=describe: título, descrição, hashtags; precisa de login) com "Copiar tudo".
 - Sem captura de aba (celular): botão MP4 some; aparece "Enviar para o computador" (Web Share ou copia o link ?u=) e aviso explicando o motivo.
 - Não testado em aparelho real; testado com Playwright (desktop 1280 e 390 com getDisplayMedia removido).
+
+## 16/11/2026 — Cortes do YouTube virou recurso Pro (sw v214)
+- Página cortes-youtube.html: `planOf()` (profiles.plan/pro_until + is_admin; respeita CFG.GATE) e `paywall()`; quem não é Pro vê o painel #pay e o formulário some. `ask()` envia `src:'yt'`.
+- Worker tacet-ai (publicado pela API): /transcript exige Pro (402 code paid); /clips-v2 exige Pro só com `src:'yt'`; cortes com IA do editor (/clips-v2 sem src e rota antiga) ficaram grátis, com o limite diário LLM_DAILY_CALLS. Admin continua liberado.
+- Textos: selo PRO na home, lista do plano, FAQ, ferramentas/cortes-com-ia, legenda-para-shorts e legenda-do-youtube-pelo-link.
+- Download do YouTube em servidor (como clipto/ytdown/VDClip) NÃO foi implementado, por decisão do assistente: exige burlar a proteção do YouTube.

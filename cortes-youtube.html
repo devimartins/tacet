@@ -137,12 +137,13 @@ body{padding-left:calc(64px + env(safe-area-inset-left,0px))}
 <header class="top"><a class="brand" href="/"><img src="favicon.svg" alt="" width="28" height="28">ForjaClip</a><a class="back" href="/">← Voltar ao app</a></header>
 <main>
 <section class="hero rv"><p class="eyebrow">Trechos sugeridos</p><h1>Encontre os melhores <span class="hl">cortes</span> de um vídeo do YouTube</h1><p class="lead">A IA lê o vídeo pelo link e aponta os trechos com mais potencial e cada um aparece num mini player vertical, usando o player oficial do YouTube. Para guardar um corte, o botão “Baixar corte” grava a reprodução na sua guia (Chrome ou Edge no computador).</p></section>
+<section class="panel" id="pay" hidden aria-labelledby="payT"><p class="ph">Plano Pro</p><h2 id="payT">Cortes do YouTube faz parte do ForjaClip Pro</h2><p class="hint" id="payS" style="margin-bottom:var(--sp-3)">Assine o Pro para a IA ler o vídeo pelo link, sugerir os trechos e gerar os cortes. Legendar vídeos e os cortes com IA do seu próprio arquivo continuam gratuitos no editor.</p><div class="row"><a class="btn pri" id="payB" href="/#plan">Assinar o Pro</a><a class="btn" href="/">Usar o editor grátis</a></div></section>
 <form id="f" class="panel rv rv2">
  <input id="u" type="url" hidden>
  <ol class="steps">
   <li class="step"><div class="sb">
    <p class="hint er" id="noLink" role="alert" hidden>Nenhum link do YouTube foi recebido. <a href="/">Volte ao ForjaClip</a> e cole o link na página inicial.</p>
-   <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Preparando a transcrição…</p><p class="hint" id="limH">Limite diário de transcrição por link: <b>1 hora de vídeo</b> no plano grátis e <b>3 horas</b> no Pro. <a href="/">Quer mais? Assine o Pro</a>.</p><div class="row"><button class="btn pri" id="retryB" type="button" hidden>Tentar a transcrição de novo</button><button class="btn" id="srtB" type="button" disabled>Baixar arquivo SRT</button></div></div></div>
+   <div class="pvw" id="pvw" hidden><div class="pbox" id="pbox"><div id="pbh"></div></div><div class="pg"><b id="pgT">Transcrição</b><div class="track" id="trk" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="pgT"><i id="trkI"></i></div><p class="pgs" id="pgS" aria-live="polite">Preparando a transcrição…</p><p class="hint" id="limH">Limite diário de transcrição por link: <b>3 horas de vídeo</b> no plano Pro.</p><div class="row"><button class="btn pri" id="retryB" type="button" hidden>Tentar a transcrição de novo</button><button class="btn" id="srtB" type="button" disabled>Baixar arquivo SRT</button></div></div></div>
    <details class="man" id="manual" hidden><summary>Colar a transcrição manualmente</summary><textarea id="t" aria-label="Transcrição com tempos" placeholder="Cole a transcrição com a minutagem. Exemplo:&#10;0:00&#10;Olá, hoje eu vou falar de…&#10;0:05&#10;O primeiro erro é…"></textarea></details>
    <p class="hint er" id="tErr" role="alert" hidden></p></div></li>
   <li class="step"><div class="sb"><span class="lbl">Escolha o estilo da legenda <small>· veja a prévia de como ela aparece no seu vídeo</small></span>
@@ -238,9 +239,13 @@ function toWords(cues) {
 }
 // ---- IA (opcional: só com login no ForjaClip). Sem login, seleção automática no aparelho.
 async function token() { try { if (!window.CFG?.AI || !window.supabase) return null; const sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON); const { data } = await sb.auth.getSession(); return data.session?.access_token || null; } catch { return null; } }
+// Cortes do YouTube é do plano Pro (legendar e cortes com IA do próprio arquivo seguem grátis no editor). O servidor confere de novo.
+let planP = null;
+const planOf = () => planP || (planP = (async () => { try { if (!window.CFG?.GATE) return 'pro'; if (!window.CFG?.AI || !window.supabase) return 'anon'; const sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_ANON); const { data } = await sb.auth.getSession(); if (!data.session) return 'anon'; const p = await sb.from('profiles').select('plan,pro_until').maybeSingle(); if (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) return 'pro'; try { const ad = await sb.rpc('is_admin'); if (ad.data === true) return 'pro'; } catch {} return 'free'; } catch { return 'free'; } })());
+async function paywall() { const pl = await planOf(); if (pl === 'pro') return false; $('#pay').hidden = false; $('#f').hidden = true; if (pl === 'anon') { $('#payS').textContent = 'Entre na sua conta do ForjaClip e assine o Pro para usar os Cortes do YouTube. Legendar vídeos e os cortes com IA do seu próprio arquivo continuam gratuitos no editor.'; $('#payB').textContent = 'Entrar e assinar o Pro'; } return true; }
 async function ask(tk, body) {   // a IA lê a transcrição inteira de uma vez (Gemini) e escolhe os assuntos mais fortes do vídeo todo
-  const r = await fetch(CFG.AI + '/clips-v2', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || 'Erro ' + r.status); e.fatal = [401, 402, 413, 429].includes(r.status); throw e; } return j.clips;
+  const r = await fetch(CFG.AI + '/clips-v2', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'content-type': 'application/json' }, body: JSON.stringify({ ...body, src: 'yt' }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) { if (r.status === 402) { planP = Promise.resolve('free'); paywall(); } const e = new Error(j.error || 'Erro ' + r.status); e.fatal = [401, 402, 413, 429].includes(r.status); throw e; } return j.clips;
 }
 // ---- quem fala + prévia das legendas do ForjaClip sobre o player
 const spk = { keys: [], names: {} }, cards = []; let raf = 0, fontsOn = false, curWords = [];
@@ -600,6 +605,7 @@ function failT(i, n, msg, retry) {
 async function autoT(id, resume) {
   if (!resume && autoFor === id) return; autoFor = id;
   if (!resume && $('#t').value.trim() && !autoFilled) return;
+  if (await paywall()) return;
   if (!window.CFG?.AI) return showManual();
   const tk = await token(); if (!tk) { showManual(); return prog(0, 'Entre no ForjaClip para usar a transcrição automática, ou cole a transcrição manualmente.'); }
   if (!(resume && A.id === id)) { A = { id, parts: [], who: {} }; autoX = []; }
@@ -648,9 +654,9 @@ $('#srtB').onclick = () => {
 };
 let dbT = 0; const later = fn => { clearTimeout(dbT); dbT = setTimeout(fn, 450); };
 $('#u').addEventListener('input', () => later(showPreview)); $('#t').addEventListener('input', e => { if (e.isTrusted) autoFilled = false; later(coverage); });
-setTimeout(showPreview, 300);
+setTimeout(showPreview, 300); paywall();
 $('#f').onsubmit = async e => {
-  e.preventDefault(); $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); const id = ytId($('#u').value.trim()), btn = $('#go');
+  e.preventDefault(); if (await paywall()) return; $('#tErr').hidden = true; $('#t').removeAttribute('aria-invalid'); const id = ytId($('#u').value.trim()), btn = $('#go');
   if (!id) return say('Cole um link válido do YouTube (youtube.com ou youtu.be).', 1);
   const L = labelCues(parseCues($('#t').value)), words = toWords(L.cues); L.cnt = {}; L.cues.forEach(c => { L.cnt[c.p] = (L.cnt[c.p] || 0) + c.text.length; }); if (words.length < 40) { const te = $('#tErr'), empty = !$('#t').value.trim(); te.textContent = empty ? 'A transcrição ainda não está pronta. Aguarde a barra de progresso terminar. Se ela não começar, entre no ForjaClip e tente de novo.' : 'A transcrição ficou curta demais para sugerir trechos.'; te.hidden = false; return say('', 0); }
   const dur = words[words.length - 1].e, want = cutsWanted(dur); btn.disabled = true; say('Analisando a transcrição…'); prog(.03, 'Analisando a transcrição…');
