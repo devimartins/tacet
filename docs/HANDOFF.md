@@ -186,3 +186,10 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
 - Limite conhecido: se "Remover silêncios" estiver ligado, o .srt do corte segue o tempo original e pode desalinhar do MP4 exportado.
 - Teleprompter: removido o botão "Ativar câmera e microfone" (o pedido de permissão acontece em "Iniciar TP", dentro do toque). O cartão de câmera só aparece quando já está liberada (prévia + nível do microfone) ou bloqueada (botão "Como liberar"). Novos: contador de palavras e duração estimada, "Limpar", botão principal fixo no rodapé, largura máxima de 760 px no computador, foco visível.
 - Testado com Playwright (390 e 1280, claro/escuro, câmera falsa). Não testado: fila de geração com vídeo real e teleprompter em iPhone real.
+
+## 16/11/2026 — Indicação de amigos e avaliações (sw v216, app.js v215)
+- Banco: supabase/social.sql (JÁ aplicado no projeto como migration `social_referrals_reviews`). Tabelas ref_codes, referrals, reviews (RLS ligado, sem policies; tudo por função).
+- Indicação: link `https://forjaclip.com.br/?r=<código>`; app.js guarda o código em localStorage (`forjaclip.ref`) e chama `ref_claim` no primeiro login (só conta criada há até 7 dias e sem pagamento). Worker tacet-ai chama `ref_reward` depois do pagamento aprovado (1º pagamento do amigo → +7 dias para quem indicou, teto de 24 por 365 dias) e `ref_unreward` nos dois caminhos de reembolso. Cartão #inv na home (copiar, compartilhar, contador).
+- Avaliações: diálogo #rev (1 a 5 estrelas, comentário até 600, nome exibido), `review_save` exige conta com projeto ou pagamento; editar volta para "pending". Convite automático depois do 2º vídeo gerado (no máximo 1 a cada 30 dias). Página inicial pública: #revPub via `reviews_public` (só aprovadas; some se não houver nenhuma). Moderação no Painel do criador ("Avaliações aguardando aprovação": Aprovar/Rejeitar) + totais de indicação.
+- Termos: novo parágrafo "Indicações e avaliações".
+- Não testado com contas reais: o prêmio no webhook do Mercado Pago e o fluxo completo de aprovação. Testado com Playwright e funções simuladas (390/1280, claro/escuro).

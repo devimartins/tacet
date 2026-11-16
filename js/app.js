@@ -733,6 +733,64 @@ function clipsUI() {
   });
 }
 // ---------- tela de cortes sugeridos (grade 9:16: o usuário aprova, rejeita, ajusta ou baixa) ----------
+// ---------- indicação de amigos e avaliações ----------
+try { const u = new URL(location.href), r = u.searchParams.get('r'); if (r && /^[a-z0-9]{5,12}$/i.test(r)) { ls.set('forjaclip.ref', r.toLowerCase()); u.searchParams.delete('r'); history.replaceState(null, '', u.pathname + u.search + u.hash); setTimeout(() => { if (!S.user) flash('Você chegou pelo convite de um amigo. Crie sua conta grátis para começar.'); }, 1500); } } catch { /* sem URL */ }
+const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5L2.5 9.5l6.6-.9z"/></svg>';
+const starsEl = n => { const sp = el('span', { className: 'rvs', role: 'img' }); sp.setAttribute('aria-label', n + ' de 5 estrelas'); sp.innerHTML = STAR.repeat(5); [...sp.children].forEach((x, i) => { if (i >= n) x.classList.add('off'); }); return sp; };
+function revCard() {
+  const r = S.review, c = $('#revCard'); c.hidden = !S.user;
+  $('#revCT').textContent = !r ? 'Está gostando do ForjaClip?' : r.status === 'approved' ? 'Sua avaliação está publicada. Obrigado!' : r.status === 'rejected' ? 'Sua avaliação não foi publicada' : 'Avaliação enviada. Obrigado!';
+  $('#revCS').textContent = !r ? 'Sua avaliação ajuda outros criadores a conhecer o app.' : r.status === 'approved' ? 'Ela aparece na página inicial do ForjaClip.' : r.status === 'rejected' ? 'Você pode editar e enviar de novo.' : 'Ela aparece no site depois de aprovada pela equipe.';
+  $('#revOpen').textContent = r ? 'Editar avaliação' : 'Avaliar';
+}
+function revOpen() {
+  if (!S.user) { needAccount('Crie sua conta grátis para avaliar o ForjaClip.'); return; }
+  const r = S.review, d = $('#rev'), LBL = ['', 'Ruim', 'Regular', 'Bom', 'Muito bom', 'Excelente'];
+  const paint = () => { const v = +(d.querySelector('input[name=revS]:checked')?.value || 0); d.querySelectorAll('#revStars label').forEach((l, i) => l.classList.toggle('on', i < v)); $('#revSl').textContent = LBL[v]; };
+  d.querySelectorAll('input[name=revS]').forEach(i => { i.checked = !!r && +i.value === r.stars; i.onchange = () => { paint(); $('#revMsg').hidden = true; }; });
+  const b = $('#revB'), cn = () => { $('#revCn').textContent = b.value.length + ' de 600'; }; b.value = r?.body || ''; b.oninput = cn; cn();
+  $('#revN').value = r?.name ?? (S.user.user_metadata?.full_name || S.user.user_metadata?.name || '').split(' ')[0].slice(0, 40);
+  const st = $('#revSt'); st.hidden = !r; if (r) st.textContent = r.status === 'approved' ? 'Sua avaliação está publicada. Se editar, ela volta para aprovação.' : r.status === 'rejected' ? 'Esta avaliação não foi publicada. Edite e envie de novo.' : 'Sua avaliação está aguardando aprovação.';
+  $('#revMsg').hidden = true; $('#revGo').textContent = r ? 'Salvar avaliação' : 'Enviar avaliação'; paint(); d.showModal();
+}
+$('#revOpen').onclick = revOpen; $('#revX').onclick = () => $('#rev').close();
+$('#revF').onsubmit = async e => {
+  e.preventDefault(); const m = $('#revMsg'), go = $('#revGo'), v = +($('#rev').querySelector('input[name=revS]:checked')?.value || 0);
+  if (!v) { m.textContent = 'Escolha de 1 a 5 estrelas.'; m.hidden = false; $('#rev').querySelector('input[name=revS]').focus(); return; }
+  go.disabled = true; m.hidden = true;
+  const x = await S.sb.rpc('review_save', { s: v, b: $('#revB').value, n: $('#revN').value }); go.disabled = false;
+  if (x.error) { m.textContent = x.error.message || 'Não foi possível enviar agora.'; m.hidden = false; return; }
+  S.review = { stars: v, body: $('#revB').value.trim(), name: $('#revN').value.trim(), status: 'pending' }; ls.set('forjaclip.revAsk', String(Date.now() + 3650 * 864e5)); revCard(); $('#rev').close(); flash('Avaliação enviada. Ela aparece no site depois de aprovada. Obrigado!');
+};
+// depois do 2º vídeo gerado, convida a avaliar (no máximo uma vez a cada 30 dias)
+function revNudge() {
+  if (!S.user || S.review || !LIVE) return; const n = +(ls.get('forjaclip.exp') || 0) + 1; ls.set('forjaclip.exp', String(n));
+  if (n < 2 || batch || Date.now() < +(ls.get('forjaclip.revAsk') || 0)) return; ls.set('forjaclip.revAsk', String(Date.now() + 30 * 864e5));
+  setTimeout(() => flash('Gostou do resultado? Avalie o ForjaClip.', { label: 'Avaliar', fn: revOpen }), 7000);
+}
+async function social() {
+  const rc = ls.get('forjaclip.ref'); if (rc) { try { await S.sb.rpc('ref_claim', { c: rc }); } catch { /* ok */ } try { localStorage.removeItem('forjaclip.ref'); } catch { /* ok */ } }
+  try {
+    const { data } = await S.sb.rpc('ref_mine'); if (data?.code) {
+      const link = 'https://forjaclip.com.br/?r=' + data.code, msg = 'Estou usando o ForjaClip para legendar e cortar vídeos com IA. Dá para começar grátis por este link:';
+      $('#invL').value = link; $('#inv').hidden = false; $('#invL').onfocus = e => e.target.select();
+      $('#invN').textContent = !data.invited ? 'Ninguém entrou pelo seu link ainda.' : data.invited + (data.invited === 1 ? ' amigo entrou' : ' amigos entraram') + ' · ' + data.rewarded + (data.rewarded === 1 ? ' assinou' : ' assinaram') + (data.days ? ' · você ganhou ' + data.days + ' dias de Pro' : '');
+      $('#invC').onclick = async e => { try { await navigator.clipboard.writeText(link); } catch { $('#invL').select(); document.execCommand?.('copy'); } e.target.textContent = 'Copiado'; setTimeout(() => { e.target.textContent = 'Copiar'; }, 2200); };
+      $('#invS').onclick = async () => { try { if (navigator.share) { await navigator.share({ title: 'ForjaClip', text: msg, url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } window.open('https://wa.me/?text=' + encodeURIComponent(msg + ' ' + link), '_blank', 'noopener'); };
+      if (!navigator.share) $('#invS').textContent = 'Enviar pelo WhatsApp';
+    }
+  } catch { /* social.sql ainda não rodado */ }
+  try { const { data, error } = await S.sb.rpc('review_mine'); if (!error) { S.review = data || null; revCard(); } } catch { /* idem */ }
+}
+// página inicial pública: só avaliações aprovadas
+async function revPublic() {
+  try {
+    const { data, error } = await S.sb.rpc('reviews_public', { lim: 9 }); if (error || !data || !data.count) return;
+    const avg = $('#revAvg'); avg.replaceChildren(el('b', { textContent: String(data.avg).replace('.', ',') }), starsEl(Math.round(data.avg)), el('span', { className: 'mut', textContent: data.count + (data.count === 1 ? ' avaliação' : ' avaliações') + ' de usuários' }));
+    $('#revList').replaceChildren(...(data.items || []).map(r => el('figure', { className: 'rvi' }, starsEl(r.stars), el('blockquote', { textContent: r.body }), el('figcaption', { textContent: r.name }))));
+    $('#revPub').hidden = false;
+  } catch { /* sem avaliações */ }
+}
 let cutsF = 'all', cutsSort = 'score', cutsMin = 0, batch = null;
 const cutName = (c, ext) => 'forjaclip-' + String(S.clips.indexOf(c) + 1).padStart(2, '0') + '-' + ((c.title || 'corte').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40).toLowerCase() || 'corte') + '.' + ext;
 // legenda só deste corte, com o tempo contado a partir do início dele
@@ -928,7 +986,7 @@ async function renderOne(c) {
     if ($('#expMsg')) $('#expMsg').textContent = 'Enquadrando quem fala…';
     try { await analyzeCuts(S.file, [c], S.words, { signal: S.abort.signal, onClip: (cc, r) => { cc.frame = r; } }); cutSave(); } catch (e) { if (!S.abort.signal.aborted) logError('enquadrar', e); }
   }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); await Promise.all((S.ov || []).filter(o => o.font).map(o => loadFont(o.font, 700))); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : (layout() === 'follow' && c.frame && c.frame.track) || null, split: layout() === 'split' && c.frame && c.frame.people && c.frame.people.length >= 2 ? c.frame.people : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); await Promise.all((S.ov || []).filter(o => o.font).map(o => loadFont(o.font, 700))); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : (layout() === 'follow' && c.frame && c.frame.track) || null, split: layout() === 'split' && c.frame && c.frame.people && c.frame.people.length >= 2 ? c.frame.people : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); revNudge(); beep(); }
   catch (e) {
     c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.');
     else { const V = S.media && S.media.video, A = S.media && S.media.audio; logError('exportar', e, { seg: Math.round((c.end - c.start) * 10) / 10, out: dimsNow().join('x'), fps: S.fps, at: Math.round((c.p || 0) * 100), s: Math.round((performance.now() - c.t0) / 1000), v: V && V.codec + ' ' + V.width + 'x' + V.height + ' r' + V.rotation, a: A && A.codec + ' ' + A.sampleRate + '/' + A.channels, mb: S.file && Math.round(S.file.size / 1048576), fx: Object.keys(S.fx || {}).filter(k => S.fx[k]).join(','), fundo: !!S.bgScene, musica: !!S.music, ov: (S.ov || []).length }); }
@@ -1013,9 +1071,11 @@ async function boot() {
   const apply = async s => {
     if (!s) { if (S.guest) return; S.user = null; forget(); vstore.clear(); view('login'); if (wantLogin()) openLogin(); return; }
     closeLogin(); if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
+    social();
     try { const iv = await S.sb.rpc('claim_invites'); if (iv.data > 0) setTimeout(() => flash('Você ganhou ' + iv.data + ' dias de Pro!'), 1200); } catch { /* sem convite */ }
     const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; setTimeout(tpLabel, 0); try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
+  revPublic();
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
 }
 
@@ -1429,7 +1489,18 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
     }
     T.replaceChildren(t); if (!data?.length) M.textContent = 'Nenhum usuário encontrado.';
   }
-  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); promos(); errs(); };
+  async function revs() {
+    const L = $('#rvL'), { data, error } = await S.sb.rpc('admin_reviews', { st: 'pending' });
+    if (error) { L.textContent = 'Rode supabase/social.sql no Supabase para ativar as avaliações.'; return; }
+    if (!data || !data.length) L.replaceChildren(el('p', { className: 'mut', textContent: 'Nenhuma avaliação aguardando.' }));
+    else { const q = el('div', { className: 'rvq' }); for (const r of data) {
+      const set = async st => { const x = await S.sb.rpc('admin_review_set', { uid: r.user_id, st }); if (x.error) return err(x.error); revs(); };
+      const ok = el('button', { className: 'btn pri', type: 'button', textContent: 'Aprovar' }), no = el('button', { className: 'btn', type: 'button', textContent: 'Rejeitar' }); ok.onclick = () => set('approved'); no.onclick = () => set('rejected');
+      q.append(el('article', {}, el('div', {}, starsEl(r.stars), ' ', el('b', { textContent: r.name || '(sem nome)' }), el('span', { className: 'mut', textContent: ' · ' + r.email + ' · ' + fmt(r.updated_at) })), el('p', { textContent: r.body || '(sem comentário)', style: 'margin:0' }), el('div', { className: 'rvb' }, ok, no)));
+    } L.replaceChildren(q); }
+    try { const rf = await S.sb.rpc('admin_refs'); if (rf.data) $('#rfT').textContent = 'Indicações: ' + rf.data.invited + ' contas criadas por link · ' + rf.data.rewarded + ' viraram assinatura (7 dias de Pro para quem indicou).'; } catch { /* ok */ }
+  }
+  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); promos(); revs(); errs(); };
   async function errs() {
     const L = $('#erL'), { data, error } = await S.sb.rpc('admin_errors', { days: 7, lim: 100 });
     if (error) { L.textContent = 'Rode supabase/errors.sql no Supabase para ativar o registro de erros.'; return; }
