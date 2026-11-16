@@ -20,7 +20,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"ForjaClip","url":"https://forjaclip.com.br/","applicationCategory":"MultimediaApplication","operatingSystem":"Android, iOS, Windows, macOS, Linux (navegador)","inLanguage":"pt-BR","description":"Editor de vídeos curtos no navegador: legendas animadas, cortes com IA, zoom automático e remoção de silêncio.","offers":[{"@type":"Offer","name":"Gratuito","price":"0","priceCurrency":"BRL"},{"@type":"Offer","name":"Pro","price":"19.90","priceCurrency":"BRL","description":"R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90"}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
-<link rel="modulepreload" href="js/app.js?v=212"><link rel="modulepreload" href="js/render.js?v=11"><link rel="modulepreload" href="js/captions.js">
+<link rel="modulepreload" href="js/app.js?v=213"><link rel="modulepreload" href="js/render.js?v=11"><link rel="modulepreload" href="js/captions.js">
 <style>
 :root{--bg:#0f0a08;--s1:#17100d;--in:#1f1612;--bd:#2e211b;--tx:#f4ede6;--mut:#a89a8e;--ac:#ff7a3d;--acd:#c2410c;--pri:#f4ede6;--pro:#0f0a08;--er:#ff8a80;--rail:#0a0605;--railtx:#f4ede6;--glow:rgba(255,122,61,.12);--stg:#070403;
  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);color-scheme:dark}
@@ -993,7 +993,7 @@ html,body{overflow-x:clip}
  <h2>Perguntas frequentes</h2>
  <details><summary>Preciso instalar algo?</summary><p class="mut">Não. O ForjaClip funciona no navegador e pode ser adicionado à tela inicial no Android, iOS e Windows.</p></details>
  <details><summary>Meu vídeo é enviado para algum servidor?</summary><p class="mut">Não. A edição e a exportação acontecem no seu aparelho. Para transcrever, apenas o áudio é enviado e descartado em seguida.</p></details>
- <details><summary>Funciona com vídeos do YouTube?</summary><p class="mut">Sim. Em “Cortes do YouTube” você cola o link, a IA lê o vídeo e sugere os melhores trechos, mostrados em mini players verticais com legendas. O ForjaClip não baixa o vídeo do YouTube: para gerar o MP4 de um corte, envie o arquivo do vídeo.</p></details>
+ <details><summary>Funciona com vídeos do YouTube?</summary><p class="mut">Sim. Em “Cortes do YouTube” você cola o link, a IA lê o vídeo e sugere os melhores trechos, mostrados em mini players verticais com legendas. O ForjaClip não baixa o arquivo do YouTube: no Chrome ou Edge do computador, o botão “Baixar corte” grava a reprodução do trecho na sua guia, já com a legenda.</p></details>
  <details><summary>Quais são os limites de tamanho?</summary><p class="mut">No plano gratuito, vídeos de até 350 MB e projetos salvos por 3 dias, com anúncios. No Pro, vídeos de até 1 GB e sem anúncios. A transcrição por link do YouTube vai até 1 hora por dia e 3 horas por mês no gratuito, e até 3 horas por dia e 40 horas por mês no Pro. Trechos que já foram transcritos antes não contam.</p></details>
  <details><summary>Em que formato eu exporto?</summary><p class="mut">MP4 no formato original do vídeo, ou em 9:16, 4:5, 1:1 e 16:9. Você também pode baixar a legenda em SRT ou VTT.</p></details>
  <details><summary>Como funciona a assinatura Pro?</summary><p class="mut">R$ 19,90 por mês nos 3 primeiros meses, depois R$ 29,90 por mês, ou R$ 199 por ano. O pagamento é por PIX, cartão de débito ou crédito.</p></details>
@@ -1102,5 +1102,5 @@ html,body{overflow-x:clip}
 <dialog id="pay"><h2 style="margin-top:0">Recurso do plano pago</h2><p class="mut">Este recurso faz parte do plano pago, com pagamento por PIX, cartão de débito e crédito.</p><form method="dialog"><button class="btn pri">Entendi</button></form></dialog>
 <div id="flash" role="status" hidden></div>
 <script defer src="config.js"></script><script defer src="vendor/mp4box.all.min.js"></script><script defer src="vendor/mp4-muxer.js"></script><script defer src="vendor/supabase.js"></script>
-<script type="module" src="js/app.js?v=212"></script>
+<script type="module" src="js/app.js?v=213"></script>
 </body></html>

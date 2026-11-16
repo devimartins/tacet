@@ -15,6 +15,7 @@ create table if not exists public.transcript_cache (
   last_hit   timestamptz,
   primary key (video_id, from_s, len_s)
 );
+alter table public.transcript_cache add column if not exists who jsonb not null default '{}'::jsonb;  -- descrição de cada voz (rótulos iguais entre blocos); cada item de segments pode trazer x (posição do rosto de quem fala, 0 a 100)
 alter table public.transcript_cache enable row level security;  -- sem policies: só o Worker (service role) acessa
 
 create or replace function public.hit_transcript(p_video text, p_from int, p_len int)
