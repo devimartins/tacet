@@ -193,3 +193,10 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
 - Avaliações: diálogo #rev (1 a 5 estrelas, comentário até 600, nome exibido), `review_save` exige conta com projeto ou pagamento; editar volta para "pending". Convite automático depois do 2º vídeo gerado (no máximo 1 a cada 30 dias). Página inicial pública: #revPub via `reviews_public` (só aprovadas; some se não houver nenhuma). Moderação no Painel do criador ("Avaliações aguardando aprovação": Aprovar/Rejeitar) + totais de indicação.
 - Termos: novo parágrafo "Indicações e avaliações".
 - Não testado com contas reais: o prêmio no webhook do Mercado Pago e o fluxo completo de aprovação. Testado com Playwright e funções simuladas (390/1280, claro/escuro).
+
+## 17/11/2026 — Cortes com IA não seguiam quem fala (sw v217, app.js v216)
+- Causa: o formato padrão do editor era "Original do vídeo" (desde 24/10). Com vídeo 16:9 e saída 16:9, `needsCrop()` é falso e `frameCuts()` nunca roda; os cartões, porém, desenhavam sempre 9:16 do centro. Os cortes também saíam em 1920×1080 (ver app_errors 8 e 9).
+- Correção: `enterEdit` usa 9:16 em projeto de cortes (`isCutsProj`) e "Original" só em "Legende seu vídeo"; escolha manual do formato fica em `S.style.ratioPick` e sempre vale. `setRatio` e o seletor de enquadramento reabrem a análise (`frameCuts`) e redesenham os cartões. Cartões seguem a proporção real (`--car`). Aviso `#cutsFmt` explica quando nada é recortado (formato igual ao vídeo ou "fundo desfocado"), com botão que resolve.
+- Lote: se o navegador recolher o codificador ("Codec reclaimed due to inactivity", aba em segundo plano) ou o decodificador travar, espera a aba voltar e tenta o corte mais uma vez.
+- Ligações novas (#revOpen, #cutsBar…) protegidas: página antiga em cache com app.js novo derrubava o app (app_errors 7, iPhone).
+- Testado: speaker.js com vídeo sintético de duas câmeras lado a lado (achou as duas pessoas em x 0,21 e 0,79); aviso e troca de formato no Playwright 390/1280. Não testado com o vídeo real do usuário.

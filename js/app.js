@@ -322,6 +322,13 @@ function needsCrop() {   // só vale quando o vídeo é mais largo que o formato
   const V = S.media && S.media.video; if (!V) return false; const swp = V.rotation === 90 || V.rotation === 270, dw = swp ? V.height : V.width, dh = swp ? V.width : V.height, [W, H] = dimsNow();
   return dw / dh > (W / H) * 1.15 && !S.blurOn;
 }
+// por que os cortes não recortam (e o botão que resolve)
+function cropBlock() {
+  const V = S.media && S.media.video; if (!V) return null; const swp = V.rotation === 90 || V.rotation === 270, dw = swp ? V.height : V.width, dh = swp ? V.width : V.height, [W, H] = dimsNow();
+  if (dw / dh <= (W / H) * 1.15) return dw > dh * 1.15 ? { msg: 'O formato está em “' + ($('#ratio').selectedOptions[0]?.textContent || S.ratio) + '”, igual ao do vídeo: nada é recortado, então “Seguir quem fala” e “Tela dividida” não têm efeito.', btn: 'Usar 9:16 vertical', fn: () => { S.ratioAuto = false; S.style.ratioPick = true; setRatio('9:16'); } } : null;
+  if (S.blurOn) return { msg: 'O enquadramento está em “Inteiro, fundo desfocado”: o vídeo aparece inteiro, sem recorte, então “Seguir quem fala” e “Tela dividida” não têm efeito.', btn: 'Preencher o quadro', fn: () => { S.style.fit = 'cover'; applyFit(); saveSoon('style', { style: S.style }); cutsUI(); frameCuts(); } };
+  return null;
+}
 const frameMsg = m => { const e = $('#cutsFrame'); if (e) { e.textContent = m; e.hidden = !m; } };
 async function frameCuts() {
   if (frameJob || !S.file || !S.words.length || layout() === 'center' || !needsCrop()) return;
@@ -433,7 +440,8 @@ function saveSoon(key, patch, ms = 900) { clearTimeout(pend[key]); pend[key] = s
 
 // ---------- editor ----------
 // Formato inicial = proporção nativa do vídeo (projetos salvos mantêm o formato escolhido)
-function enterEdit() { view('edit'); tab('style'); S.ratioAuto = !DIMS[S.style.ratio]; setRatio(S.ratioAuto ? 'native' : S.style.ratio); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
+const isCutsProj = () => S.clips.some(c => c.id !== 'full') || (S.mode === 'clips' && !S.clips.length);
+function enterEdit() { view('edit'); tab('style'); const pick = S.style.ratioPick && DIMS[S.style.ratio] ? S.style.ratio : null; S.ratioAuto = !pick && !isCutsProj(); setRatio(pick || (S.ratioAuto ? 'native' : '9:16')); S.cur = 0; S.prev = null; $('#scrub').max = S.dur; prog(null); S.bbox = null; }
 $('#vid').addEventListener('loadedmetadata', () => { if ((S.ratioAuto || S.ratio === 'native') && !$('#edit').hidden) setRatio('native'); });
 function setVideo(f) {
   const v = $('#vid'); v.src = URL.createObjectURL(f); v.style.display = 'block'; $('#ph').hidden = true; v.onloadedmetadata = () => { if (v.currentTime === 0) v.currentTime = 0.05; $('#scrub').max = v.duration; S.dur = v.duration; drawTimeline(); applyFit(); }; v.onloadeddata = () => thumb(S.pid); S.playing = false; $('#pp').textContent = 'Reproduzir';
@@ -452,7 +460,7 @@ function applyFit() {   // fundo desfocado (prévia): vídeo inteiro por cima de
   S.blurOn = on; v.style.objectFit = on ? 'contain' : 'cover'; $('#bgv').style.display = on ? 'block' : 'none'; $('#fitSel').value = S.style.fit || 'auto'; $('#laySel').value = S.style.layout || 'follow';
 }
 let bgT = 0; function drawBg() { if (!S.blurOn) return; const n = performance.now(); if (n - bgT < 120) return; bgT = n; const v = $('#vid'), c = $('#bgv'); try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch { /* sem quadro */ } }
-$('#fitSel').onchange = e => { S.style.fit = e.target.value; applyFit(); saveSoon('style', { style: S.style }); frameCuts(); };
+$('#fitSel').onchange = e => { S.style.fit = e.target.value; applyFit(); saveSoon('style', { style: S.style }); if ($('#cuts').open) cutsUI(); frameCuts(); };
 function applyCrop() { $('#vid').style.objectPosition = rs().cropX * 100 + '% 50%'; }
 let rows = [];
 const sync = () => { rows.forEach(f => f()); EG && EG.mark(); };
@@ -673,9 +681,9 @@ function phrasesUI() {
 function setRatio(r) {
   S.ratio = r; S.style.ratio = r; const [w, h] = DIMS[r], ar = w / h; $('#ratio').value = r; $('#ratio2').value = r;
   $('#stage').style.aspectRatio = w + '/' + h; const sw = `min(100%,calc(var(--sh,74) * ${ar.toFixed(4)} * 1dvh))`; document.documentElement.style.setProperty('--ar', ar.toFixed(4)); applyFit(); $('#stage').style.width = sw; document.querySelector('.transport').style.width = sw;
-  saveSoon('style', { style: S.style });
+  saveSoon('style', { style: S.style }); if ($('#cuts').open) cutsUI(); frameCuts();
 }
-$('#ratio').onchange = e => { S.ratioAuto = false; setRatio(e.target.value); };
+$('#ratio').onchange = e => { S.ratioAuto = false; S.style.ratioPick = true; setRatio(e.target.value); };
 
 // transcrição editável
 $('#txt').oninput = () => { S.words = retime(S.words, tokens($('#txt').value), S.dur); rebuild(); saveSoon('tr', { transcript: { words: S.words } }, 1200); };
@@ -753,8 +761,8 @@ function revOpen() {
   const st = $('#revSt'); st.hidden = !r; if (r) st.textContent = r.status === 'approved' ? 'Sua avaliação está publicada. Se editar, ela volta para aprovação.' : r.status === 'rejected' ? 'Esta avaliação não foi publicada. Edite e envie de novo.' : 'Sua avaliação está aguardando aprovação.';
   $('#revMsg').hidden = true; $('#revGo').textContent = r ? 'Salvar avaliação' : 'Enviar avaliação'; paint(); d.showModal();
 }
-$('#revOpen').onclick = revOpen; $('#revX').onclick = () => $('#rev').close();
-$('#revF').onsubmit = async e => {
+if ($('#revOpen')) $('#revOpen').onclick = revOpen; if ($('#revX')) $('#revX').onclick = () => $('#rev').close();
+if ($('#revF')) $('#revF').onsubmit = async e => {
   e.preventDefault(); const m = $('#revMsg'), go = $('#revGo'), v = +($('#rev').querySelector('input[name=revS]:checked')?.value || 0);
   if (!v) { m.textContent = 'Escolha de 1 a 5 estrelas.'; m.hidden = false; $('#rev').querySelector('input[name=revS]').focus(); return; }
   go.disabled = true; m.hidden = true;
@@ -809,7 +817,7 @@ async function cutPub(c, btn) {
 // fila: gera os aprovados (ou todos os não rejeitados) um após o outro, no aparelho
 const batchList = () => { const live = S.clips.filter(c => c.id !== 'full' && c.status !== 'no'), ok = live.filter(c => c.status === 'ok'); return ok.length ? ok : live; };
 function batchPaint() {
-  const bp = $('#cutsBp'); bp.hidden = !batch; if (!batch) return;
+  const bp = $('#cutsBp'); if (!bp) return; bp.hidden = !batch; if (!batch) return;
   const p = (batch.i + (batch.cur && batch.cur.p || 0)) / batch.n; $('#cutsPg').value = Math.min(1, p);
   $('#cutsPt').textContent = batch.stop ? 'Cancelando…' : 'Gerando ' + Math.min(batch.n, batch.i + 1) + ' de ' + batch.n + ' · ' + Math.round(p * 100) + '%. Mantenha esta tela aberta.';
 }
@@ -820,7 +828,12 @@ async function cutsBatch() {
   if (!list.length) { flash('Esses cortes já estão gerados. Use “Baixar todos”.'); return; }
   batch = { n: list.length, i: 0, cur: null, stop: false }; const tm = setInterval(batchPaint, 300);
   try {
-    for (const c of list) { if (batch.stop) break; batch.cur = c; batchPaint(); await renderOne(c); if (!c.url && c.state !== 'error') break; batch.i++; }
+    const back = () => new Promise(ok => { if (!document.hidden) return ok(); const f = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', f); ok(); } }; document.addEventListener('visibilitychange', f); });
+    for (const c of list) {
+      if (batch.stop) break; batch.cur = c; batchPaint(); await back(); await renderOne(c);
+      if (c.state === 'error' && !batch.stop && /reclaimed|inactivity|parou de|não terminou|não respond/i.test(c.err || '')) { $('#cutsPt').textContent = 'O navegador pausou a geração. Tentando este corte de novo…'; await back(); c.state = 'idle'; c.err = ''; await renderOne(c); }
+      if (!c.url && c.state !== 'error') break; batch.i++;
+    }
   } finally { clearInterval(tm); const done = list.filter(c => c.url).length, fail = list.filter(c => c.state === 'error').length; batch = null; cutsUI(); flash(done + ' de ' + list.length + (list.length === 1 ? ' corte pronto.' : ' cortes prontos.') + (fail ? ' ' + fail + ' com erro: tente gerar de novo.' : '')); }
 }
 async function cutsZipAll() {
@@ -888,12 +901,14 @@ function cutsUI() {
   document.querySelectorAll('#cutsTabs button').forEach(b => { const f = b.dataset.f; b.textContent = { all: 'Todos', ok: 'Aprovados', no: 'Rejeitados' }[f] + ' (' + n[f] + ')'; b.setAttribute('aria-selected', String(f === cutsF)); b.onclick = () => { cutsF = f; cutsUI(); }; });
   $('#cutsSub').textContent = (S.title || '') + ' · ' + n.all + ' trechos separados. Você decide quais usar.';
   const al = $('#cutsAlert'); al.hidden = !S.aiFail; al.textContent = S.aiFail || '';
+  { const [w, h] = DIMS[S.ratio] || DIMS['9:16'], gr = $('#cutsGrid'); gr.style.setProperty('--car', w + '/' + h); gr.classList.toggle('wide', w > h);
+    const cb = cropBlock(), box = $('#cutsFmt'); if (box) { box.hidden = !cb; if (cb) { box.querySelector('span').textContent = cb.msg; const b = box.querySelector('button'); b.textContent = cb.btn; b.onclick = cb.fn; } } }
   $('#cutsLen').value = S.cutOpts.len; $('#cutsLay').value = layout(); if (document.activeElement !== $('#cutsTopic')) $('#cutsTopic').value = S.cutOpts.topic || '';
   const g = $('#cutsGrid'); g.replaceChildren();
   const list = all.map((c, i) => [c, i]).filter(([c]) => (cutsF === 'all' || (c.status || '') === cutsF) && (c.score == null || /^[mk]/.test(c.id) || c.score >= cutsMin));
   if (cutsSort === 'score') list.sort((a, b) => (b[0].score ?? -1) - (a[0].score ?? -1) || a[0].start - b[0].start); else if (cutsSort === 'len') list.sort((a, b) => (a[0].end - a[0].start) - (b[0].end - b[0].start)); else list.sort((a, b) => a[0].start - b[0].start);
-  $('#cutsSort').value = cutsSort; $('#cutsMin').value = String(cutsMin);
-  { const bl = batchList(), nOk = all.filter(c => c.status === 'ok').length, todo = bl.filter(c => !c.url).length, rdy = all.filter(c => c.url).length, ba = $('#cutsAll'), bz = $('#cutsZip');
+  if ($('#cutsBar')) { $('#cutsSort').value = cutsSort; $('#cutsMin').value = String(cutsMin); }
+  if ($('#cutsBar')) { const bl = batchList(), nOk = all.filter(c => c.status === 'ok').length, todo = bl.filter(c => !c.url).length, rdy = all.filter(c => c.url).length, ba = $('#cutsAll'), bz = $('#cutsZip');
     ba.textContent = batch ? 'Gerando…' : !todo && bl.length ? 'Tudo gerado' : nOk ? 'Gerar aprovados (' + todo + ')' : 'Gerar todos (' + todo + ')'; ba.disabled = !!batch || !todo || S.busy;
     bz.hidden = !rdy; bz.textContent = rdy > 1 ? 'Baixar todos (' + rdy + ')' : 'Baixar o corte pronto'; batchPaint(); }
   if (!list.length) g.append(el('p', { className: 'mut', textContent: cutsMin && cutsF === 'all' ? 'Nenhum corte com essa nota mínima.' : 'Nenhum corte nesta aba.' }));
@@ -909,8 +924,8 @@ function cutEdit(c) {
     c.title = $('#ceT').value.trim().slice(0, 80) || c.title; if (c.start !== s0 || c.end !== e0) delete c.frame; c.start = s0; c.end = e0; if (c.url) { URL.revokeObjectURL(c.url); delete c.url; c.state = 'idle'; } cutSave(); d.close(); cutsUI(); drawTimeline(); frameCuts();
   };
 }
-$('#cutsSort').onchange = () => { cutsSort = $('#cutsSort').value; cutsUI(); }; $('#cutsMin').onchange = () => { cutsMin = +$('#cutsMin').value; cutsUI(); };
-$('#cutsAll').onclick = cutsBatch; $('#cutsZip').onclick = cutsZipAll; $('#cutsStop').onclick = () => { if (batch) { batch.stop = true; batchPaint(); } if (S.abort) S.abort.abort(); };
+if ($('#cutsBar')) { $('#cutsSort').onchange = () => { cutsSort = $('#cutsSort').value; cutsUI(); }; $('#cutsMin').onchange = () => { cutsMin = +$('#cutsMin').value; cutsUI(); };
+$('#cutsAll').onclick = cutsBatch; $('#cutsZip').onclick = cutsZipAll; } if ($('#cutsStop')) $('#cutsStop').onclick = () => { if (batch) { batch.stop = true; batchPaint(); } if (S.abort) S.abort.abort(); };
 $('#cutsX').onclick = cutsClose; $('#cuts').addEventListener('close', () => { if (miniOn) miniStop(miniOn); });
 $('#cutsOpen').onclick = cutsOpen;
 $('#cutsLen').onchange = () => { S.cutOpts.len = $('#cutsLen').value; saveCutOpts(); };
@@ -1111,7 +1126,7 @@ S.aud = [];
 // ---------- configurações do vídeo, trocar e remover ----------
 S.res = 1; S.fps = 30;
 const dimsNow = () => { const [w, h] = DIMS[S.ratio], k = S.res; return [Math.round(w * k / 2) * 2, Math.round(h * k / 2) * 2]; };
-$('#ratio2').onchange = e => { S.ratioAuto = false; setRatio(e.target.value); };
+$('#ratio2').onchange = e => { S.ratioAuto = false; S.style.ratioPick = true; setRatio(e.target.value); };
 $('#ratio').addEventListener('change', () => { $('#ratio2').value = $('#ratio').value; });
 var fadeUI = () => { $('#fiR').value = S.style.fi || 0; $('#foR').value = S.style.fo || 0; $('#fiO').textContent = (S.style.fi || 0) + ' s'; $('#foO').textContent = (S.style.fo || 0) + ' s'; };
 $('#fiR').oninput = e => { S.style.fi = +e.target.value; $('#fiO').textContent = S.style.fi + ' s'; saveSoon('style', { style: S.style }); };
