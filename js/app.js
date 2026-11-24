@@ -756,11 +756,11 @@ function revCard() {
   $('#revCS').textContent = !r ? 'Sua avaliação ajuda outros criadores a conhecer o app.' : r.status === 'approved' ? 'Ela aparece na página inicial do ForjaClip.' : r.status === 'rejected' ? 'Você pode editar e enviar de novo.' : 'Ela aparece no site depois de aprovada pela equipe.';
   $('#revOpen').textContent = r ? 'Editar avaliação' : 'Avaliar';
 }
-function revOpen() {
+function revOpen(pre) {
   if (!S.user) { needAccount('Crie sua conta grátis para avaliar o ForjaClip.'); return; }
   const r = S.review, d = $('#rev'), LBL = ['', 'Ruim', 'Regular', 'Bom', 'Muito bom', 'Excelente'];
   const paint = () => { const v = +(d.querySelector('input[name=revS]:checked')?.value || 0); d.querySelectorAll('#revStars label').forEach((l, i) => l.classList.toggle('on', i < v)); $('#revSl').textContent = LBL[v]; };
-  d.querySelectorAll('input[name=revS]').forEach(i => { i.checked = !!r && +i.value === r.stars; i.onchange = () => { paint(); $('#revMsg').hidden = true; }; });
+  d.querySelectorAll('input[name=revS]').forEach(i => { i.checked = typeof pre === 'number' ? +i.value === pre : !!r && +i.value === r.stars; i.onchange = () => { paint(); $('#revMsg').hidden = true; }; });
   const b = $('#revB'), cn = () => { $('#revCn').textContent = b.value.length + ' de 600'; }; b.value = r?.body || ''; b.oninput = cn; cn();
   $('#revN').value = r?.name ?? (S.user.user_metadata?.full_name || S.user.user_metadata?.name || '').split(' ')[0].slice(0, 40);
   const st = $('#revSt'); st.hidden = !r; if (r) st.textContent = r.status === 'approved' ? 'Sua avaliação está publicada. Se editar, ela volta para aprovação.' : r.status === 'rejected' ? 'Esta avaliação não foi publicada. Edite e envie de novo.' : 'Sua avaliação está aguardando aprovação.';
@@ -773,13 +773,18 @@ if ($('#revF')) $('#revF').onsubmit = async e => {
   go.disabled = true; m.hidden = true;
   const x = await S.sb.rpc('review_save', { s: v, b: $('#revB').value, n: $('#revN').value }); go.disabled = false;
   if (x.error) { m.textContent = x.error.message || 'Não foi possível enviar agora.'; m.hidden = false; return; }
-  S.review = { stars: v, body: $('#revB').value.trim(), name: $('#revN').value.trim(), status: 'pending' }; ls.set('forjaclip.revAsk', String(Date.now() + 3650 * 864e5)); revCard(); $('#rev').close(); flash('Avaliação enviada. Ela aparece no site depois de aprovada. Obrigado!');
+  S.review = { stars: v, body: $('#revB').value.trim(), name: $('#revN').value.trim(), status: 'pending' }; ls.set('forjaclip.revAsk', String(Date.now() + 3650 * 864e5)); revCard(); if ($('#rateBar')) $('#rateBar').hidden = true; $('#rev').close(); flash('Avaliação enviada. Ela aparece no site depois de aprovada. Obrigado!');
 };
 // depois do 2º vídeo gerado, convida a avaliar (no máximo uma vez a cada 30 dias)
-function revNudge() {
-  if (!S.user || S.review || !LIVE) return; const n = +(ls.get('forjaclip.exp') || 0) + 1; ls.set('forjaclip.exp', String(n));
-  if (n < 2 || batch || Date.now() < +(ls.get('forjaclip.revAsk') || 0)) return; ls.set('forjaclip.revAsk', String(Date.now() + 30 * 864e5));
-  setTimeout(() => flash('Gostou do resultado? Avalie o ForjaClip.', { label: 'Avaliar', fn: revOpen }), 7000);
+// depois de cada vídeo exportado, pede a avaliação até a pessoa avaliar (no lote, só ao terminar)
+function revNudge(c) {
+  if (!S.user || !LIVE) return; try { S.sb.rpc('track_use', { k: c && c.id === 'full' ? 'export' : 'export_cut' }); } catch { /* contagem é opcional */ }
+  if (S.review || batch) return; setTimeout(rateAsk, 1800);
+}
+function rateAsk() {
+  if (!S.user || S.review || !LIVE || $('#rev').open) return; const bar = $('#rateBar'); if (!bar) return;
+  bar.querySelectorAll('button[data-s]').forEach(b => { b.onclick = () => { bar.hidden = true; revOpen(+b.dataset.s); }; });
+  $('#rateX').onclick = () => { bar.hidden = true; }; bar.hidden = false;
 }
 async function social() {
   const rc = ls.get('forjaclip.ref'); if (rc) { try { await S.sb.rpc('ref_claim', { c: rc }); } catch { /* ok */ } try { localStorage.removeItem('forjaclip.ref'); } catch { /* ok */ } }
@@ -839,7 +844,7 @@ async function cutsBatch() {
       if (c.state === 'error' && !batch.stop && /reclaimed|inactivity|parou de|não terminou|não respond/i.test(c.err || '')) { $('#cutsPt').textContent = 'O navegador pausou a geração. Tentando este corte de novo…'; await back(); c.state = 'idle'; c.err = ''; await renderOne(c); }
       if (!c.url && c.state !== 'error') break; batch.i++;
     }
-  } finally { clearInterval(tm); const done = list.filter(c => c.url).length, fail = list.filter(c => c.state === 'error').length; batch = null; cutsUI(); flash(done + ' de ' + list.length + (list.length === 1 ? ' corte pronto.' : ' cortes prontos.') + (fail ? ' ' + fail + ' com erro: tente gerar de novo.' : '')); }
+  } finally { clearInterval(tm); const done = list.filter(c => c.url).length, fail = list.filter(c => c.state === 'error').length; batch = null; cutsUI(); if (done) setTimeout(rateAsk, 2500); flash(done + ' de ' + list.length + (list.length === 1 ? ' corte pronto.' : ' cortes prontos.') + (fail ? ' ' + fail + ' com erro: tente gerar de novo.' : '')); }
 }
 async function cutsZipAll() {
   const ready = S.clips.filter(c => c.url); if (!ready.length) return; const b = $('#cutsZip'), old = b.textContent; b.disabled = true; b.textContent = 'Preparando…';
@@ -1006,7 +1011,7 @@ async function renderOne(c) {
     if ($('#expMsg')) $('#expMsg').textContent = 'Enquadrando quem fala…';
     try { await analyzeCuts(S.file, [c], S.words, { signal: S.abort.signal, onClip: (cc, r) => { cc.frame = r; } }); cutSave(); } catch (e) { if (!S.abort.signal.aborted) logError('enquadrar', e); }
   }
-  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); await Promise.all((S.ov || []).filter(o => o.font).map(o => loadFont(o.font, 700))); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : (layout() === 'follow' && c.frame && c.frame.track) || null, split: layout() === 'split' && c.frame && c.frame.people && c.frame.people.length >= 2 ? c.frame.people : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); revNudge(); beep(); }
+  try { await loadFont(rs().font, rs().wLight, rs().wActive); if (c.url) URL.revokeObjectURL(c.url); await Promise.all((S.ov || []).filter(o => o.font).map(o => loadFont(o.font, 700))); const r = await renderClip({ file: S.file, media: S.media, clip: c, words: visible(), style: S.style, W: dimsNow()[0], H: dimsNow()[1], fps: S.fps, opts: { signal: S.abort.signal, cutSilence: !!S.fx.cut, cutFx: S.fx, faceTrack: S.faceOn ? S.track : (layout() === 'follow' && c.frame && c.frame.track) || null, split: layout() === 'split' && c.frame && c.frame.people && c.frame.people.length >= 2 ? c.frame.people : null, bgScene: S.bgScene || null, allWords: S.words, zoom: !!S.fx.zoom, zoomLevel: ZL[S.fx.zoomL || 2], emoji: !!S.fx.emoji, tone: effTone(), sfx: !!S.fx.sfx, denoise: !!S.fx.denoise, tracks: S.aud, music: S.music ? { buffer: S.music.buf, volume: S.music.vol } : null, overlays: ovAll(), grade: (await ensureColor())?.forExport() ?? null, fadeIn: S.style.fi || 0, fadeOut: S.style.fo || 0 }, onProgress: p => { c.p = p; const pr = $('#clips progress'); if (pr) pr.value = p; const cp = document.querySelector('#cutsGrid [data-id="' + c.id + '"] progress'); if (cp) cp.value = p; if (c === S.expClip) { $('#expPg').value = p; $('#expMsg').textContent = 'Gerando ' + Math.round(p * 100) + '%. Mantenha a tela aberta.'; } const eta = $('#clips .eta'); if (eta) { const el0 = (performance.now() - c.t0) / 1000, left = p > 0.03 ? Math.ceil(el0 * (1 - p) / p) : null; eta.textContent = 'Gerando ' + Math.round(p * 100) + '%' + (left != null ? ', faltam cerca de ' + (left > 60 ? Math.ceil(left / 60) + ' min' : left + ' s') : '') + '. Mantenha a tela aberta.'; } } }); c.url = URL.createObjectURL(r.blob); c.state = 'done'; flash('Corte pronto. Toque em Baixar.'); revNudge(c); beep(); }
   catch (e) {
     c.state = e.message === 'Geração cancelada.' ? 'idle' : 'error'; c.err = e.message; if (c.state === 'idle') flash('Geração cancelada.');
     else { const V = S.media && S.media.video, A = S.media && S.media.audio; logError('exportar', e, { seg: Math.round((c.end - c.start) * 10) / 10, out: dimsNow().join('x'), fps: S.fps, at: Math.round((c.p || 0) * 100), s: Math.round((performance.now() - c.t0) / 1000), v: V && V.codec + ' ' + V.width + 'x' + V.height + ' r' + V.rotation, a: A && A.codec + ' ' + A.sampleRate + '/' + A.channels, mb: S.file && Math.round(S.file.size / 1048576), fx: Object.keys(S.fx || {}).filter(k => S.fx[k]).join(','), fundo: !!S.bgScene, musica: !!S.music, ov: (S.ov || []).length }); }
@@ -1501,6 +1506,7 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
       const r = t.insertRow(), on = u.pro_until && new Date(u.pro_until) > new Date();
       [u.email || '(sem e-mail)', fmt(u.created_at), fmt(u.last_sign_in_at), on ? fmt(u.pro_until) : '–', u.projects, brl(u.paid)].forEach((v, i) => { const c = r.insertCell(); c.textContent = v; if (i === 3 && on) c.className = 'ok'; });
       const ac = r.insertCell();
+      { const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Atividade'; b.setAttribute('aria-expanded', 'false'); b.onclick = () => activity(u, r, b); ac.append(b); }
       for (const [lab, days] of [['+31 dias', 31], ['+1 ano', 366], ['Encerrar Pro', 0]]) {
         const b = document.createElement('button'); b.type = 'button'; b.textContent = lab;
         b.onclick = async () => { if (!confirm(`${lab} para ${u.email}?`)) return; const x = await S.sb.rpc('admin_grant', { uid: u.id, days }); if (x.error) return err(x.error); M.textContent = 'Feito para ' + u.email + '.'; users(); overview(); };
@@ -1510,6 +1516,22 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
     T.replaceChildren(t); if (!data?.length) M.textContent = 'Nenhum usuário encontrado.';
   }
   let rvTab = 'pending';
+  async function activity(u, row, btn) {
+    const nx = row.nextElementSibling; if (nx && nx.dataset.act) { nx.remove(); btn.setAttribute('aria-expanded', 'false'); return; }
+    const dr = row.parentElement.insertRow(row.rowIndex + 1); dr.dataset.act = '1'; const cell = dr.insertCell(); cell.colSpan = 7; cell.textContent = 'Carregando…'; btn.setAttribute('aria-expanded', 'true');
+    const { data: a, error } = await S.sb.rpc('admin_user_activity', { uid: u.id }); if (error) { cell.textContent = error.message; return; }
+    const g = a.usage || {}, min = x => (Math.round((x || 0) / 6) / 10).toLocaleString('pt-BR'), n = (x, s1, s2) => x + ' ' + (x === 1 ? s1 : s2), dt = x => x ? new Date(x).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '–';
+    const exp = (g.export || 0) + (g.export_cut || 0), box = el('div', { className: 'act' });
+    const line = (k, v) => box.append(el('p', {}, el('b', { textContent: k + ': ' }), String(v)));
+    line('Conta', 'criada ' + dt(a.created_at) + ' com ' + ((a.providers || []).join(', ') || '–') + ' · último acesso ' + dt(a.last_sign_in_at) + ' · ' + n(a.days_active || 0, 'dia com uso', 'dias com uso'));
+    line('Uso', min(g.audio) + ' min transcritos · ' + n(g.llm || 0, 'análise de IA', 'análises de IA') + ' · ' + n(a.yt_videos || 0, 'bloco de vídeo do YouTube', 'blocos de vídeo do YouTube') + ' · ' + (g.export != null || g.export_cut != null ? n(exp, 'vídeo exportado', 'vídeos exportados') + (g.export_cut ? ' (' + g.export_cut + ' cortes)' : '') : 'exportações ainda não registradas para esta conta'));
+    line('Plano', (a.pro_until && new Date(a.pro_until) > new Date() ? 'Pro até ' + fmt(a.pro_until) : 'Grátis') + ' · pagou ' + brl(a.paid) + (a.promo ? ' · código ' + a.promo.join(', ') : '') + (a.referred_by ? ' · indicado por ' + a.referred_by : '') + (a.invited ? ' · indicou ' + a.invited : ''));
+    line('Avaliação', a.review ? a.review.stars + ' de 5 (' + ({ pending: 'aguardando', approved: 'publicada', rejected: 'rejeitada' })[a.review.status] + ')' + (a.review.body ? ': “' + a.review.body + '”' : '') : 'ainda não avaliou');
+    const pj = a.projects || []; box.append(el('p', {}, el('b', { textContent: 'Projetos (' + pj.length + '):' })));
+    if (pj.length) box.append(el('ul', {}, ...pj.map(p => el('li', { textContent: (p.title || 'Sem título') + ' · ' + (p.duration ? mmss(p.duration) : '–') + ' · ' + n(p.words, 'palavra', 'palavras') + ' · ' + n(p.clips, 'corte', 'cortes') + ' · ' + dt(p.created_at) + (p.expired ? ' (expirado)' : '') }))));
+    if ((a.errors || []).length) { box.append(el('p', {}, el('b', { textContent: 'Erros recentes:' }))); box.append(el('ul', {}, ...a.errors.map(e => el('li', { textContent: dt(e.at) + ' · ' + e.kind + ' · ' + e.message })))); }
+    cell.replaceChildren(box);
+  }
   async function revs(st = rvTab) {
     rvTab = st; const L = $('#rvL'), NM = { pending: 'Aguardando', approved: 'Publicadas', rejected: 'Rejeitadas' };
     const [cn, { data, error }] = await Promise.all([S.sb.rpc('admin_review_counts'), S.sb.rpc('admin_reviews', { st })]);

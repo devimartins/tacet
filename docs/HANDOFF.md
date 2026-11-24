@@ -210,3 +210,9 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
 ## 24/11/2026 — Projeto do PC não aparecia no celular (sw v219)
 - Lista de projetos vem do Supabase (todos os aparelhos). Causas encontradas: (1) 16/11 19:48 UTC o iPhone abriu index.html antigo (cache HTTP do GitHub Pages) com app.js novo → erro `$('#revOpen')` nulo e o app parava antes de listar; corrigido em 17/11 (ligações tolerantes) e agora o service worker busca a página com `cache:'no-cache'`. (2) Projetos expiram em 3 dias (`guard_project` + policy `expires_at > now()`): os dois projetos do criador já tinham expirado (07/11 e 19/11), então não aparecem em lugar nenhum.
 - O vídeo continua só no aparelho onde foi enviado; no outro aparelho o projeto abre com legenda e cortes e pede o mesmo arquivo.
+
+## 24/11/2026 — Relatório de atividade e pedido de avaliação (sw v220, app.js v218)
+- Painel > Usuários: botão "Atividade" por usuário (`admin_user_activity`): conta, minutos transcritos, análises de IA, blocos do YouTube, vídeos exportados, plano/pagamento/código/indicação, avaliação, projetos (inclusive expirados) e últimos erros.
+- Exportações concluídas passam a ser contadas em `usage` (kind `export` para vídeo inteiro, `export_cut` para cortes) via `track_use`. Antes de 24/11 não havia esse registro.
+- Pedido de avaliação: barra #rateBar com 5 estrelas depois de cada vídeo exportado (no lote, uma vez ao terminar), até a pessoa avaliar; tocar numa estrela abre o formulário já com a nota. Substitui o convite de 1 vez a cada 30 dias.
+- Política de Privacidade atualizada (contagem de exportações, avaliações, login Google).
