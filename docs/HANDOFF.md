@@ -200,3 +200,9 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
 - Lote: se o navegador recolher o codificador ("Codec reclaimed due to inactivity", aba em segundo plano) ou o decodificador travar, espera a aba voltar e tenta o corte mais uma vez.
 - Ligações novas (#revOpen, #cutsBar…) protegidas: página antiga em cache com app.js novo derrubava o app (app_errors 7, iPhone).
 - Testado: speaker.js com vídeo sintético de duas câmeras lado a lado (achou as duas pessoas em x 0,21 e 0,79); aviso e troca de formato no Playwright 390/1280. Não testado com o vídeo real do usuário.
+
+## 24/11/2026 — Painel: avaliações e autoria dos erros (sw v218, app.js v217)
+- Avaliações agora ficam logo abaixo dos números do painel, com abas Aguardando / Publicadas / Rejeitadas (contadores via nova função `admin_review_counts`). Publicadas podem ser tiradas do site; rejeitadas podem ser publicadas. Selo vermelho no botão Admin com o número de pendentes (`admBadge`).
+- Erros: `admin_errors` passou a devolver `emails` (contas logadas que tiveram o erro) e `anon` (vezes sem login). Coluna "Quem" mostra e-mails ou "Visitante sem login", com "(provável robô)" quando o navegador parece robô.
+- app.js: polyfill de `structuredClone` (Chrome < 98 / Safari < 15.4 quebravam na abertura; app_errors 11).
+- Em 24/11 a tabela reviews estava vazia: ninguém tinha avaliado ainda.

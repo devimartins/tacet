@@ -48,6 +48,7 @@ const vstore = (() => {
 })();
 const keep = pid => { if (pid) ls.set('forjaclip.cur', pid); };
 const forget = () => { try { localStorage.removeItem('forjaclip.cur'); } catch { /* ok */ } };   // só esquece o projeto aberto; o vídeo de cada projeto continua guardado
+if (typeof structuredClone !== 'function') globalThis.structuredClone = v => v === undefined ? v : JSON.parse(JSON.stringify(v));
 const S = { ov: [], sb: null, user: null, plan: 'free', pid: null, title: '', file: null, media: null, words: [], dur: 8, clips: [], style: structuredClone(DEFAULT_STYLE), chunks: [], safeOn: false, safeP: 'all', prev: null, busy: false, box: null, cur: 0, playing: false, bbox: null };
 let EG = null, HG = null;
 S.fx = { cut: 0, zoom: 0 }; S.hid = new Set(); S.ratio = '9:16'; S.mode = 'clips';
@@ -745,6 +746,10 @@ function clipsUI() {
 try { const u = new URL(location.href), r = u.searchParams.get('r'); if (r && /^[a-z0-9]{5,12}$/i.test(r)) { ls.set('forjaclip.ref', r.toLowerCase()); u.searchParams.delete('r'); history.replaceState(null, '', u.pathname + u.search + u.hash); setTimeout(() => { if (!S.user) flash('Você chegou pelo convite de um amigo. Crie sua conta grátis para começar.'); }, 1500); } } catch { /* sem URL */ }
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5L2.5 9.5l6.6-.9z"/></svg>';
 const starsEl = n => { const sp = el('span', { className: 'rvs', role: 'img' }); sp.setAttribute('aria-label', n + ' de 5 estrelas'); sp.innerHTML = STAR.repeat(5); [...sp.children].forEach((x, i) => { if (i >= n) x.classList.add('off'); }); return sp; };
+async function admBadge(n) {
+  const b = $('#nAdm'); if (!b) return; if (n == null) { try { n = (await S.sb.rpc('admin_review_counts')).data?.pending || 0; } catch { n = 0; } }
+  let s = b.querySelector('.nbd'); if (!s) { s = el('span', { className: 'nbd' }); b.append(s); } s.hidden = !n; s.textContent = n > 9 ? '9+' : String(n); b.title = n ? 'Painel admin: ' + n + (n === 1 ? ' avaliação aguardando' : ' avaliações aguardando') : 'Painel admin';
+}
 function revCard() {
   const r = S.review, c = $('#revCard'); c.hidden = !S.user;
   $('#revCT').textContent = !r ? 'Está gostando do ForjaClip?' : r.status === 'approved' ? 'Sua avaliação está publicada. Obrigado!' : r.status === 'rejected' ? 'Sua avaliação não foi publicada' : 'Avaliação enviada. Obrigado!';
@@ -1088,7 +1093,7 @@ async function boot() {
     closeLogin(); if (S.user?.id === s.user.id) return; S.user = s.user; $('#who').textContent = 'Sair'; { let v = s.user.user_metadata?.avatar; if (!v) try { v = localStorage.getItem('forjaclip.av'); } catch { /* ok */ } avSet(v || null); let skip = false; try { skip = !!localStorage.getItem('forjaclip.avSkip'); } catch { /* ok */ } if (!v && !skip) setTimeout(avOpen, 700); } $('#nOut').title = s.user.email || '';
     social();
     try { const iv = await S.sb.rpc('claim_invites'); if (iv.data > 0) setTimeout(() => flash('Você ganhou ' + iv.data + ' dias de Pro!'), 1200); } catch { /* sem convite */ }
-    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; setTimeout(tpLabel, 0); try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
+    const p = await S.sb.from('profiles').select('plan,pro_until').maybeSingle(); S.plan = (p.data?.plan === 'pro' || (p.data?.pro_until && new Date(p.data.pro_until) > new Date())) ? 'pro' : 'free'; S.proUntil = p.data?.pro_until || null; setTimeout(tpLabel, 0); try { const ad = await S.sb.rpc('is_admin'); S.isAdmin = ad.data === true; } catch { S.isAdmin = false; } if (S.isAdmin) S.plan = 'pro'; $('#nAdm').hidden = !S.isAdmin; if (S.isAdmin) admBadge(); if (!canPro() && PRESETS[S.style?.preset] && !PRESETS[S.style.preset].free) S.style.preset = 'iman'; buildPresets(); planUI(); resume();
   };
   revPublic();
   const { data } = await S.sb.auth.getSession(); apply(data.session); S.sb.auth.onAuthStateChange((_, s) => apply(s));
@@ -1504,25 +1509,33 @@ import('./fx.js?v=15').then(m => m.initFx()).catch(() => {});
     }
     T.replaceChildren(t); if (!data?.length) M.textContent = 'Nenhum usuário encontrado.';
   }
-  async function revs() {
-    const L = $('#rvL'), { data, error } = await S.sb.rpc('admin_reviews', { st: 'pending' });
+  let rvTab = 'pending';
+  async function revs(st = rvTab) {
+    rvTab = st; const L = $('#rvL'), NM = { pending: 'Aguardando', approved: 'Publicadas', rejected: 'Rejeitadas' };
+    const [cn, { data, error }] = await Promise.all([S.sb.rpc('admin_review_counts'), S.sb.rpc('admin_reviews', { st })]);
     if (error) { L.textContent = 'Rode supabase/social.sql no Supabase para ativar as avaliações.'; return; }
-    if (!data || !data.length) L.replaceChildren(el('p', { className: 'mut', textContent: 'Nenhuma avaliação aguardando.' }));
+    const c = cn.data || {}; admBadge(c.pending);
+    $('#rvTabs').replaceChildren(...Object.keys(NM).map(k => { const b = el('button', { type: 'button', role: 'tab', textContent: NM[k] + ' (' + (c[k] || 0) + ')' }); b.setAttribute('aria-selected', String(k === st)); b.onclick = () => revs(k); return b; }));
+    if (!data || !data.length) { L.replaceChildren(el('p', { className: 'mut', textContent: st === 'pending' ? ((c.approved || c.rejected) ? 'Nenhuma avaliação aguardando. As já decididas estão nas outras abas.' : 'Nenhum usuário avaliou ainda. Quando alguém avaliar, a avaliação aparece aqui para você aprovar.') : st === 'approved' ? 'Nenhuma avaliação publicada.' : 'Nenhuma avaliação rejeitada.' })); }
     else { const q = el('div', { className: 'rvq' }); for (const r of data) {
-      const set = async st => { const x = await S.sb.rpc('admin_review_set', { uid: r.user_id, st }); if (x.error) return err(x.error); revs(); };
-      const ok = el('button', { className: 'btn pri', type: 'button', textContent: 'Aprovar' }), no = el('button', { className: 'btn', type: 'button', textContent: 'Rejeitar' }); ok.onclick = () => set('approved'); no.onclick = () => set('rejected');
-      q.append(el('article', {}, el('div', {}, starsEl(r.stars), ' ', el('b', { textContent: r.name || '(sem nome)' }), el('span', { className: 'mut', textContent: ' · ' + r.email + ' · ' + fmt(r.updated_at) })), el('p', { textContent: r.body || '(sem comentário)', style: 'margin:0' }), el('div', { className: 'rvb' }, ok, no)));
+      const set = async v => { const x = await S.sb.rpc('admin_review_set', { uid: r.user_id, st: v }); if (x.error) return err(x.error); flash(v === 'approved' ? 'Avaliação publicada na página inicial.' : v === 'rejected' ? 'Avaliação rejeitada.' : 'Avaliação voltou para a fila.'); revs(); };
+      const btns = [];
+      if (st !== 'approved') { const b = el('button', { className: 'btn pri', type: 'button', textContent: st === 'rejected' ? 'Publicar mesmo assim' : 'Aprovar e publicar' }); b.onclick = () => set('approved'); btns.push(b); }
+      if (st !== 'rejected') { const b = el('button', { className: 'btn', type: 'button', textContent: st === 'approved' ? 'Tirar do site' : 'Rejeitar' }); b.onclick = () => set(st === 'approved' ? 'pending' : 'rejected'); btns.push(b); }
+      q.append(el('article', {}, el('div', {}, starsEl(r.stars), ' ', el('b', { textContent: r.name || '(sem nome)' }), el('span', { className: 'mut', textContent: ' · ' + r.email + ' · ' + fmt(r.updated_at) })), el('p', { textContent: r.body || '(sem comentário)', style: 'margin:0' }), el('div', { className: 'rvb' }, ...btns)));
     } L.replaceChildren(q); }
     try { const rf = await S.sb.rpc('admin_refs'); if (rf.data) $('#rfT').textContent = 'Indicações: ' + rf.data.invited + ' contas criadas por link · ' + rf.data.rewarded + ' viraram assinatura (7 dias de Pro para quem indicou).'; } catch { /* ok */ }
   }
-  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); promos(); revs(); errs(); };
+  $('#nAdm').onclick = () => { d.showModal(); overview(); users(); promos(); revs('pending'); errs(); };
   async function errs() {
     const L = $('#erL'), { data, error } = await S.sb.rpc('admin_errors', { days: 7, lim: 100 });
     if (error) { L.textContent = 'Rode supabase/errors.sql no Supabase para ativar o registro de erros.'; return; }
     if (!data?.length) { L.textContent = 'Nenhum erro registrado nos últimos 7 dias.'; return; }
-    const t = document.createElement('table'), hr = t.insertRow(); for (const h of ['Último', 'Tipo', 'Erro', 'Vezes', 'Usuários', 'Versão']) { const th = document.createElement('th'); th.textContent = h; hr.append(th); }
+    const t = document.createElement('table'), hr = t.insertRow(); for (const h of ['Último', 'Tipo', 'Erro', 'Vezes', 'Quem', 'Versão']) { const th = document.createElement('th'); th.textContent = h; hr.append(th); }
     for (const x of data) {
-      const r = t.insertRow(); [new Date(x.last_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }), x.kind, x.message, x.total, x.users, x.version || '–'].forEach(v => { r.insertCell().textContent = v; });
+      const r = t.insertRow(); const bot = /bot|crawl|spider|headless|lighthouse|pagespeed/i.test(x.ua || '') || /800x600@1/.test(x.ua || '') && /cpu (3[2-9]|[4-9]\d|\d{3})/.test(x.ua || ''), anon = +x.anon || 0;
+      const quem = [x.emails, anon ? (anon === +x.total && !x.emails ? 'Visitante sem login' : anon + (anon === 1 ? ' visitante' : ' visitantes') + ' sem login') + (bot ? ' (provável robô)' : '') : ''].filter(Boolean).join(' · ') || '–';
+      [new Date(x.last_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }), x.kind, x.message, x.total, quem, x.version || '–'].forEach(v => { r.insertCell().textContent = v; });
       r.style.cursor = 'pointer'; r.tabIndex = 0; r.title = 'Ver detalhes';
       const open = () => { const n = r.nextElementSibling; if (n && n.dataset.det) { n.remove(); return; } const dr = t.insertRow(r.rowIndex + 1); dr.dataset.det = '1'; const c = dr.insertCell(); c.colSpan = 6; const pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;word-break:break-word;font-size:11px;margin:0'; pre.textContent = [x.ua, x.extra ? JSON.stringify(x.extra, null, 1) : '', x.stack || ''].filter(Boolean).join('\n\n'); c.append(pre); };
       r.onclick = open; r.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
