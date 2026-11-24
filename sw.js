@@ -1,4 +1,4 @@
-const C='forjaclip-v218',F=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','favicon.svg'];
+const C='forjaclip-v219',F=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','favicon.svg'];
 const STATIC=/\/(vendor\/|icon-|apple-touch|og-image)/;
 self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(F)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
@@ -7,5 +7,6 @@ self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.endsWith('config.js'))return;
   // arquivos pesados e estáveis: cache primeiro (abre rápido e funciona sem rede); o resto: rede primeiro
   if(STATIC.test(u.pathname)){e.respondWith(caches.match(e.request).then(h=>h||fetch(e.request).then(r=>{const k=r.clone();caches.open(C).then(c=>c.put(e.request,k));return r})));return}
-  e.respondWith(fetch(e.request).then(r=>{const k=r.clone();caches.open(C).then(c=>c.put(e.request,k));return r}).catch(()=>caches.match(e.request)));
+  // página: sempre confere com o servidor (sem isso o navegador podia usar um index.html antigo com o app.js novo e o app quebrava)
+  e.respondWith(fetch(e.request,e.request.mode==='navigate'?{cache:'no-cache'}:undefined).then(r=>{const k=r.clone();caches.open(C).then(c=>c.put(e.request,k));return r}).catch(()=>caches.match(e.request)));
 });

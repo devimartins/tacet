@@ -206,3 +206,7 @@ O dono decidiu (26/10/2026) não trabalhar mais com o Codex. Não há tarefas ne
 - Erros: `admin_errors` passou a devolver `emails` (contas logadas que tiveram o erro) e `anon` (vezes sem login). Coluna "Quem" mostra e-mails ou "Visitante sem login", com "(provável robô)" quando o navegador parece robô.
 - app.js: polyfill de `structuredClone` (Chrome < 98 / Safari < 15.4 quebravam na abertura; app_errors 11).
 - Em 24/11 a tabela reviews estava vazia: ninguém tinha avaliado ainda.
+
+## 24/11/2026 — Projeto do PC não aparecia no celular (sw v219)
+- Lista de projetos vem do Supabase (todos os aparelhos). Causas encontradas: (1) 16/11 19:48 UTC o iPhone abriu index.html antigo (cache HTTP do GitHub Pages) com app.js novo → erro `$('#revOpen')` nulo e o app parava antes de listar; corrigido em 17/11 (ligações tolerantes) e agora o service worker busca a página com `cache:'no-cache'`. (2) Projetos expiram em 3 dias (`guard_project` + policy `expires_at > now()`): os dois projetos do criador já tinham expirado (07/11 e 19/11), então não aparecem em lugar nenhum.
+- O vídeo continua só no aparelho onde foi enviado; no outro aparelho o projeto abre com legenda e cortes e pede o mesmo arquivo.
